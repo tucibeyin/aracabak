@@ -52,6 +52,7 @@
                         <span id="welcomeMessage" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
                         <span id="userTypeMessage" class="text-xs text-gray-500 block capitalize"></span>
                     </div>
+                    <a href="/account.html" id="accountBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
                     <button id="logoutBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
@@ -583,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             listElement.innerHTML = `<p class="text-center text-red-500">Talepler yüklenirken bir hata oluştu.</p>`;
         }
     }
-
+    
     async function populateAccountForm() {
         try {
             const response = await fetch(`/api/account`);
@@ -693,10 +694,82 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
                 showToast('Talep başarıyla silindi!');
-                populateRequestsList(currentUser.userType === 'owner');
+                await populateRequestsList(currentUser.userType === 'owner');
             } catch (error) {
                 showToast(`Hata: ${error.message}`, 'error');
             }
+        }
+    }
+
+    async function handleRejectQuote(e) {
+        const button = e.currentTarget;
+        const requestId = button.dataset.requestId;
+        if (confirm('Bu teklifi reddetmek istediğinizden emin misiniz? Talep, diğer işletmelerin görebilmesi için yeniden aktif hale gelecektir.')) {
+            try {
+                const response = await fetch(`/api/requests/${requestId}/quote`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('Teklif başarıyla reddedildi.');
+                await populateRequestsList(true); // Listeyi yenile
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    function handleMakeOfferClick(e) {
+        const requestId = e.target.dataset.requestId;
+        const form = document.getElementById(`quote-form-${requestId}`);
+        form.classList.toggle('hidden');
+    }
+
+    function handleUpdateOfferClick(e) {
+        const requestId = e.target.dataset.requestId;
+        document.getElementById(`quote-display-${requestId}`).classList.add('hidden');
+        document.getElementById(`quote-form-${requestId}`).classList.remove('hidden');
+    }
+
+    function handleCancelUpdateClick(e) {
+        const requestId = e.target.dataset.requestId;
+        document.getElementById(`quote-display-${requestId}`).classList.remove('hidden');
+        document.getElementById(`quote-form-${requestId}`).classList.add('hidden');
+    }
+
+    async function handleSendQuote(e) {
+        const button = e.target;
+        const requestId = button.dataset.requestId;
+        const method = button.dataset.method;
+        const payload = {
+            parts_cost: parseFloat(document.getElementById(`parts-cost-${requestId}`).value),
+            labor_cost: parseFloat(document.getElementById(`labor-cost-${requestId}`).value),
+            notes: document.getElementById(`notes-${requestId}`).value
+        };
+
+        if (isNaN(payload.parts_cost) || isNaN(payload.labor_cost)) {
+            showToast('Lütfen geçerli maliyet bilgisi girin.', 'error');
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Gönderiliyor...';
+
+        try {
+            const response = await fetch(`/api/requests/${requestId}/quote`, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            
+            showToast(method === 'POST' ? 'Teklif başarıyla gönderildi!' : 'Teklif başarıyla güncellendi!');
+            await populateRequestsList(false);
+        } catch (error) {
+            showToast(`Hata: ${error.message}`, 'error');
+            button.disabled = false;
+            button.textContent = method === 'POST' ? 'Teklifi Gönder' : 'Güncellemeyi Gönder';
         }
     }
 
@@ -1058,6 +1131,63 @@ document.addEventListener('DOMContentLoaded', () => {
             submitButton.disabled = false;
         }
     });
+    const addShopBtn = document.getElementById('addShopBtn');
+    if(addShopBtn) addShopBtn.addEventListener('click', () => showShopForm());
+    
+    const editShopBtn = document.getElementById('editShopBtn');
+    if(editShopBtn) editShopBtn.addEventListener('click', async () => {
+        const response = await fetch(`/api/account`);
+        const data = await response.json();
+        showShopForm(data);
+    });
+
+    const cancelShopEditBtn = document.getElementById('cancelShopEditBtn');
+    if(cancelShopEditBtn) cancelShopEditBtn.addEventListener('click', populateAccountForm);
+
+    const deleteShopBtn = document.getElementById('deleteShopBtn');
+    if(deleteShopBtn) deleteShopBtn.addEventListener('click', async () => {
+        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz?')) {
+            try {
+                const response = await fetch('/api/shops', {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('İşletme profili başarıyla silindi!');
+                populateAccountForm(); 
+            } catch(error) {
+                showToast(error.message, 'error');
+            }
+        }
+    });
+
+    const saveShopBtn = document.getElementById('saveShopBtn');
+    if(saveShopBtn) saveShopBtn.addEventListener('click', async () => {
+        const payload = {
+            phone_number: document.getElementById('account_phone_number').value,
+            city: document.getElementById('account_city').value,
+            shop_phone: document.getElementById('account_shop_phone').value,
+            google_place_id: document.getElementById('account_google_place_id').value,
+            serviced_brands: Array.from(document.getElementById('account_serviced_brands').selectedOptions).map(opt => opt.value)
+        };
+        const submitButton = document.getElementById('saveShopBtn');
+        submitButton.disabled = true;
+        try {
+            const response = await fetch('/api/account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('İşletme bilgileri başarıyla güncellendi!');
+            setTimeout(populateAccountForm, 1500);
+        } catch (error) {
+            displayMessage('shopMessageContainer', error.message, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
     
     // --- Vehicle Add & Edit Form Logic ---
     [newPlateInput, document.getElementById('edit_plate_number')].forEach(el => el.addEventListener('input', formatPlateInput));
@@ -1266,4 +1396,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
