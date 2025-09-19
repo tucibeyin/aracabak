@@ -144,33 +144,58 @@
                     <div id="inspectionReminderList" class="space-y-4"></div>
                 </div>
             </div>
-            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg mb-12">
-                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Yol Yakıt Hesabı</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                    <div class="flex flex-col">
-                        <label for="fuelAmount" class="mb-1 font-semibold text-sm">Yakıt Miktarı</label>
-                        <input type="number" id="fuelAmount" placeholder="Örn: 500" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+            <div id="fuelTrackerSection" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg mb-12 hidden">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Yakıt Girişi ve Raporlama</h2>
+                <div class="mb-4">
+                    <label for="fuelVehicleSelect" class="block text-sm font-medium text-gray-700 mb-1">İşlem Yapılacak Araç</label>
+                    <select id="fuelVehicleSelect" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select>
+                </div>
+                <div class="border-t pt-6 mt-6">
+                    <h3 class="text-xl font-bold mb-4">Yeni Yakıt Girişi</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                        <div class="flex flex-col">
+                            <label for="fuelDate" class="mb-1 font-semibold text-sm">Tarih</label>
+                            <input type="date" id="fuelDate" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="fuelAmount" class="mb-1 font-semibold text-sm">Miktar</label>
+                            <input type="number" id="fuelAmount" placeholder="Örn: 500" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="fuelUnit" class="mb-1 font-semibold text-sm">Birim</label>
+                            <select id="fuelUnit" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                                <option value="TL">TL</option>
+                                <option value="Litre">Litre</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="distanceTraveled" class="mb-1 font-semibold text-sm">Yapılan Yol (KM)</label>
+                            <input type="number" id="distanceTraveled" placeholder="Örn: 650" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                        </div>
                     </div>
-                    <div class="flex flex-col">
-                        <label for="fuelUnit" class="mb-1 font-semibold text-sm">Birim</label>
-                        <select id="fuelUnit" class="p-3 border rounded-lg bg-white shadow-sm w-full">
-                            <option value="TL">TL</option>
-                            <option value="Litre">Litre</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col sm:col-span-2">
-                        <label for="distanceTraveled" class="mb-1 font-semibold text-sm">Yapılan Yol (KM)</label>
-                        <input type="number" id="distanceTraveled" placeholder="Örn: 650" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                    <div class="text-right mt-4">
+                        <button id="saveFuelEntryBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700">Kaydet</button>
                     </div>
                 </div>
-                <div class="text-center mt-6">
-                    <button id="calculateFuelBtn" class="w-full sm:w-auto bg-gray-900 text-white font-bold py-3 px-12 text-lg rounded-lg shadow-md hover:bg-gray-700">
-                        Hesapla
-                    </button>
-                </div>
-                <div id="fuelResultContainer" class="hidden mt-6 text-center bg-blue-50 p-4 rounded-lg">
-                    <p id="fuelResultLabel" class="text-sm font-semibold text-blue-800"></p>
-                    <p id="fuelResult" class="text-3xl font-bold text-blue-900"></p>
+                <div class="border-t pt-6 mt-6">
+                    <h3 class="text-xl font-bold mb-4">Yakıt Raporu</h3>
+                    <div class="flex flex-wrap gap-4 items-end mb-4">
+                        <div class="flex-grow">
+                            <label for="startDate" class="text-sm font-medium">Başlangıç Tarihi</label>
+                            <input type="date" id="startDate" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div class="flex-grow">
+                            <label for="endDate" class="text-sm font-medium">Bitiş Tarihi</label>
+                            <input type="date" id="endDate" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <button id="getReportBtn" class="bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg">Raporu Göster</button>
+                    </div>
+                     <div class="flex flex-wrap gap-2 mb-6">
+                        <button class="quick-report-btn bg-gray-200 text-gray-700 text-xs font-semibold py-1 px-3 rounded-full hover:bg-gray-300" data-days="7">Son 7 Gün</button>
+                        <button class="quick-report-btn bg-gray-200 text-gray-700 text-xs font-semibold py-1 px-3 rounded-full hover:bg-gray-300" data-days="30">Son 30 Gün</button>
+                        <button class="quick-report-btn bg-gray-200 text-gray-700 text-xs font-semibold py-1 px-3 rounded-full hover:bg-gray-300" data-days="365">Bu Yıl</button>
+                    </div>
+                    <div id="fuelReportSummary" class="hidden grid grid-cols-2 md:grid-cols-4 gap-4 text-center"></div>
                 </div>
             </div>
             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
@@ -297,7 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const phoneEntryOverlay = document.getElementById('phoneEntryOverlay');
     const savePhoneNumberBtn = document.getElementById('savePhoneNumberBtn');
     const initialPhoneNumberInput = document.getElementById('initial_phone_number');
-    const calculateFuelBtn = document.getElementById('calculateFuelBtn');
+    const fuelVehicleSelect = document.getElementById('fuelVehicleSelect');
+    const saveFuelEntryBtn = document.getElementById('saveFuelEntryBtn');
+    const getReportBtn = document.getElementById('getReportBtn');
     let currentEditingVehicleId = null;
     let currentEditingRequestId = null;
 
@@ -378,6 +405,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.querySelectorAll('.edit-vehicle-btn').forEach(btn => btn.addEventListener('click', handleEditVehicle));
         document.querySelectorAll('.delete-vehicle-btn').forEach(btn => btn.addEventListener('click', handleDeleteVehicle));
+        
+        fuelVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin</option>';
+        if(vehicles && vehicles.length > 0) {
+            vehicles.forEach(vehicle => {
+                fuelVehicleSelect.add(new Option(`${vehicle.plate_number} - ${vehicle.brand} ${vehicle.model}`, vehicle.id));
+            });
+            document.getElementById('fuelTrackerSection').classList.remove('hidden');
+        }
     }
 
     async function populateRequestsList(isOwner) {
@@ -728,35 +763,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function calculateFuelConsumption() {
-        const amountInput = document.getElementById('fuelAmount');
-        const unitSelect = document.getElementById('fuelUnit');
-        const distanceInput = document.getElementById('distanceTraveled');
-        const resultContainer = document.getElementById('fuelResultContainer');
-        const resultLabel = document.getElementById('fuelResultLabel');
-        const resultEl = document.getElementById('fuelResult');
-
-        const amount = parseFloat(amountInput.value);
-        const distance = parseFloat(distanceInput.value);
-        const unit = unitSelect.value;
-
-        if (!amount || !distance || amount <= 0 || distance <= 0) {
-            showToast('Lütfen geçerli miktar ve mesafe girin.', 'error');
+    function getFuelReport() {
+        const vehicleId = fuelVehicleSelect.value;
+        if (!vehicleId) {
+            showToast('Lütfen rapor için bir araç seçin.', 'error');
+            return;
+        }
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        if (!startDate || !endDate) {
+            showToast('Lütfen başlangıç ve bitiş tarihi seçin.', 'error');
             return;
         }
 
-        let result = 0;
-        if (unit === 'TL') {
-            result = amount / distance;
-            resultLabel.textContent = "Kilometre Başına Yakıt Maliyeti";
-            resultEl.textContent = `${result.toFixed(2)} TL`;
-        } else { // Litre
-            result = (amount / distance) * 100;
-            resultLabel.textContent = "100 Kilometrede Ortalama Tüketim";
-            resultEl.textContent = `${result.toFixed(2)} Litre`;
-        }
-        
-        resultContainer.classList.remove('hidden');
+        const summaryContainer = document.getElementById('fuelReportSummary');
+        summaryContainer.innerHTML = '<div class="col-span-full animate-pulse">Rapor yükleniyor...</div>';
+        summaryContainer.classList.remove('hidden');
+
+        fetch(`/api/vehicles/${vehicleId}/fuel_entries?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Rapor alınamadı.');
+                }
+                return response.json();
+            })
+            .then(result => {
+                const summary = result.summary;
+                summaryContainer.innerHTML = `
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <p class="text-sm text-blue-700 font-semibold">Toplam Harcama</p>
+                        <p class="text-2xl font-bold text-blue-900">${summary.total_tl.toFixed(2)} TL</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <p class="text-sm text-green-700 font-semibold">Toplam Yakıt</p>
+                        <p class="text-2xl font-bold text-green-900">${summary.total_liter.toFixed(2)} Litre</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-700 font-semibold">Toplam Mesafe</p>
+                        <p class="text-2xl font-bold text-gray-900">${summary.total_km.toFixed(0)} KM</p>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-purple-700 font-semibold">Ort. Tüketim</p>
+                        <p class="text-2xl font-bold text-purple-900">${summary.avg_consumption_liter_100km.toFixed(2)} L/100km</p>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                showToast(error.message, 'error');
+                summaryContainer.innerHTML = `<p class="col-span-full text-red-500">Rapor yüklenemedi.</p>`;
+            });
     }
     
     // --- Event Listeners ---
@@ -1053,7 +1108,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    calculateFuelBtn.addEventListener('click', calculateFuelConsumption);
+    if (saveFuelEntryBtn) {
+        saveFuelEntryBtn.addEventListener('click', async () => {
+            const vehicleId = fuelVehicleSelect.value;
+            if (!vehicleId) {
+                showToast('Lütfen yakıt girişi için bir araç seçin.', 'error');
+                return;
+            }
+            const payload = {
+                date: document.getElementById('fuelDate').value,
+                amount: parseFloat(document.getElementById('fuelAmount').value),
+                unit: document.getElementById('fuelUnit').value,
+                distance: parseFloat(document.getElementById('distanceTraveled').value)
+            };
+            if (!payload.date || !payload.amount || !payload.distance) {
+                showToast('Tarih, miktar ve mesafe alanları zorunludur.', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(`/api/vehicles/${vehicleId}/fuel_entries`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('Yakıt girişi başarıyla kaydedildi!');
+                document.getElementById('fuelAmount').value = '';
+                document.getElementById('distanceTraveled').value = '';
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        });
+    }
+
+    if (getReportBtn) {
+        getReportBtn.addEventListener('click', getFuelReport);
+    }
+    
+    document.querySelectorAll('.quick-report-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const days = parseInt(e.target.dataset.days);
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - (days - 1));
+            
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            
+            getFuelReport();
+        });
+    });
 
     // --- Initial Call ---
     checkAuthStatus();
@@ -1061,3 +1166,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
