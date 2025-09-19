@@ -387,9 +387,13 @@ document.addEventListener('DOMContentLoaded', () => {
         listElement.innerHTML = '';
         if (!vehicles || vehicles.length === 0) {
             listElement.innerHTML = '<p class="text-center text-gray-500">Henüz kayıtlı bir aracınız bulunmuyor.</p>';
+            document.getElementById('fuelTrackerSection').classList.add('hidden');
             return;
         }
+        
+        fuelVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin</option>';
         vehicles.forEach(vehicle => {
+            fuelVehicleSelect.add(new Option(`${vehicle.plate_number} - ${vehicle.brand} ${vehicle.model}`, vehicle.id));
             const vehicleCard = `
                 <div class="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 fade-in">
                     <div>
@@ -405,14 +409,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.querySelectorAll('.edit-vehicle-btn').forEach(btn => btn.addEventListener('click', handleEditVehicle));
         document.querySelectorAll('.delete-vehicle-btn').forEach(btn => btn.addEventListener('click', handleDeleteVehicle));
-        
-        fuelVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin</option>';
-        if(vehicles && vehicles.length > 0) {
-            vehicles.forEach(vehicle => {
-                fuelVehicleSelect.add(new Option(`${vehicle.plate_number} - ${vehicle.brand} ${vehicle.model}`, vehicle.id));
-            });
-            document.getElementById('fuelTrackerSection').classList.remove('hidden');
-        }
     }
 
     async function populateRequestsList(isOwner) {
@@ -437,47 +433,157 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     partsHtml = '<li>Parça seçimi yapılmamış.</li>';
                 }
-                const requestCardHeader = isOwner 
-                    ? `<div><p class="text-sm text-gray-500">Talebin Gönderildiği İşletme</p><p class="font-bold text-xl">${req.shop_name}</p></div>`
-                    : `<div><p class="font-bold text-xl">${req.customer_name}</p><p class="text-sm text-gray-600">${req.customer_phone || 'Telefon yok'}</p></div>`;
-                const phoneUrl = isOwner ? `tel:${req.shop_phone || ''}` : `tel:${req.customer_phone || ''}`;
-                const phoneButtonClass = !(isOwner ? req.shop_phone : req.customer_phone) ? 'opacity-50 cursor-not-allowed' : '';
-                const requestCard = `
-                    <div class="border rounded-lg p-6 bg-gray-50 fade-in">
-                        <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
-                            ${requestCardHeader}
-                            <div class="flex items-center gap-2 mt-2 sm:mt-0">
-                                <span class="text-sm text-gray-500">Talep: ${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
-                                ${isOwner ? `<a href="${phoneUrl}" class="bg-green-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-green-600 ${phoneButtonClass}"><i class="fas fa-phone"></i> Ara</a>` : ''}
-                                ${isOwner ? `<button class="edit-request-btn bg-yellow-400 text-yellow-900 text-xs font-bold py-1 px-2 rounded hover:bg-yellow-500" data-request='${JSON.stringify(req)}'>Düzenle</button>` : ''}
-                                <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                let requestCard = '';
+                if (isOwner) {
+                    const cardBorderClass = req.status === 'quoted' ? 'border-green-500 border-2' : 'border';
+                    const phoneUrl = `tel:${req.shop_phone || ''}`;
+                    const phoneButtonClass = !req.shop_phone ? 'opacity-50 cursor-not-allowed' : '';
+                    let statusHtml = '';
+                    if (req.status === 'quoted') {
+                        statusHtml = `<span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Alındı</span>`;
+                    } else {
+                        statusHtml = `<span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Bekleniyor</span>`;
+                    }
+                    let quoteSectionHtml = '';
+                    if (req.status === 'quoted' && req.quote) {
+                        quoteSectionHtml = `
+                            <div class="mt-4 border-t border-dashed pt-4">
+                                <h4 class="font-semibold text-lg mb-3 flex items-center text-gray-800"><i class="fas fa-file-invoice-dollar text-green-600 mr-3"></i>İşletmenin Fiyat Teklifi</h4>
+                                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                        <span>Parça Maliyeti:</span><span class="font-medium text-right">${req.quote.parts_cost.toFixed(2)} TL</span>
+                                        <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${req.quote.labor_cost.toFixed(2)} TL</span>
+                                        <span class="font-bold text-xl border-t-2 border-green-200 pt-2 mt-2">TOPLAM:</span><span class="font-bold text-xl border-t-2 border-green-200 pt-2 mt-2 text-right text-green-700">${req.quote.total_cost.toFixed(2)} TL</span>
+                                    </div>
+                                    ${req.quote.notes ? `<div class="mt-4 text-sm text-gray-700 bg-green-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
+                                </div>
+                                <div class="flex gap-4 mt-4">
+                                    <button class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors">Teklifi Onayla</button>
+                                    <button class="reject-quote-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-gray-300 transition-colors" data-request-id="${req.id}">Reddet</button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <h4 class="font-semibold mb-2">Araç Bilgileri</h4>
-                                <ul class="text-sm space-y-1">
-                                    <li><strong>Araç:</strong> ${req.vehicle_brand} ${req.vehicle_model} (${req.vehicle_year})</li>
-                                    <li><strong>Yakıt:</strong> ${req.vehicle_fuel}</li>
-                                    <li><strong>KM:</strong> ${req.vehicle_km.toLocaleString()}</li>
-                                </ul>
+                        `;
+                    } else if (req.status !== 'pending') {
+                         quoteSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-gray-600 p-2 bg-gray-100 rounded-md">Bu talep için işlem yapıldı.</div>`;
+                    } else {
+                        quoteSectionHtml = `<div class="mt-4 text-center text-sm text-gray-500 italic">İşletmeden teklif bekleniyor...</div>`;
+                    }
+
+                    requestCard = `
+                        <div class="${cardBorderClass} rounded-lg p-6 bg-white fade-in">
+                             <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
+                                <div><p class="text-sm text-gray-500">Talebin Gönderildiği İşletme</p><p class="font-bold text-xl">${req.shop_name}</p></div>
+                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                    ${statusHtml}
+                                    <span class="text-sm text-gray-500">${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
+                                    <a href="${phoneUrl}" class="bg-blue-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-blue-600 ${phoneButtonClass}"><i class="fas fa-phone"></i></a>
+                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                                </div>
                             </div>
-                            <div>
-                                <h4 class="font-semibold mb-2">${req.maintenance_km.toLocaleString()} KM Bakımı İçin Seçilen Parçalar</h4>
-                                <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-semibold mb-2">Araç Bilgileri</h4>
+                                    <ul class="text-sm space-y-1">
+                                        <li><strong>Araç:</strong> ${req.vehicle_brand} ${req.vehicle_model} (${req.vehicle_year})</li>
+                                        <li><strong>Yakıt:</strong> ${req.vehicle_fuel}</li>
+                                        <li><strong>KM:</strong> ${req.vehicle_km.toLocaleString()}</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold mb-2">${req.maintenance_km.toLocaleString()} KM Bakımı İçin Seçilen Parçalar</h4>
+                                    <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                `;
+                            ${quoteSectionHtml}
+                        </div>`;
+
+                } else {
+                    const customerPhoneHtml = req.customer_phone ? `<a href="tel:${req.customer_phone}" class="text-sm text-blue-600 hover:underline"><i class="fas fa-phone mr-1"></i>${req.customer_phone}</a>` : '<span class="text-sm text-gray-500">Telefon yok</span>';
+                    const requestCardHeader = `<div><p class="font-bold text-xl">${req.customer_name}</p><p>${customerPhoneHtml}</p></div>`;
+                    
+                    let actionSectionHtml = '';
+                    if (req.status === 'quoted' && req.quote) {
+                        actionSectionHtml = `
+                            <div class="mt-4 border-t border-dashed pt-4">
+                                <h4 class="font-semibold text-lg mb-2 text-green-700">Gönderilen Teklif</h4>
+                                <div id="quote-display-${req.id}" class="bg-green-50 p-4 rounded-md">
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                        <span>Parça Maliyeti:</span><span class="font-medium text-right">${req.quote.parts_cost.toFixed(2)} TL</span>
+                                        <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${req.quote.labor_cost.toFixed(2)} TL</span>
+                                        <span class="font-bold text-base border-t pt-2 mt-1">Toplam:</span><span class="font-bold text-base border-t pt-2 mt-1 text-right">${req.quote.total_cost.toFixed(2)} TL</span>
+                                    </div>
+                                    ${req.quote.notes ? `<div class="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md"><strong>Not:</strong> ${req.quote.notes}</div>` : ''}
+                                    <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-request-id="${req.id}">Teklifi Güncelle</button>
+                                </div>
+                                <div id="quote-form-${req.id}" class="hidden mt-4 space-y-3">
+                                    <input type="number" placeholder="Parça Maliyeti (TL)" class="p-2 border rounded w-full" id="parts-cost-${req.id}" value="${req.quote.parts_cost.toFixed(2)}">
+                                    <input type="number" placeholder="İşçilik Maliyeti (TL)" class="p-2 border rounded w-full" id="labor-cost-${req.id}" value="${req.quote.labor_cost.toFixed(2)}">
+                                    <textarea placeholder="Müşteriye ek notlar..." class="p-2 border rounded w-full text-sm" id="notes-${req.id}">${req.quote.notes || ''}</textarea>
+                                    <div class="flex gap-2">
+                                        <button class="cancel-update-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}">İptal</button>
+                                        <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}" data-method="PUT">Güncellemeyi Gönder</button>
+                                    </div>
+                                </div>
+                            </div>`;
+                    } else if (req.status === 'pending') {
+                        actionSectionHtml = `
+                            <div class="mt-4 border-t border-dashed pt-4">
+                                <button class="make-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}">Teklif Ver</button>
+                                <div id="quote-form-${req.id}" class="hidden mt-4 space-y-3">
+                                    <input type="number" placeholder="Parça Maliyeti (TL)" class="p-2 border rounded w-full" id="parts-cost-${req.id}">
+                                    <input type="number" placeholder="İşçilik Maliyeti (TL)" class="p-2 border rounded w-full" id="labor-cost-${req.id}">
+                                    <textarea placeholder="Müşteriye ek notlar..." class="p-2 border rounded w-full text-sm" id="notes-${req.id}"></textarea>
+                                    <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}" data-method="POST">Teklifi Gönder</button>
+                                </div>
+                            </div>`;
+                    } else {
+                         actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-gray-600 p-2 bg-gray-100 rounded-md">Talep ${req.status}</div>`;
+                    }
+
+                    requestCard = `
+                        <div class="border rounded-lg p-6 bg-white fade-in">
+                            <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
+                                ${requestCardHeader}
+                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                    <span class="text-sm text-gray-500">Talep: ${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
+                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-semibold mb-2">Araç Bilgileri</h4>
+                                    <ul class="text-sm space-y-1">
+                                        <li><strong>Araç:</strong> ${req.vehicle_brand} ${req.vehicle_model} (${req.vehicle_year})</li>
+                                        <li><strong>Yakıt:</strong> ${req.vehicle_fuel}</li>
+                                        <li><strong>KM:</strong> ${req.vehicle_km.toLocaleString()}</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold mb-2">${req.maintenance_km.toLocaleString()} KM Bakımı İçin Seçilen Parçalar</h4>
+                                    <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                                </div>
+                            </div>
+                            ${actionSectionHtml}
+                        </div>`;
+                }
                 listElement.innerHTML += requestCard;
             });
+
+            if (!isOwner) {
+                document.querySelectorAll('.make-offer-btn').forEach(btn => btn.addEventListener('click', handleMakeOfferClick));
+                document.querySelectorAll('.update-offer-btn').forEach(btn => btn.addEventListener('click', handleUpdateOfferClick));
+                document.querySelectorAll('.cancel-update-btn').forEach(btn => btn.addEventListener('click', handleCancelUpdateClick));
+                document.querySelectorAll('.send-quote-btn').forEach(btn => btn.addEventListener('click', handleSendQuote));
+            } else {
+                 document.querySelectorAll('.reject-quote-btn').forEach(btn => btn.addEventListener('click', handleRejectQuote));
+            }
             document.querySelectorAll('.delete-request-btn').forEach(btn => btn.addEventListener('click', handleDeleteRequest));
-            if(isOwner) document.querySelectorAll('.edit-request-btn').forEach(btn => btn.addEventListener('click', handleEditRequest));
         } catch(error) {
-            listElement.innerHTML = '<p class="text-center text-red-500">Talepler yüklenirken bir hata oluştu.</p>';
+            console.error("Talep listesi hatası:", error);
+            listElement.innerHTML = `<p class="text-center text-red-500">Talepler yüklenirken bir hata oluştu.</p>`;
         }
     }
-    
+
     async function populateAccountForm() {
         try {
             const response = await fetch(`/api/account`);
@@ -564,8 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm(`'${vehiclePlate}' plakalı aracı silmek istediğinizden emin misiniz?`)) {
             try {
                 const response = await fetch(`/api/vehicles/${vehicleId}`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'DELETE'
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
@@ -583,8 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm(`Bu bakım talebini kalıcı olarak silmek istediğinizden emin misiniz?`)) {
             try {
                 const response = await fetch(`/api/requests/${requestId}`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'DELETE'
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
@@ -763,7 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function getFuelReport() {
+    async function getFuelReport() {
         const vehicleId = fuelVehicleSelect.value;
         if (!vehicleId) {
             showToast('Lütfen rapor için bir araç seçin.', 'error');
@@ -780,38 +884,34 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryContainer.innerHTML = '<div class="col-span-full animate-pulse">Rapor yükleniyor...</div>';
         summaryContainer.classList.remove('hidden');
 
-        fetch(`/api/vehicles/${vehicleId}/fuel_entries?start_date=${startDate}&end_date=${endDate}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Rapor alınamadı.');
-                }
-                return response.json();
-            })
-            .then(result => {
-                const summary = result.summary;
-                summaryContainer.innerHTML = `
-                    <div class="bg-blue-50 p-4 rounded-lg">
-                        <p class="text-sm text-blue-700 font-semibold">Toplam Harcama</p>
-                        <p class="text-2xl font-bold text-blue-900">${summary.total_tl.toFixed(2)} TL</p>
-                    </div>
-                    <div class="bg-green-50 p-4 rounded-lg">
-                        <p class="text-sm text-green-700 font-semibold">Toplam Yakıt</p>
-                        <p class="text-2xl font-bold text-green-900">${summary.total_liter.toFixed(2)} Litre</p>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <p class="text-sm text-gray-700 font-semibold">Toplam Mesafe</p>
-                        <p class="text-2xl font-bold text-gray-900">${summary.total_km.toFixed(0)} KM</p>
-                    </div>
-                    <div class="bg-purple-50 p-4 rounded-lg">
-                        <p class="text-sm text-purple-700 font-semibold">Ort. Tüketim</p>
-                        <p class="text-2xl font-bold text-purple-900">${summary.avg_consumption_liter_100km.toFixed(2)} L/100km</p>
-                    </div>
-                `;
-            })
-            .catch(error => {
-                showToast(error.message, 'error');
-                summaryContainer.innerHTML = `<p class="col-span-full text-red-500">Rapor yüklenemedi.</p>`;
-            });
+        try {
+            const response = await fetch(`/api/vehicles/${vehicleId}/fuel_entries?start_date=${startDate}&end_date=${endDate}`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+
+            const summary = result.summary;
+            summaryContainer.innerHTML = `
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm text-blue-700 font-semibold">Toplam Harcama</p>
+                    <p class="text-2xl font-bold text-blue-900">${summary.total_tl.toFixed(2)} TL</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <p class="text-sm text-green-700 font-semibold">Toplam Yakıt</p>
+                    <p class="text-2xl font-bold text-green-900">${summary.total_liter.toFixed(2)} Litre</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-700 font-semibold">Toplam Mesafe</p>
+                    <p class="text-2xl font-bold text-gray-900">${summary.total_km.toFixed(0)} KM</p>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <p class="text-sm text-purple-700 font-semibold">Ort. Tüketim</p>
+                    <p class="text-2xl font-bold text-purple-900">${summary.avg_consumption_liter_100km.toFixed(2)} L/100km</p>
+                </div>
+            `;
+        } catch (error) {
+            showToast(error.message, 'error');
+            summaryContainer.innerHTML = `<p class="col-span-full text-red-500">Rapor yüklenemedi.</p>`;
+        }
     }
     
     // --- Event Listeners ---
