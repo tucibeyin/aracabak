@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Araca Bak - Premium Bakım Servisi</title>
+    <!-- Google Sign-In Kütüphanesi -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Ikon Kütüphanesi -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Site Ikonları (Favicon) -->
+    <link rel="icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <!-- Google AdSense Kodu -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2403555634390058"
+     crossorigin="anonymous"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card-light { background-color: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(200, 200, 200, 0.2); }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.7); }
+        .modal { max-width: 90%; width: 400px; }
+        #auth-container.logged-in #user-menu { display: flex; }
+        #auth-container.logged-in #guest-menu { display: none; }
+        #auth-container #user-menu { display: none; }
+        .message-box { padding: 12px; margin-bottom: 16px; border-radius: 8px; font-weight: 500; }
+        .message-success { background-color: #d1fae5; color: #065f46; }
+        .message-error { background-color: #fee2e2; color: #991b1b; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; padding: 1rem 1.5rem;
+            border-radius: 0.5rem; color: white; font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transform: translateY(100px);
+            opacity: 0; transition: transform 0.5s ease, opacity 0.5s ease; z-index: 100;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast-success { background-color: #28a745; }
+        .toast-error { background-color: #dc3545; }
+        .ticker-wrap {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            overflow: hidden;
+            padding: 10px 0;
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+            color: #374151; /* text-gray-700 */
+            border-top: 1px solid #e5e7eb; /* border-gray-200 */
+            font-size: 14px;
+            z-index: 99;
+        }
+        .ticker-move {
+            display: inline-block;
+            white-space: nowrap;
+            animation: ticker 480s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+            <a href="/">
+                <img src="/logolar/aracabak_menu_logo.png" alt="Araca Bak Logo" class="h-8 sm:h-10 w-auto">
+            </a>
+            <div id="auth-container">
+                <div id="guest-menu" class="flex items-center space-x-2 sm:space-x-4">
+                    <button id="loginBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Login</button>
+                    <button id="signupBtn" class="bg-gray-900 text-white font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-700">Sign Up</button>
+                </div>
+                <div id="user-menu" class="items-center space-x-2 sm:space-x-4">
+                    <div id="welcomeContainer" class="text-right">
+                        <span id="welcomeMessage" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
+                        <span id="userTypeMessage" class="text-xs text-gray-500 block capitalize"></span>
+                    </div>
+                    <a href="/account.html" id="accountBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <button id="logoutBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 md:p-8 flex-grow flex justify-center">
+        <div class="w-full max-w-6xl mt-4 sm:mt-8">
+            <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
+                <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-2">Periyodik Bakım Sihirbazı</h1>
+                <p class="text-center text-gray-600 mb-8 px-2">Aracınızın bilgilerini seçerek bakım detaylarını öğrenin.</p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4 items-end">
+                    <div class="flex flex-col"><label for="brand" class="mb-1 font-semibold text-sm">Marka</label><select id="brand" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                    <div class="flex flex-col"><label for="series" class="mb-1 font-semibold text-sm">Seri</label><select id="series" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                    <div class="flex flex-col"><label for="year" class="mb-1 font-semibold text-sm">Yıl</label><select id="year" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                    <div class="flex flex-col"><label for="fuel" class="mb-1 font-semibold text-sm">Yakıt</label><select id="fuel" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                    <div class="flex flex-col"><label for="model" class="mb-1 font-semibold text-sm">Model</label><select id="model" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                    <div class="flex flex-col"><label for="city" class="mb-1 font-semibold text-sm">Şehir</label><select id="city" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                    <div class="flex flex-col"><label for="kmInput" class="mb-1 font-semibold text-sm">Kilometre</label><input type="number" id="kmInput" placeholder="Örn: 43500" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></div>
+                </div>
+                
+                <div class="text-center mt-8">
+                    <button id="findMaintenanceBtn" class="w-full sm:w-auto bg-gray-900 text-white font-bold py-3 px-12 text-lg rounded-lg shadow-md transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                        Bakımı Bul
+                    </button>
+                </div>
+
+                <div id="maintenanceFlowContainer" class="mt-10 pt-8 border-t border-gray-200 hidden">
+                    <div id="confirmationSection" class="text-center hidden">
+                        <h2 id="confirmationQuestion" class="text-2xl font-bold text-center mb-6"></h2>
+                        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                            <button id="confirmYesBtn" class="w-full sm:w-auto bg-green-600 text-white font-bold py-3 px-8 text-lg rounded-lg shadow-md hover:bg-green-700">Evet, yapıldı</button>
+                            <button id="confirmNoBtn" class="w-full sm:w-auto bg-red-600 text-white font-bold py-3 px-8 text-lg rounded-lg shadow-md hover:bg-red-700">Hayır, yapılmadı</button>
+                        </div>
+                    </div>
+                    <div id="maintenanceResult" class="hidden mt-8">
+                        <h3 class="text-2xl font-bold text-center mb-6">
+                            <span id="nextKm" class="text-blue-600"></span> KM Bakım Detayları
+                        </h3>
+                        
+                        <div id="priceRangeContainer" class="text-center mb-8 hidden">
+                            <p class="text-lg text-gray-600">Tahmini Fiyat Aralığı</p>
+                            <p id="priceRange" class="text-3xl font-bold text-green-600"></p>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <h4 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-cogs text-blue-500 mr-3"></i>Değişecek Parçalar</h4>
+                                <ul id="partsToChangeList" class="space-y-4 text-gray-700"></ul>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div id="partsToCheckContainer" class="bg-white p-6 rounded-lg shadow">
+                                    <h4 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-tasks text-green-500 mr-3"></i>Kontrol Edilecekler</h4>
+                                    <ul id="partsToCheckList" class="space-y-2 text-gray-700 list-disc list-inside"></ul>
+                                </div>
+                                <div id="heavyMaintenanceContainer" class="bg-red-50 p-6 rounded-lg shadow hidden">
+                                    <h4 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>Ağır Bakım İşlemleri</h4>
+                                    <ul id="heavyMaintenanceList" class="space-y-2 text-red-700 list-disc list-inside"></ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="shopResultsContainer" class="mt-10 pt-8 border-t border-dashed hidden">
+                            <h3 class="text-2xl font-bold text-center mb-6">Önerilen Servisler</h3>
+                            <div id="shopList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="text-center py-8 mt-auto pb-20">
+        <p class="text-xs text-gray-500">®vovDigital, bu sayfa bilgilendirme amaçlıdır.</p>
+        <p class="text-xs text-gray-500 mt-1">Sorularınız için info@aracabak.com</p>
+    </footer>
+
+    <div id="fuel-ticker-container" class="ticker-wrap">
+        <div class="ticker-move" id="fuel-ticker-content">
+            <span class="mx-4">&nbsp;</span>
+        </div>
+    </div>
+
+    <div id="authModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+            <button id="closeModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <div id="googleCompleteProfileForm" class="hidden">
+                <h2 class="text-xl font-bold mb-2 text-center">Kaydı Tamamla</h2>
+                <p id="googleWelcome" class="text-center text-gray-600 mb-6"></p>
+                <div class="mb-4">
+                    <label for="google_phone_number" class="block text-sm font-medium text-gray-700 mb-2">Telefon Numarası</label>
+                    <input type="tel" id="google_phone_number" class="w-full p-3 border rounded-lg" placeholder="05xxxxxxxxx" required maxlength="11">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lütfen hesap türünüzü seçin:</label>
+                    <div id="userTypeSelector" class="flex items-center justify-center space-x-6">
+                        <label class="flex items-center cursor-pointer"><input type="radio" name="google_user_type" value="owner" class="h-4 w-4" checked><span class="ml-2">Araç Sahibiyim</span></label>
+                        <label class="flex items-center cursor-pointer"><input type="radio" name="google_user_type" value="business" class="h-4 w-4"><span class="ml-2">İşletmeyim</span></label>
+                    </div>
+                </div>
+                <div id="googleCompleteMessageContainer"></div>
+                <button id="completeGoogleRegistrationBtn" class="w-full bg-gray-900 text-white py-3 rounded-lg font-bold mt-2 hover:bg-gray-700">Kaydı Tamamla</button>
+            </div>
+            <div id="standardAuthForms">
+                <div class="flex items-center my-6">
+                    <div class="flex-grow border-t border-gray-300"></div><span class="flex-shrink mx-4 text-gray-400">Giriş Yap</span><div class="flex-grow border-t border-gray-300"></div>
+                </div>
+                <div id="googleSignInButton" class="flex justify-center"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-container"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let currentUser = null;
+
+    // --- Selectors ---
+    const brandSelect = document.getElementById('brand');
+    const seriesSelect = document.getElementById('series');
+    const yearSelect = document.getElementById('year');
+    const fuelSelect = document.getElementById('fuel');
+    const modelSelect = document.getElementById('model');
+    const citySelect = document.getElementById('city');
+    const kmInput = document.getElementById('kmInput');
+    const findMaintenanceBtn = document.getElementById('findMaintenanceBtn');
+    const maintenanceFlowContainer = document.getElementById('maintenanceFlowContainer');
+    const confirmationSection = document.getElementById('confirmationSection');
+    const maintenanceResult = document.getElementById('maintenanceResult');
+    const authModal = document.getElementById('authModal');
+    const loginBtn = document.getElementById('loginBtn');
+    const signupBtn = document.getElementById('signupBtn');
+    const closeModal = document.getElementById('closeModal');
+    const authContainer = document.getElementById('auth-container');
+    const welcomeMessage = document.getElementById('welcomeMessage');
+    const userTypeMessage = document.getElementById('userTypeMessage');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const standardAuthForms = document.getElementById('standardAuthForms');
+    const googleCompleteProfileForm = document.getElementById('googleCompleteProfileForm');
+    const userTypeSelector = document.getElementById('userTypeSelector');
+    const phoneNumberInput = document.getElementById('google_phone_number');
+    let maintenanceOptions = null; 
+    let googleUserData = null;
+    let googleMapsApiKey = null;
+
+    // --- Functions ---
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 100);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => container.removeChild(toast), 500);
+        }, 3000);
+    }
+    
+    async function checkAuthStatus() {
+        try {
+            const response = await fetch('/api/auth/status');
+            const data = await response.json();
+            if (data.loggedIn) {
+                currentUser = data;
+                updateLoginState(data);
+            } else {
+                currentUser = null;
+                updateLoginState(null);
+            }
+        } catch (error) {
+            console.error("Oturum durumu kontrol edilemedi:", error);
+            updateLoginState(null);
+        }
+    }
+
+    function updateLoginState(userData) {
+        if (userData) {
+            authContainer.classList.add('logged-in');
+            welcomeMessage.textContent = `Hoşgeldin, ${userData.userName}!`;
+            userTypeMessage.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+        } else {
+            authContainer.classList.remove('logged-in');
+        }
+    }
+
+    async function handleGoogleCredentialResponse(response) {
+        try {
+            const apiResponse = await fetch('/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: response.credential })
+            });
+            const result = await apiResponse.json();
+            if (!apiResponse.ok) throw new Error(result.description || "Giriş başarısız.");
+            if (result.status === 'login_success') {
+                await checkAuthStatus();
+                authModal.classList.add('hidden');
+            } else if (result.status === 'complete_profile') {
+                googleUserData = result;
+                document.getElementById('googleWelcome').textContent = `Hoşgeldin, ${result.name}! Kaydı tamamlamak için son bir adım kaldı.`;
+                standardAuthForms.classList.add('hidden');
+                googleCompleteProfileForm.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error("Google auth hatası:", error);
+            displayAuthMessage(document.querySelector('#standardAuthForms'), error.message, 'error');
+        }
+    }
+
+    async function populateSelect(selectElement, url, placeholder) {
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+        selectElement.disabled = true;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            const data = await response.json();
+            data.forEach(item => {
+                const option = new Option(item, item);
+                selectElement.add(option);
+            });
+            if (data.length > 0) selectElement.disabled = false;
+        } catch (error) {
+            console.error(`Error populating '${placeholder}':`, error);
+            selectElement.innerHTML = `<option>Veri Yüklenemedi</option>`;
+        }
+    }
+
+    function checkFormCompletion() {
+        const isModelSelected = modelSelect.value && !modelSelect.disabled && modelSelect.selectedIndex > 0;
+        const isCitySelected = citySelect.value && !citySelect.disabled && citySelect.selectedIndex > 0;
+        const isKmEntered = kmInput.value && parseInt(kmInput.value) >= 0;
+        findMaintenanceBtn.disabled = !(isModelSelected && isCitySelected && isKmEntered);
+    }
+
+    async function findAndDisplayShops() {
+        if (!googleMapsApiKey) {
+            console.error("Google Maps API key not loaded.");
+            document.getElementById('shopResultsContainer').classList.add('hidden');
+            return;
+        }
+        const brand = brandSelect.value;
+        const city = citySelect.value;
+        const shopContainer = document.getElementById('shopResultsContainer');
+        const shopList = document.getElementById('shopList');
+        shopList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
+        shopContainer.classList.remove('hidden');
+        try {
+            const response = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}`);
+            if (!response.ok) throw new Error("Servisler alınamadı.");
+            const shops = await response.json();
+            shopList.innerHTML = '';
+            if (shops.length > 0) {
+                shops.forEach(shop => {
+                    const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
+                    const phoneUrl = shop.formatted_phone_number ? `tel:${shop.formatted_phone_number}` : (shop.phone ? `tel:${shop.phone}` : '#');
+                    const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
+                    let reviewsHtml = '';
+                    if (shop.reviews && shop.reviews.length > 0) {
+                        reviewsHtml += '<div class="mt-4 border-t pt-4 space-y-3">';
+                        shop.reviews.forEach(review => {
+                            reviewsHtml += `<div class="text-xs text-gray-600"><p class="font-semibold">${review.author_name}</p><p class="italic">"${review.text.substring(0, 80)}..."</p></div>`;
+                        });
+                        reviewsHtml += '</div>';
+                    }
+                    let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
+                    const shopCard = `
+                        <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
+                            <div>
+                                <h4 class="font-bold text-lg">${shop.name}</h4>
+                                <div class="mt-2">${ratingHtml}</div>
+                                ${reviewsHtml}
+                                ${mapContent}
+                            </div>
+                            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 border-t pt-4">
+                                <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
+                                <button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>
+                                <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
+                            </div>
+                        </div>`;
+                    shopList.innerHTML += shopCard;
+                });
+                document.querySelectorAll('.request-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
+            } else {
+                shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis bulunamadı.</p>';
+            }
+        } catch (error) {
+            console.error("Servis arama hatası:", error);
+            shopList.innerHTML = '<p class="col-span-full text-center text-red-500">Servisler yüklenirken bir hata oluştu.</p>';
+        }
+    }
+
+    function generateStarRating(rating) {
+        if (!rating || rating <= 0) return '';
+        let starsHtml = '';
+        const fullStars = Math.floor(rating);
+        const halfStar = rating % 1 >= 0.5 ? 1 : 0;
+        const emptyStars = 5 - fullStars - halfStar;
+        for (let i = 0; i < fullStars; i++) starsHtml += '<i class="fas fa-star text-yellow-400"></i>';
+        if (halfStar) starsHtml += '<i class="fas fa-star-half-alt text-yellow-400"></i>';
+        for (let i = 0; i < emptyStars; i++) starsHtml += '<i class="far fa-star text-yellow-400"></i>';
+        return starsHtml;
+    }
+
+    function displayMaintenanceDetails(service) {
+        confirmationSection.classList.add('hidden');
+        const details = service.details;
+        if (!details) {
+            alert("Seçilen bakım için detay bulunamadı.");
+            return;
+        }
+        document.getElementById('nextKm').textContent = service.km.toLocaleString();
+        const priceRangeContainer = document.getElementById('priceRangeContainer');
+        const priceRangeEl = document.getElementById('priceRange');
+        if (details.fiyat_araligi_TL) {
+            priceRangeEl.textContent = `${details.fiyat_araligi_TL} TL`;
+            priceRangeContainer.classList.remove('hidden');
+        } else {
+            priceRangeContainer.classList.add('hidden');
+        }
+        const populatePartsToChangeList = (parts) => {
+            const list = document.getElementById('partsToChangeList');
+            list.innerHTML = '';
+            if (parts && typeof parts === 'object' && !Array.isArray(parts) && Object.keys(parts).length > 0) {
+                Object.keys(parts).forEach((partName, index) => {
+                    const brands = parts[partName];
+                    if (Array.isArray(brands)) {
+                        const listItem = document.createElement('li');
+                        listItem.className = 'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4';
+                        const leftDiv = document.createElement('div');
+                        leftDiv.className = 'flex items-center';
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `part-checkbox-${index}`;
+                        checkbox.checked = true;
+                        checkbox.className = 'h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer';
+                        const label = document.createElement('label');
+                        label.htmlFor = checkbox.id;
+                        label.textContent = partName;
+                        label.className = 'ml-3 font-semibold cursor-pointer';
+                        leftDiv.appendChild(checkbox);
+                        leftDiv.appendChild(label);
+                        const select = document.createElement('select');
+                        select.className = 'p-2 border rounded-lg bg-gray-50 shadow-sm w-full sm:w-1/2 transition-opacity';
+                        select.add(new Option('Marka Seçiniz', ''));
+                        brands.forEach(brand => select.add(new Option(brand, brand)));
+                        checkbox.addEventListener('change', () => {
+                            select.disabled = !checkbox.checked;
+                            select.classList.toggle('opacity-50', !checkbox.checked);
+                        });
+                        listItem.appendChild(leftDiv);
+                        listItem.appendChild(select);
+                        list.appendChild(listItem);
+                    }
+                });
+            } else if (Array.isArray(parts) && parts.length > 0) {
+                parts.forEach(partName => { list.innerHTML += `<li class="list-disc ml-5">${partName}</li>`; });
+            } else {
+                list.innerHTML = '<li>Bu bakım için değiştirilecek özel bir parça bulunmuyor.</li>';
+            }
+        };
+        const populateSimpleList = (listId, items) => {
+            const list = document.getElementById(listId);
+            list.innerHTML = '';
+            if (items && items.length > 0) {
+                items.forEach(item => { list.innerHTML += `<li>${item}</li>`; });
+                return true;
+            }
+            list.innerHTML = '<li>Bu bakım için özel bir işlem bulunmuyor.</li>';
+            return false;
+        };
+        populatePartsToChangeList(details.degisecek_parcalar);
+        populateSimpleList('partsToCheckList', details.kontrol_edilecek);
+        const heavyContainer = document.getElementById('heavyMaintenanceContainer');
+        const partsToCheckContainer = document.getElementById('partsToCheckContainer');
+        if (populateSimpleList('heavyMaintenanceList', details.agir_bakim)) {
+            heavyContainer.classList.remove('hidden');
+            partsToCheckContainer.classList.remove('md:col-span-2');
+        } else {
+            heavyContainer.classList.add('hidden');
+            partsToCheckContainer.classList.add('md:col-span-2');
+        }
+        maintenanceResult.classList.remove('hidden');
+        maintenanceResult.classList.add('fade-in');
+        findAndDisplayShops();
+    }
+
+    async function handleRequestOffer(e) {
+        if (!currentUser) {
+            alert('Teklif istemek için lütfen giriş yapın.');
+            loginBtn.click();
+            return;
+        }
+        const button = e.currentTarget;
+        button.disabled = true;
+        button.textContent = 'İletiliyor...';
+        try {
+            const selectedParts = {};
+            document.querySelectorAll('#partsToChangeList li').forEach(item => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                if (checkbox && checkbox.checked) {
+                    const partName = item.querySelector('label').textContent;
+                    const brandSelect = item.querySelector('select');
+                    selectedParts[partName] = brandSelect.value;
+                }
+            });
+            const payload = {
+                shop_user_id: button.dataset.shopId,
+                shop_google_place_id: button.dataset.shopPlaceId,
+                vehicle: {
+                    brand: brandSelect.value,
+                    series: seriesSelect.value,
+                    year: yearSelect.value,
+                    fuel: fuelSelect.value,
+                    model: modelSelect.value,
+                    km: parseInt(kmInput.value)
+                },
+                city: citySelect.value,
+                maintenance_km: maintenanceOptions.next_service ? maintenanceOptions.next_service.km : maintenanceOptions.missed_service.km,
+                selected_parts: selectedParts
+            };
+            const response = await fetch('/api/requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            button.textContent = 'Talep İletildi!';
+            button.classList.replace('bg-green-600', 'bg-gray-400');
+            button.classList.replace('hover:bg-green-700', 'cursor-not-allowed');
+            showToast('Teklif talebiniz başarıyla iletildi!');
+        } catch(error) {
+            alert(`Hata: ${error.message}`);
+            button.disabled = false;
+            button.textContent = 'Teklif İste';
+        }
+    }
+
+    function displayAuthMessage(container, message, type) {
+        container.innerHTML = `<div class="message-box message-${type}">${message}</div>`;
+    }
+    
+    async function fetchAndDisplayFuelPrices() {
+        const tickerContent = document.getElementById('fuel-ticker-content');
+        try {
+            const response = await fetch('/api/fuel_prices');
+            if (!response.ok) throw new Error('API yanıt vermiyor');
+            const prices = await response.json();
+            
+            let tickerHtml = '';
+            prices.forEach(cityData => {
+                const benzin = cityData["V\/Max Kur\u015funsuz 95"];
+                const motorin = cityData["V\/Max Diesel"];
+                tickerHtml += `<span class="mx-4"><strong class="font-semibold text-gray-900">${cityData.City}:</strong> Benzin ${benzin} TL - Motorin ${motorin} TL</span> | `;
+            });
+            tickerContent.innerHTML = tickerHtml + tickerHtml;
+        } catch (error) {
+            console.error("Yakıt fiyatları alınamadı:", error);
+            tickerContent.innerHTML = '<span class="mx-4">Yakıt fiyatları şu anda alınamıyor.</span>';
+        }
+    }
+    
+    // --- Event Listeners ---
+    loginBtn.addEventListener('click', () => authModal.classList.remove('hidden'));
+    signupBtn.addEventListener('click', () => authModal.classList.remove('hidden'));
+    closeModal.addEventListener('click', () => authModal.classList.add('hidden'));
+    logoutBtn.addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        currentUser = null;
+        updateLoginState(null);
+        window.location.reload();
+    });
+
+    const dropdowns = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
+    dropdowns.forEach((currentSelect, currentIndex) => {
+        currentSelect.addEventListener('change', () => {
+            const subsequentDropdowns = dropdowns.slice(currentIndex + 1);
+            [...subsequentDropdowns, citySelect, kmInput].forEach(el => {
+                el.disabled = true;
+                if (el.tagName === 'SELECT') { el.innerHTML = ''; } else { el.value = ''; }
+            });
+            checkFormCompletion();
+            const brand = brandSelect.value;
+            const series = seriesSelect.value;
+            const year = yearSelect.value;
+            const fuel = fuelSelect.value;
+            if (currentSelect === brandSelect && brand) populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(brand)}`, 'Seri Seçin');
+            else if (currentSelect === seriesSelect && series) populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}`, 'Yıl Seçin');
+            else if (currentSelect === yearSelect && year) populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}`, 'Yakıt Seçin');
+            else if (currentSelect === fuelSelect && fuel) populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}&fuel=${encodeURIComponent(fuel)}`, 'Model Seçin');
+        });
+    });
+
+    modelSelect.addEventListener('change', () => {
+        const isModelSelected = modelSelect.value && modelSelect.selectedIndex > 0;
+        citySelect.disabled = !isModelSelected;
+        kmInput.disabled = !isModelSelected;
+        if (isModelSelected) {
+            populateSelect(citySelect, '/api/cities', 'Şehir Seçin');
+        } else {
+            citySelect.innerHTML = '';
+            kmInput.value = '';
+        }
+        checkFormCompletion();
+    });
+
+    [citySelect, kmInput].forEach(el => el.addEventListener('input', checkFormCompletion));
+
+    findMaintenanceBtn.addEventListener('click', async () => {
+        const brand = brandSelect.value;
+        const fuel = fuelSelect.value;
+        const km = parseInt(kmInput.value);
+        maintenanceFlowContainer.classList.remove('hidden');
+        maintenanceResult.classList.add('hidden');
+        confirmationSection.classList.add('hidden');
+        findMaintenanceBtn.disabled = true;
+        findMaintenanceBtn.textContent = "Aranıyor...";
+        try {
+            const response = await fetch(`/api/maintenance_options?brand=${encodeURIComponent(brand)}&fuel=${encodeURIComponent(fuel)}&km=${km}`);
+            if (!response.ok) throw new Error("Bakım seçenekleri alınamadı.");
+            maintenanceOptions = await response.json();
+            if (!maintenanceOptions.missed_service.details) {
+                displayMaintenanceDetails(maintenanceOptions.next_service);
+            } else {
+                document.getElementById('confirmationQuestion').textContent = `${maintenanceOptions.question_km} KM bakımı yapıldı mı?`;
+                confirmationSection.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error("Bakım seçenekleri alınırken hata:", error);
+            alert("Bakım bilgisi bulunamadı veya bir sunucu hatası oluştu.");
+        } finally {
+            findMaintenanceBtn.disabled = false;
+            findMaintenanceBtn.textContent = "Bakımı Bul";
+            checkFormCompletion();
+        }
+    });
+
+    document.getElementById('confirmYesBtn').addEventListener('click', () => { if (maintenanceOptions) displayMaintenanceDetails(maintenanceOptions.next_service); });
+    document.getElementById('confirmNoBtn').addEventListener('click', () => { if (maintenanceOptions) displayMaintenanceDetails(maintenanceOptions.missed_service); });
+    
+    phoneNumberInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
+    
+    document.getElementById('completeGoogleRegistrationBtn').addEventListener('click', async () => {
+        if (!googleUserData) return;
+        const userType = document.querySelector('input[name="google_user_type"]:checked').value;
+        const phoneNumber = phoneNumberInput.value;
+        
+        const messageContainer = document.getElementById('googleCompleteMessageContainer');
+        messageContainer.innerHTML = ''; 
+        if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
+            displayAuthMessage(messageContainer, 'Telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
+            return;
+        }
+        const payload = { ...googleUserData, user_type: userType, phone_number: phoneNumber };
+        const submitButton = document.getElementById('completeGoogleRegistrationBtn');
+        submitButton.disabled = true; submitButton.textContent = 'Tamamlanıyor...';
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.');
+            if (result.status === 'login_success') {
+                await checkAuthStatus();
+                authModal.classList.add('hidden');
+                showToast('Kaydınız başarıyla tamamlandı!');
+                googleCompleteProfileForm.reset();
+                standardAuthForms.classList.remove('hidden');
+                googleCompleteProfileForm.classList.add('hidden');
+                googleUserData = null;
+            }
+        } catch (error) {
+            displayAuthMessage(messageContainer, error.message, 'error');
+        } finally {
+            submitButton.disabled = false; submitButton.textContent = 'Kaydı Tamamla';
+        }
+    });
+
+    // --- Initial Call ---
+    checkAuthStatus();
+    populateSelect(brandSelect, '/api/brands', 'Marka Seçin');
+    fetchAndDisplayFuelPrices();
+
+    // --- Window Onload for Google SSO ---
+    window.onload = async function () {
+        try {
+            const response = await fetch('/api/config');
+            if (!response.ok) throw new Error('Yapılandırma alınamadı.');
+            const config = await response.json();
+            googleMapsApiKey = config.googleMapsApiKey;
+            const GOOGLE_CLIENT_ID = config.googleClientId;
+            if (!GOOGLE_CLIENT_ID) throw new Error("Client ID gelmedi.");
+            google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredentialResponse });
+            google.accounts.id.renderButton( document.getElementById("googleSignInButton"), { theme: "outline", size: "large", text: "signin_with", shape: "rectangular" });
+        } catch (error) {
+            console.error("Google SSO başlatma hatası:", error);
+            document.getElementById("googleSignInButton").innerHTML = `<p class="text-red-600 text-center text-sm">Google ile giriş geçici olarak devre dışı.</p>`;
+        }
+    };
+});
+</script>
+</body>
+</html>
