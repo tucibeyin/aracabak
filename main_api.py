@@ -146,6 +146,22 @@ def init_db():
                 FOREIGN KEY (vehicle_id) REFERENCES Vehicles (id) ON DELETE CASCADE
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Appointments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id INTEGER NOT NULL,
+                quote_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                shop_user_id INTEGER NOT NULL,
+                appointment_date TEXT,
+                status TEXT DEFAULT 'scheduled',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (request_id) REFERENCES Requests (id) ON DELETE CASCADE,
+                FOREIGN KEY (quote_id) REFERENCES Quotes (id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE,
+                FOREIGN KEY (shop_user_id) REFERENCES Users (id) ON DELETE CASCADE
+            )
+        ''')
         conn.commit()
         logging.info("Veritabanı başarıyla kontrol edildi.")
     except Exception as e:
@@ -293,7 +309,7 @@ def get_requests():
         elif user_type == 'owner':
             query = """
                 SELECT r.*, u.name as shop_name, s.phone as shop_phone, r.shop_google_place_id,
-                       q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes
+                       q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id
                 FROM Requests r
                 JOIN Users u ON r.shop_user_id = u.id
                 LEFT JOIN Shops s ON r.shop_user_id = s.user_id
@@ -313,12 +329,13 @@ def get_requests():
             if user_type == 'owner':
                 if req.get('total_cost') is not None:
                     req['quote'] = {
+                        "id": req['quote_id'],
                         "parts_cost": req['parts_cost'],
                         "labor_cost": req['labor_cost'],
                         "total_cost": req['total_cost'],
                         "notes": req['quote_notes']
                     }
-                for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes']:
+                for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes', 'quote_id']:
                     req.pop(key, None)
 
                 if req.get('shop_google_place_id') and GOOGLE_PLACES_API_KEY:
@@ -389,7 +406,8 @@ def delete_request(request_id):
         
         if not req_to_delete: return jsonify({"description": "Talep bulunamadı veya silme yetkiniz yok."}), 404
         
-        # İlişkili teklifleri de sil
+        # İlişkili teklifleri ve randevuları da sil
+        conn.execute('DELETE FROM Appointments WHERE request_id = ?', (request_id,))
         conn.execute('DELETE FROM Quotes WHERE request_id = ?', (request_id,))
         conn.execute('DELETE FROM Requests WHERE id = ?', (request_id,))
         conn.commit()
@@ -467,6 +485,50 @@ def manage_quote(request_id):
     except Exception as e:
         if conn: conn.rollback()
         logging.error(f"Teklif yönetimi hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/quotes/<int:quote_id>/accept', methods=['POST'])
+@limiter.limit("20 per hour")
+def accept_quote(quote_id):
+    if 'user_id' not in session or session.get('user_type') != 'owner':
+        return jsonify({"description": "Bu işlemi yapmaya yetkiniz yok."}), 403
+
+    conn = get_db_connection()
+    try:
+        user_id = session['user_id']
+        
+        quote_query = """
+            SELECT q.id, q.request_id, q.shop_user_id, r.user_id as request_owner_id
+            FROM Quotes q
+            JOIN Requests r ON q.request_id = r.id
+            WHERE q.id = ?
+        """
+        quote_data = conn.execute(quote_query, (quote_id,)).fetchone()
+
+        if not quote_data:
+            return jsonify({"description": "Teklif bulunamadı."}), 404
+        
+        if quote_data['request_owner_id'] != user_id:
+            return jsonify({"description": "Bu teklifi onaylama yetkiniz yok."}), 403
+
+        conn.execute("UPDATE Quotes SET status = 'accepted' WHERE id = ?", (quote_id,))
+        conn.execute("UPDATE Requests SET status = 'accepted' WHERE id = ?", (quote_data['request_id'],))
+        conn.execute(
+            "INSERT INTO Appointments (request_id, quote_id, user_id, shop_user_id, status) VALUES (?, ?, ?, ?, ?)",
+            (quote_data['request_id'], quote_id, user_id, quote_data['shop_user_id'], 'scheduled')
+        )
+        conn.commit()
+        
+        logging.info(f"Kullanıcı {user_id}, teklif {quote_id} için randevu oluşturdu.")
+        # TODO: İşletmeye e-posta ile bildirim gönderilebilir.
+
+        return jsonify({"status": "success", "description": "Teklif kabul edildi ve randevu oluşturuldu."}), 201
+
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Teklif kabul etme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn: conn.close()
@@ -884,4 +946,3 @@ def google_register_complete():
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, load_dotenv=False)
-
