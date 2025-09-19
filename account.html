@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hesabım - Araca Bak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .message-box { padding: 12px; margin-top: 16px; border-radius: 8px; font-weight: 500; }
+        .message-success { background-color: #d1fae5; color: #065f46; }
+        .message-error { background-color: #fee2e2; color: #991b1b; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: transform 0.5s ease, opacity 0.5s ease;
+            z-index: 100;
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast-success { background-color: #28a745; }
+        .toast-error { background-color: #dc3545; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+            <a href="/">
+                <img src="/logolar/aracabak_menu_logo.png" alt="Araca Bak Logo" class="h-8 sm:h-10 w-auto">
+            </a>
+            <div id="auth-container">
+                 <div id="user-menu" class="hidden items-center space-x-2 sm:space-x-4">
+                    <div id="welcomeContainer" class="text-right">
+                        <span id="welcomeMessage" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
+                        <span id="userTypeMessage" class="text-xs text-gray-500 block capitalize"></span>
+                    </div>
+                    <button id="logoutBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="container mx-auto p-4 md:p-8 flex flex-col items-center gap-12">
+        <div class="w-full max-w-lg">
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                <h1 class="text-2xl sm:text-3xl font-bold text-center mb-8">Kişisel Bilgilerim</h1>
+                <form id="accountForm">
+                    <div class="mb-4">
+                        <label for="account_name" class="block text-sm font-medium text-gray-700">Ad Soyad</label>
+                        <input type="text" id="account_name" class="w-full mt-1 p-3 border rounded-lg bg-gray-100 cursor-not-allowed" disabled>
+                    </div>
+                    <div class="mb-4">
+                        <label for="account_email" class="block text-sm font-medium text-gray-700">E-posta</label>
+                        <input type="email" id="account_email" class="w-full mt-1 p-3 border rounded-lg bg-gray-100 cursor-not-allowed" disabled>
+                    </div>
+                     <div class="mb-4">
+                        <label for="account_user_type" class="block text-sm font-medium text-gray-700">Hesap Türü</label>
+                        <input type="text" id="account_user_type" class="w-full mt-1 p-3 border rounded-lg bg-gray-100 cursor-not-allowed" disabled>
+                    </div>
+                    <div class="mb-4">
+                        <label for="account_phone_number" class="block text-sm font-medium text-gray-700">Kişisel Telefon</label>
+                        <input type="tel" id="account_phone_number" class="w-full mt-1 p-3 border rounded-lg" required maxlength="11">
+                    </div>
+                    <div id="accountMessageContainer"></div>
+                    <button type="submit" id="saveAccountChangesBtn" class="w-full bg-gray-900 text-white py-3 rounded-lg font-bold mt-6 hover:bg-gray-700">Değişiklikleri Kaydet</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="businessSection" class="w-full max-w-4xl hidden">
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                <div id="shopInfoDisplay" class="hidden">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+                        <h2 class="text-2xl sm:text-3xl font-bold">İşletme Profilim</h2>
+                        <div class="flex gap-2 self-end sm:self-center">
+                            <button id="editShopBtn" class="bg-yellow-400 text-yellow-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-500 flex items-center">Düzenle</button>
+                            <button id="deleteShopBtn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 flex items-center">Profili Sil</button>
+                        </div>
+                    </div>
+                    <div id="shopDetails" class="space-y-2"></div>
+                </div>
+                <div id="shopInfoForm" class="hidden">
+                    <h2 id="shopFormTitle" class="text-2xl sm:text-3xl font-bold mb-6"></h2>
+                    <div class="space-y-4">
+                         <div>
+                            <label for="account_city" class="block text-sm font-medium text-gray-700">Şehir</label>
+                            <select id="account_city" class="w-full mt-1 p-3 border rounded-lg bg-white"></select>
+                        </div>
+                        <div>
+                            <label for="account_serviced_brands" class="block text-sm font-medium text-gray-700">Servis Verilen Markalar</label>
+                            <select id="account_serviced_brands" multiple class="w-full mt-1 p-3 border rounded-lg bg-white h-48"></select>
+                            <p class="text-xs text-gray-500 mt-1">Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
+                        </div>
+                        <div>
+                            <label for="account_shop_phone" class="block text-sm font-medium text-gray-700">İşletme Telefonu</label>
+                            <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
+                        </div>
+                        <div>
+                            <label for="account_google_place_id" class="block text-sm font-medium text-gray-700">Google Place ID</label>
+                            <input type="text" id="account_google_place_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="ChIJ...">
+                        </div>
+                    </div>
+                    <div id="shopMessageContainer"></div>
+                    <div class="flex justify-end gap-4 mt-6">
+                        <button type="button" id="cancelShopEditBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
+                        <button type="button" id="saveShopBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700">Kaydet</button>
+                    </div>
+                </div>
+                <div id="addShopContainer" class="text-center hidden">
+                     <h2 class="text-2xl sm:text-3xl font-bold mb-4">İşletme Profiliniz Yok</h2>
+                     <p class="text-gray-600 mb-6">İşletme bilgilerinizi ekleyerek müşterilerin sizi bulmasını sağlayın.</p>
+                     <button id="addShopBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700">İşletme Profili Oluştur</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="ownerVehicleSection" class="w-full max-w-4xl hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl sm:text-3xl font-bold mb-6">MTV Ödeme Takibi</h2>
+                    <div id="taxReminderList" class="space-y-4"></div>
+                </div>
+                 <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl sm:text-3xl font-bold mb-6">Muayene Takibi</h2>
+                    <div id="inspectionReminderList" class="space-y-4"></div>
+                </div>
+            </div>
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Yol Yakıt Hesabı</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                    <div class="flex flex-col">
+                        <label for="fuelAmount" class="mb-1 font-semibold text-sm">Yakıt Miktarı</label>
+                        <input type="number" id="fuelAmount" placeholder="Örn: 500" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="fuelUnit" class="mb-1 font-semibold text-sm">Birim</label>
+                        <select id="fuelUnit" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                            <option value="TL">TL</option>
+                            <option value="Litre">Litre</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col sm:col-span-2">
+                        <label for="distanceTraveled" class="mb-1 font-semibold text-sm">Yapılan Yol (KM)</label>
+                        <input type="number" id="distanceTraveled" placeholder="Örn: 650" class="p-3 border rounded-lg bg-white shadow-sm w-full">
+                    </div>
+                </div>
+                <div class="text-center mt-6">
+                    <button id="calculateFuelBtn" class="w-full sm:w-auto bg-gray-900 text-white font-bold py-3 px-12 text-lg rounded-lg shadow-md hover:bg-gray-700">
+                        Hesapla
+                    </button>
+                </div>
+                <div id="fuelResultContainer" class="hidden mt-6 text-center bg-blue-50 p-4 rounded-lg">
+                    <p id="fuelResultLabel" class="text-sm font-semibold text-blue-800"></p>
+                    <p id="fuelResult" class="text-3xl font-bold text-blue-900"></p>
+                </div>
+            </div>
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+                    <h2 class="text-2xl sm:text-3xl font-bold">Araçlarım</h2>
+                    <button id="showAddVehicleFormBtn" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center justify-center">
+                        <i class="fas fa-plus mr-2"></i> Yeni Araç Ekle
+                    </button>
+                </div>
+                <div id="vehicleList" class="space-y-4"></div>
+                <div id="addVehicleFormContainer" class="hidden mt-8 pt-6 border-t">
+                    <h3 class="text-xl font-bold mb-4">Yeni Araç Bilgileri</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                        <div class="flex flex-col"><label for="brand" class="mb-1 font-semibold text-sm">Marka</label><select id="brand" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                        <div class="flex flex-col"><label for="series" class="mb-1 font-semibold text-sm">Seri</label><select id="series" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                        <div class="flex flex-col"><label for="year" class="mb-1 font-semibold text-sm">Yıl</label><select id="year" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                        <div class="flex flex-col"><label for="fuel" class="mb-1 font-semibold text-sm">Yakıt</label><select id="fuel" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                        <div class="flex flex-col"><label for="model" class="mb-1 font-semibold text-sm">Model</label><select id="model" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                        <div class="flex flex-col"><label for="new_plate_number" class="mb-1 font-semibold text-sm">Plaka</label><input type="text" id="new_plate_number" placeholder="34ABC1234" class="p-3 border rounded-lg bg-white shadow-sm w-full uppercase" required></div>
+                        <div class="flex flex-col col-span-1 sm:col-span-2 lg:col-span-1"><label for="new_last_inspection_date" class="mb-1 font-semibold text-sm">Son Muayene Tarihi</label><input type="date" id="new_last_inspection_date" class="p-3 border rounded-lg bg-white shadow-sm w-full" required></div>
+                    </div>
+                    <div id="addVehicleMessageContainer" class="mt-4"></div>
+                    <div class="flex justify-end gap-4 mt-6">
+                         <button type="button" id="cancelAddVehicleBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
+                         <button type="button" id="addVehicleBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700 disabled:bg-gray-400" disabled>Ekle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="businessRequestsSection" class="w-full max-w-4xl hidden">
+             <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gelen Bakım Talepleri</h2>
+             <div id="requestList" class="space-y-6"></div>
+        </div>
+        
+        <div id="ownerSentRequestsSection" class="w-full max-w-4xl hidden">
+             <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gönderdiğim Bakım Talepleri</h2>
+             <div id="sentRequestList" class="space-y-6"></div>
+        </div>
+    </main>
+
+    <div id="phoneEntryOverlay" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
+            <h2 class="text-2xl font-bold mb-4">Hoş Geldiniz!</h2>
+            <p class="text-gray-600 mb-6">Devam etmeden önce lütfen telefon numaranızı girerek hesabınızı doğrulayın.</p>
+            <div class="mb-4">
+                <label for="initial_phone_number" class="block text-sm font-medium text-gray-700 mb-2 text-left">Telefon Numaranız</label>
+                <input type="tel" id="initial_phone_number" class="w-full p-3 border rounded-lg text-center" placeholder="05xxxxxxxxx" required maxlength="11">
+            </div>
+            <div id="phoneEntryMessageContainer"></div>
+            <button id="savePhoneNumberBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-4 hover:bg-blue-700">Kaydet ve Devam Et</button>
+        </div>
+    </div>
+
+    <div id="editVehicleModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-8 relative">
+            <button id="closeEditModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-xl font-bold mb-4">Araç Bilgilerini Düzenle</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                <div class="flex flex-col"><label for="edit_brand" class="mb-1 font-semibold text-sm">Marka</label><select id="edit_brand" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                <div class="flex flex-col"><label for="edit_series" class="mb-1 font-semibold text-sm">Seri</label><select id="edit_series" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                <div class="flex flex-col"><label for="edit_year" class="mb-1 font-semibold text-sm">Yıl</label><select id="edit_year" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                <div class="flex flex-col"><label for="edit_fuel" class="mb-1 font-semibold text-sm">Yakıt</label><select id="edit_fuel" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                <div class="flex flex-col"><label for="edit_model" class="mb-1 font-semibold text-sm">Model</label><select id="edit_model" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                <div class="flex flex-col"><label for="edit_plate_number" class="mb-1 font-semibold text-sm">Plaka</label><input type="text" id="edit_plate_number" placeholder="34ABC1234" class="p-3 border rounded-lg bg-white shadow-sm w-full uppercase" required></div>
+                <div class="flex flex-col col-span-1 sm:col-span-2 lg:col-span-1"><label for="edit_last_inspection_date" class="mb-1 font-semibold text-sm">Son Muayene Tarihi</label><input type="date" id="edit_last_inspection_date" class="p-3 border rounded-lg bg-white shadow-sm w-full" required></div>
+            </div>
+            <div id="editVehicleMessageContainer" class="mt-4"></div>
+            <div class="flex justify-end gap-4 mt-6">
+                 <button type="button" id="cancelEditVehicleBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
+                 <button type="button" id="saveVehicleChangesBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editRequestModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative">
+            <button id="closeRequestModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-xl font-bold mb-4">Bakım Talebini Düzenle</h3>
+            <div class="space-y-4">
+                <div>
+                    <label for="edit_request_km" class="block text-sm font-medium text-gray-700">Araç Kilometresi</label>
+                    <input type="number" id="edit_request_km" class="p-3 border rounded-lg bg-white shadow-sm w-full mt-1">
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg my-4">Değişecek Parçalar</h4>
+                    <ul id="edit_partsToChangeList" class="space-y-4 text-gray-700"></ul>
+                </div>
+            </div>
+            <div id="editRequestMessageContainer" class="mt-4"></div>
+            <div class="flex justify-end gap-4 mt-6">
+                 <button type="button" id="cancelEditRequestBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
+                 <button type="button" id="saveRequestChangesBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700">Değişiklikleri Kaydet</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-container"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let currentUser = null;
+
+    // --- Selectors ---
+    const userMenu = document.getElementById('user-menu');
+    const welcomeMessage = document.getElementById('welcomeMessage');
+    const userTypeMessage = document.getElementById('userTypeMessage');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const accountForm = document.getElementById('accountForm');
+    const businessSection = document.getElementById('businessSection');
+    const ownerVehicleSection = document.getElementById('ownerVehicleSection');
+    const businessRequestsSection = document.getElementById('businessRequestsSection');
+    const ownerSentRequestsSection = document.getElementById('ownerSentRequestsSection');
+    const showAddVehicleFormBtn = document.getElementById('showAddVehicleFormBtn');
+    const addVehicleFormContainer = document.getElementById('addVehicleFormContainer');
+    const cancelAddVehicleBtn = document.getElementById('cancelAddVehicleBtn');
+    const addVehicleBtn = document.getElementById('addVehicleBtn');
+    const newPlateInput = document.getElementById('new_plate_number');
+    const editVehicleModal = document.getElementById('editVehicleModal');
+    const closeEditModal = document.getElementById('closeEditModal');
+    const saveVehicleChangesBtn = document.getElementById('saveVehicleChangesBtn');
+    const cancelEditVehicleBtn = document.getElementById('cancelEditVehicleBtn');
+    const mainContent = document.getElementById('mainContent');
+    const phoneEntryOverlay = document.getElementById('phoneEntryOverlay');
+    const savePhoneNumberBtn = document.getElementById('savePhoneNumberBtn');
+    const initialPhoneNumberInput = document.getElementById('initial_phone_number');
+    const calculateFuelBtn = document.getElementById('calculateFuelBtn');
+    let currentEditingVehicleId = null;
+    let currentEditingRequestId = null;
+
+    // --- Header and Auth ---
+    async function checkAuthStatus() {
+        try {
+            const response = await fetch('/api/auth/status');
+            const data = await response.json();
+            if (data.loggedIn) {
+                currentUser = data;
+                userMenu.classList.remove('hidden');
+                welcomeMessage.textContent = `Hoşgeldin, ${data.userName}!`;
+                userTypeMessage.textContent = data.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                await populateAccountForm();
+            } else {
+                window.location.href = '/';
+            }
+        } catch (error) {
+            console.error("Oturum durumu kontrol edilemedi:", error);
+            window.location.href = '/';
+        }
+    }
+    
+    logoutBtn.addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/';
+    });
+
+    // --- Functions ---
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 100);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => container.removeChild(toast), 500);
+        }, 3000);
+    }
+    
+    async function populateSelect(selectElement, url, placeholder, selectedValue = null) {
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`API Hatası`);
+            const data = await response.json();
+            data.forEach(item => {
+                const option = new Option(item, item);
+                selectElement.add(option);
+            });
+            if(selectedValue) selectElement.value = selectedValue;
+            selectElement.disabled = false;
+        } catch (error) { console.error(`'${placeholder}' yüklenirken hata:`, error); }
+    }
+    
+    function populateVehicleList(vehicles) {
+        const listElement = document.getElementById('vehicleList');
+        listElement.innerHTML = '';
+        if (!vehicles || vehicles.length === 0) {
+            listElement.innerHTML = '<p class="text-center text-gray-500">Henüz kayıtlı bir aracınız bulunmuyor.</p>';
+            return;
+        }
+        vehicles.forEach(vehicle => {
+            const vehicleCard = `
+                <div class="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 fade-in">
+                    <div>
+                        <p class="font-bold text-lg">${vehicle.plate_number}</p>
+                        <p class="text-sm text-gray-600">${vehicle.brand} ${vehicle.model} (${vehicle.year}) - ${vehicle.fuel}</p>
+                    </div>
+                    <div class="flex gap-2 self-end sm:self-center">
+                        <button class="edit-vehicle-btn bg-yellow-400 text-yellow-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-500 text-sm" data-vehicle='${JSON.stringify(vehicle)}'>Düzenle</button>
+                        <button class="delete-vehicle-btn bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 text-sm" data-id="${vehicle.id}" data-plate="${vehicle.plate_number}">Sil</button>
+                    </div>
+                </div>`;
+            listElement.innerHTML += vehicleCard;
+        });
+        document.querySelectorAll('.edit-vehicle-btn').forEach(btn => btn.addEventListener('click', handleEditVehicle));
+        document.querySelectorAll('.delete-vehicle-btn').forEach(btn => btn.addEventListener('click', handleDeleteVehicle));
+    }
+
+    async function populateRequestsList(isOwner) {
+        const listId = isOwner ? 'sentRequestList' : 'requestList';
+        const listElement = document.getElementById(listId);
+        listElement.innerHTML = '<div class="text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>';
+        try {
+            const response = await fetch(`/api/requests`);
+            if (!response.ok) throw new Error('Talepler alınamadı.');
+            const requests = await response.json();
+            listElement.innerHTML = '';
+            if (!requests || requests.length === 0) {
+                listElement.innerHTML = `<p class="text-center text-gray-500">Henüz ${isOwner ? 'gönderilmiş' : 'gelen'} bir bakım talebiniz bulunmuyor.</p>`;
+                return;
+            }
+            requests.forEach(req => {
+                let partsHtml = '';
+                if(req.selected_parts && Object.keys(req.selected_parts).length > 0) {
+                    for(const part in req.selected_parts) {
+                        partsHtml += `<li><strong>${part}:</strong> ${req.selected_parts[part] || 'Marka Seçilmedi'}</li>`;
+                    }
+                } else {
+                    partsHtml = '<li>Parça seçimi yapılmamış.</li>';
+                }
+                const requestCardHeader = isOwner 
+                    ? `<div><p class="text-sm text-gray-500">Talebin Gönderildiği İşletme</p><p class="font-bold text-xl">${req.shop_name}</p></div>`
+                    : `<div><p class="font-bold text-xl">${req.customer_name}</p><p class="text-sm text-gray-600">${req.customer_phone || 'Telefon yok'}</p></div>`;
+                const phoneUrl = isOwner ? `tel:${req.shop_phone || ''}` : `tel:${req.customer_phone || ''}`;
+                const phoneButtonClass = !(isOwner ? req.shop_phone : req.customer_phone) ? 'opacity-50 cursor-not-allowed' : '';
+                const requestCard = `
+                    <div class="border rounded-lg p-6 bg-gray-50 fade-in">
+                        <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
+                            ${requestCardHeader}
+                            <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                <span class="text-sm text-gray-500">Talep: ${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
+                                ${isOwner ? `<a href="${phoneUrl}" class="bg-green-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-green-600 ${phoneButtonClass}"><i class="fas fa-phone"></i> Ara</a>` : ''}
+                                ${isOwner ? `<button class="edit-request-btn bg-yellow-400 text-yellow-900 text-xs font-bold py-1 px-2 rounded hover:bg-yellow-500" data-request='${JSON.stringify(req)}'>Düzenle</button>` : ''}
+                                <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-semibold mb-2">Araç Bilgileri</h4>
+                                <ul class="text-sm space-y-1">
+                                    <li><strong>Araç:</strong> ${req.vehicle_brand} ${req.vehicle_model} (${req.vehicle_year})</li>
+                                    <li><strong>Yakıt:</strong> ${req.vehicle_fuel}</li>
+                                    <li><strong>KM:</strong> ${req.vehicle_km.toLocaleString()}</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold mb-2">${req.maintenance_km.toLocaleString()} KM Bakımı İçin Seçilen Parçalar</h4>
+                                <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                listElement.innerHTML += requestCard;
+            });
+            document.querySelectorAll('.delete-request-btn').forEach(btn => btn.addEventListener('click', handleDeleteRequest));
+            if(isOwner) document.querySelectorAll('.edit-request-btn').forEach(btn => btn.addEventListener('click', handleEditRequest));
+        } catch(error) {
+            listElement.innerHTML = '<p class="text-center text-red-500">Talepler yüklenirken bir hata oluştu.</p>';
+        }
+    }
+    
+    async function populateAccountForm() {
+        try {
+            const response = await fetch(`/api/account`);
+            if (!response.ok) throw new Error('Hesap bilgileri alınamadı.');
+            const data = await response.json();
+            if (!data.phone_number) {
+                mainContent.classList.add('blur-sm', 'pointer-events-none');
+                phoneEntryOverlay.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            } else {
+                mainContent.classList.remove('blur-sm', 'pointer-events-none');
+                phoneEntryOverlay.classList.add('hidden');
+                document.body.style.overflow = '';
+                document.getElementById('account_name').value = data.name;
+                document.getElementById('account_email').value = data.email;
+                document.getElementById('account_user_type').value = data.user_type === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                document.getElementById('account_phone_number').value = data.phone_number || '';
+                if (data.user_type === 'owner') {
+                    ownerVehicleSection.classList.remove('hidden');
+                    ownerSentRequestsSection.classList.remove('hidden');
+                    populateVehicleList(data.vehicles);
+                    populateTaxReminders(data.vehicles);
+                    populateInspectionReminders(data.vehicles);
+                    await populateRequestsList(true);
+                } else if (data.user_type === 'business') {
+                    businessSection.classList.remove('hidden');
+                    businessRequestsSection.classList.remove('hidden');
+                    if (data.city || data.shop_phone || data.google_place_id) {
+                        displayShopInfo(data);
+                    } else {
+                        showAddShopButton();
+                    }
+                    await populateRequestsList(false);
+                }
+            }
+        } catch (error) { displayMessage('accountMessageContainer', error.message, 'error'); }
+    }
+
+    function displayMessage(containerId, message, type) {
+        document.getElementById(containerId).innerHTML = `<div class="message-box message-${type}">${message}</div>`;
+    }
+
+    function formatPlateInput(e) {
+        let input = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        e.target.value = input;
+    }
+
+    function validatePlateNumberJS(plate) {
+        const cleanedPlate = plate.replace(/\s/g, '');
+        const plateRegex = /^\d{2}[A-Z]{1,3}\d{2,4}$/;
+        return plateRegex.test(cleanedPlate);
+    }
+
+    function formatPlateForAPI(plate) {
+        const cleaned = plate.replace(/\s/g, '');
+        const match = cleaned.match(/^(\d{2})([A-Z]{1,3})(\d{2,4})$/);
+        if (match) {
+            return `${match[1]} ${match[2]} ${match[3]}`;
+        }
+        return plate.toUpperCase();
+    }
+
+    async function handleEditVehicle(e) {
+        const vehicleData = JSON.parse(e.target.dataset.vehicle);
+        currentEditingVehicleId = vehicleData.id;
+        document.getElementById('edit_plate_number').value = vehicleData.plate_number;
+        document.getElementById('edit_last_inspection_date').value = vehicleData.last_inspection_date;
+        const brandSelect = document.getElementById('edit_brand');
+        const seriesSelect = document.getElementById('edit_series');
+        const yearSelect = document.getElementById('edit_year');
+        const fuelSelect = document.getElementById('edit_fuel');
+        const modelSelect = document.getElementById('edit_model');
+        await populateSelect(brandSelect, '/api/brands', 'Marka Seçin', vehicleData.brand);
+        await populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(vehicleData.brand)}`, 'Seri Seçin', vehicleData.series);
+        await populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(vehicleData.brand)}&series=${encodeURIComponent(vehicleData.series)}`, 'Yıl Seçin', vehicleData.year);
+        await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicleData.brand)}&series=${encodeURIComponent(vehicleData.series)}&year=${encodeURIComponent(vehicleData.year)}`, 'Yakıt Seçin', vehicleData.fuel);
+        await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicleData.brand)}&series=${encodeURIComponent(vehicleData.series)}&year=${encodeURIComponent(vehicleData.year)}&fuel=${encodeURIComponent(vehicleData.fuel)}`, 'Model Seçin', vehicleData.model);
+        document.getElementById('editVehicleModal').classList.remove('hidden');
+    }
+
+    async function handleDeleteVehicle(e) {
+        const vehicleId = e.target.dataset.id;
+        const vehiclePlate = e.target.dataset.plate;
+        if (confirm(`'${vehiclePlate}' plakalı aracı silmek istediğinizden emin misiniz?`)) {
+            try {
+                const response = await fetch(`/api/vehicles/${vehicleId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('Araç başarıyla silindi!');
+                populateAccountForm(); 
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        }
+    }
+    
+    async function handleDeleteRequest(e) {
+        const button = e.currentTarget;
+        const requestId = button.dataset.requestId;
+        if (confirm(`Bu bakım talebini kalıcı olarak silmek istediğinizden emin misiniz?`)) {
+            try {
+                const response = await fetch(`/api/requests/${requestId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('Talep başarıyla silindi!');
+                populateRequestsList(currentUser.userType === 'owner');
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    async function handleEditRequest(e) {
+        const requestData = JSON.parse(e.target.dataset.request);
+        currentEditingRequestId = requestData.id;
+        document.getElementById('edit_request_km').value = requestData.vehicle_km;
+        const partsList = document.getElementById('edit_partsToChangeList');
+        partsList.innerHTML = '';
+        const maintenanceResponse = await fetch(`/api/maintenance_options?fuel=${requestData.vehicle_fuel}&km=${requestData.maintenance_km}`);
+        const maintenanceData = await maintenanceResponse.json();
+        const parts = maintenanceData.next_service.details.degisecek_parcalar;
+        if (parts) {
+            Object.keys(parts).forEach((partName, index) => {
+                const brands = parts[partName];
+                if(Array.isArray(brands)) {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4';
+                    const leftDiv = document.createElement('div');
+                    leftDiv.className = 'flex items-center';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `edit-part-checkbox-${index}`;
+                    const label = document.createElement('label');
+                    label.htmlFor = checkbox.id;
+                    label.textContent = partName;
+                    label.className = 'ml-3 font-semibold cursor-pointer';
+                    leftDiv.appendChild(checkbox);
+                    leftDiv.appendChild(label);
+                    const select = document.createElement('select');
+                    select.className = 'p-2 border rounded-lg bg-gray-50 shadow-sm w-full sm:w-1/2 transition-opacity';
+                    select.add(new Option('Marka Seçiniz', ''));
+                    brands.forEach(brand => select.add(new Option(brand, brand)));
+                    if(requestData.selected_parts[partName]) {
+                        checkbox.checked = true;
+                        select.value = requestData.selected_parts[partName];
+                    } else {
+                        checkbox.checked = false;
+                        select.disabled = true;
+                        select.classList.add('opacity-50');
+                    }
+                    checkbox.addEventListener('change', () => {
+                        select.disabled = !checkbox.checked;
+                        select.classList.toggle('opacity-50', !checkbox.checked);
+                    });
+                    listItem.appendChild(leftDiv);
+                    listItem.appendChild(select);
+                    partsList.appendChild(listItem);
+                }
+            });
+        }
+        document.getElementById('editRequestModal').classList.remove('hidden');
+    }
+
+    function populateTaxReminders(vehicles) {
+        const listElement = document.getElementById('taxReminderList');
+        listElement.innerHTML = '';
+        if (!vehicles || vehicles.length === 0) {
+            listElement.innerHTML = '<p class="text-center text-gray-500">Vergi takvimi için önce aracınızı eklemelisiniz.</p>';
+            return;
+        }
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        vehicles.forEach(vehicle => {
+            const isJanActive = currentMonth <= 6; 
+            const isJulActive = currentMonth >= 6; 
+            const janLabelClass = isJanActive ? 'bg-yellow-50 cursor-pointer' : 'bg-gray-100 opacity-70 cursor-not-allowed';
+            const julLabelClass = isJulActive ? 'bg-yellow-50 cursor-pointer' : 'bg-gray-100 opacity-70 cursor-not-allowed';
+            const reminderCard = `
+                <div class="border rounded-lg p-4">
+                    <p class="font-bold text-gray-800 mb-3">${vehicle.plate_number}</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="flex items-center p-3 rounded-lg ${janLabelClass}">
+                            <input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 tax-checkbox" 
+                                data-vehicle-id="${vehicle.id}" data-period="jan" 
+                                ${vehicle.tax_paid_jan ? 'checked' : ''} 
+                                ${!isJanActive ? 'disabled' : ''}>
+                            <span class="ml-3 font-semibold text-gray-700">Ocak Vergisi</span>
+                        </label>
+                        <label class="flex items-center p-3 rounded-lg ${julLabelClass}">
+                            <input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 tax-checkbox" 
+                                data-vehicle-id="${vehicle.id}" data-period="jul" 
+                                ${vehicle.tax_paid_jul ? 'checked' : ''} 
+                                ${!isJulActive ? 'disabled' : ''}>
+                            <span class="ml-3 font-semibold text-gray-700">Temmuz Vergisi</span>
+                        </label>
+                    </div>
+                </div>`;
+            listElement.innerHTML += reminderCard;
+        });
+        document.querySelectorAll('.tax-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', handleTaxStatusChange);
+        });
+    }
+
+    function populateInspectionReminders(vehicles) {
+        const listElement = document.getElementById('inspectionReminderList');
+        listElement.innerHTML = '';
+        if (!vehicles || vehicles.length === 0) {
+            listElement.innerHTML = '<p class="text-center text-gray-500">Muayene takibi için önce aracınızı eklemelisiniz.</p>';
+            return;
+        }
+        const now = new Date();
+        const threeMonthsFromNow = new Date();
+        threeMonthsFromNow.setMonth(now.getMonth() + 3);
+        vehicles.forEach(vehicle => {
+            if (!vehicle.last_inspection_date) {
+                const reminderCard = `<div class="border rounded-lg p-4 flex justify-between items-center"><p class="font-bold text-gray-700">${vehicle.plate_number}</p><p class="text-xs text-red-600">Lütfen son muayene tarihini ekleyin.</p></div>`;
+                listElement.innerHTML += reminderCard;
+                return;
+            }
+            const lastDate = new Date(vehicle.last_inspection_date);
+            const nextInspectionDate = new Date(lastDate);
+            const vehicleAge = now.getFullYear() - new Date(vehicle.year).getFullYear();
+            const inspectionInterval = (vehicleAge <= 1) ? 3 : 2;
+            nextInspectionDate.setFullYear(lastDate.getFullYear() + inspectionInterval);
+
+            let status, colorClass, remainingText;
+            const timeDiff = nextInspectionDate - now;
+            const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+            if (daysRemaining < 0) {
+                status = "Tarihi Geçmiş";
+                colorClass = "bg-red-100 text-red-800";
+                remainingText = `${Math.abs(daysRemaining)} gün geçti`;
+            } else if (daysRemaining <= 90) {
+                status = "Yaklaşıyor";
+                colorClass = "bg-yellow-100 text-yellow-800 animate-pulse";
+                remainingText = `${daysRemaining} gün kaldı`;
+            } else {
+                status = "Güvenli";
+                colorClass = "bg-green-100 text-green-800";
+                const years = Math.floor(daysRemaining / 365);
+                const months = Math.floor((daysRemaining % 365) / 30);
+                remainingText = `${years} yıl, ${months} ay kaldı`;
+            }
+            const reminderCard = `
+                <div class="border rounded-lg p-4">
+                    <div class="flex justify-between items-center">
+                        <p class="font-bold text-gray-800">${vehicle.plate_number}</p>
+                        <span class="text-xs font-bold px-2 py-1 rounded-full ${colorClass}">${status}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Muayeneye Kalan Zaman: <strong class="text-black">${remainingText}</strong></p>
+                </div>
+            `;
+            listElement.innerHTML += reminderCard;
+        });
+    }
+
+    async function handleTaxStatusChange(e) {
+        const checkbox = e.target;
+        const payload = {
+            vehicle_id: checkbox.dataset.vehicleId,
+            period: checkbox.dataset.period,
+            status: checkbox.checked
+        };
+        try {
+            const response = await fetch('/api/vehicles/tax_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('Vergi durumu güncellendi!');
+        } catch (error) {
+            showToast(`Hata: ${error.message}`, 'error');
+            checkbox.checked = !checkbox.checked;
+        }
+    }
+    
+    function calculateFuelConsumption() {
+        const amountInput = document.getElementById('fuelAmount');
+        const unitSelect = document.getElementById('fuelUnit');
+        const distanceInput = document.getElementById('distanceTraveled');
+        const resultContainer = document.getElementById('fuelResultContainer');
+        const resultLabel = document.getElementById('fuelResultLabel');
+        const resultEl = document.getElementById('fuelResult');
+
+        const amount = parseFloat(amountInput.value);
+        const distance = parseFloat(distanceInput.value);
+        const unit = unitSelect.value;
+
+        if (!amount || !distance || amount <= 0 || distance <= 0) {
+            showToast('Lütfen geçerli miktar ve mesafe girin.', 'error');
+            return;
+        }
+
+        let result = 0;
+        if (unit === 'TL') {
+            result = amount / distance;
+            resultLabel.textContent = "Kilometre Başına Yakıt Maliyeti";
+            resultEl.textContent = `${result.toFixed(2)} TL`;
+        } else { // Litre
+            result = (amount / distance) * 100;
+            resultLabel.textContent = "100 Kilometrede Ortalama Tüketim";
+            resultEl.textContent = `${result.toFixed(2)} Litre`;
+        }
+        
+        resultContainer.classList.remove('hidden');
+    }
+    
+    // --- Event Listeners ---
+    accountForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const phoneNumber = document.getElementById('account_phone_number').value;
+        if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
+            displayMessage('accountMessageContainer', 'Kişisel telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
+            return;
+        }
+        const payload = { phone_number: phoneNumber };
+        const submitButton = document.getElementById('saveAccountChangesBtn');
+        submitButton.disabled = true; submitButton.textContent = 'Kaydediliyor...';
+        try {
+            const response = await fetch('/api/account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description || 'Güncelleme başarısız.');
+            showToast('Kişisel bilgileriniz başarıyla güncellendi!');
+        } catch (error) {
+            displayMessage('accountMessageContainer', error.message, 'error');
+        } finally {
+            submitButton.disabled = false; submitButton.textContent = 'Değişiklikleri Kaydet';
+        }
+    });
+
+    savePhoneNumberBtn.addEventListener('click', async () => {
+        const phoneNumber = initialPhoneNumberInput.value;
+        const messageContainer = document.getElementById('phoneEntryMessageContainer');
+        if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
+            displayMessage('phoneEntryMessageContainer', 'Lütfen 0 ile başlayan 11 haneli geçerli bir telefon numarası girin.', 'error');
+            return;
+        }
+        const payload = { phone_number: phoneNumber };
+        savePhoneNumberBtn.disabled = true;
+        savePhoneNumberBtn.textContent = 'Kaydediliyor...';
+        try {
+            const response = await fetch('/api/account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description || 'Güncelleme başarısız.');
+            showToast('Telefon numaranız başarıyla kaydedildi!');
+            populateAccountForm();
+        } catch (error) {
+            displayMessage('phoneEntryMessageContainer', error.message, 'error');
+        } finally {
+            savePhoneNumberBtn.disabled = false;
+            savePhoneNumberBtn.textContent = 'Kaydet ve Devam Et';
+        }
+    });
+
+    // --- Shop Info Logic ---
+    function displayShopInfo(shopData) {
+        document.getElementById('shopInfoDisplay').classList.remove('hidden');
+        document.getElementById('addShopContainer').classList.add('hidden');
+        document.getElementById('shopInfoForm').classList.add('hidden');
+        const detailsEl = document.getElementById('shopDetails');
+        detailsEl.innerHTML = `
+            <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">Google Place ID:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">Servis Verilen Markalar:</strong> ${shopData.serviced_brands ? shopData.serviced_brands.replace(/,/g, ', ') : 'Belirtilmemiş'}</p>
+        `;
+    }
+
+    function showAddShopButton() {
+        document.getElementById('addShopContainer').classList.remove('hidden');
+        document.getElementById('shopInfoDisplay').classList.add('hidden');
+        document.getElementById('shopInfoForm').classList.add('hidden');
+    }
+
+    async function showShopForm(shopData = {}) {
+        document.getElementById('addShopContainer').classList.add('hidden');
+        document.getElementById('shopInfoDisplay').classList.add('hidden');
+        document.getElementById('shopInfoForm').classList.remove('hidden');
+        document.getElementById('shopFormTitle').textContent = shopData.city ? 'İşletme Bilgilerini Düzenle' : 'Yeni İşletme Profili';
+        await populateSelect(document.getElementById('account_city'), '/api/cities', 'Şehir Seçin', shopData.city);
+        const servicedBrandsSelect = document.getElementById('account_serviced_brands');
+        await populateSelect(servicedBrandsSelect, '/api/brands', 'Marka Yükleniyor...');
+        if (shopData.serviced_brands) {
+            const selectedBrands = shopData.serviced_brands.split(',');
+            for (const option of servicedBrandsSelect.options) {
+                if (selectedBrands.includes(option.value)) option.selected = true;
+            }
+        }
+        document.getElementById('account_shop_phone').value = shopData.shop_phone || '';
+        document.getElementById('account_google_place_id').value = shopData.google_place_id || '';
+    }
+    
+    document.getElementById('addShopBtn').addEventListener('click', () => showShopForm());
+    document.getElementById('editShopBtn').addEventListener('click', async () => {
+        const response = await fetch(`/api/account`);
+        const data = await response.json();
+        showShopForm(data);
+    });
+    document.getElementById('cancelShopEditBtn').addEventListener('click', populateAccountForm);
+
+    document.getElementById('deleteShopBtn').addEventListener('click', async () => {
+        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz?')) {
+            try {
+                const response = await fetch('/api/shops', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('İşletme profili başarıyla silindi!');
+                populateAccountForm(); 
+            } catch(error) {
+                showToast(error.message, 'error');
+            }
+        }
+    });
+    
+    document.getElementById('saveShopBtn').addEventListener('click', async () => {
+        const payload = {
+            phone_number: document.getElementById('account_phone_number').value,
+            city: document.getElementById('account_city').value,
+            shop_phone: document.getElementById('account_shop_phone').value,
+            google_place_id: document.getElementById('account_google_place_id').value,
+            serviced_brands: Array.from(document.getElementById('account_serviced_brands').selectedOptions).map(opt => opt.value)
+        };
+        const submitButton = document.getElementById('saveShopBtn');
+        submitButton.disabled = true;
+        try {
+            const response = await fetch('/api/account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('İşletme bilgileri başarıyla güncellendi!');
+            setTimeout(populateAccountForm, 1500);
+        } catch (error) {
+            displayMessage('shopMessageContainer', error.message, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+    
+    // --- Vehicle Add & Edit Form Logic ---
+    [newPlateInput, document.getElementById('edit_plate_number')].forEach(el => el.addEventListener('input', formatPlateInput));
+
+    showAddVehicleFormBtn.addEventListener('click', () => {
+        addVehicleFormContainer.classList.remove('hidden');
+        showAddVehicleFormBtn.classList.add('hidden');
+        populateSelect(document.getElementById('brand'), '/api/brands', 'Marka Seçin');
+    });
+
+    cancelAddVehicleBtn.addEventListener('click', () => {
+        addVehicleFormContainer.classList.add('hidden');
+        showAddVehicleFormBtn.classList.remove('hidden');
+    });
+
+    const newVehicleDropdowns = [document.getElementById('brand'), document.getElementById('series'), document.getElementById('year'), document.getElementById('fuel'), document.getElementById('model')];
+    newVehicleDropdowns.forEach((currentSelect, currentIndex) => {
+        currentSelect.addEventListener('change', () => {
+            for (let i = currentIndex + 1; i < newVehicleDropdowns.length; i++) {
+                newVehicleDropdowns[i].disabled = true;
+                newVehicleDropdowns[i].innerHTML = '';
+            }
+            addVehicleBtn.disabled = true;
+            if (currentSelect === newVehicleDropdowns[0] && currentSelect.value) populateSelect(newVehicleDropdowns[1], `/api/series?brand=${encodeURIComponent(currentSelect.value)}`, 'Seri Seçin');
+            else if (currentSelect === newVehicleDropdowns[1] && currentSelect.value) populateSelect(newVehicleDropdowns[2], `/api/years?brand=${encodeURIComponent(newVehicleDropdowns[0].value)}&series=${encodeURIComponent(currentSelect.value)}`, 'Yıl Seçin');
+            else if (currentSelect === newVehicleDropdowns[2] && currentSelect.value) populateSelect(newVehicleDropdowns[3], `/api/fuels?brand=${encodeURIComponent(newVehicleDropdowns[0].value)}&series=${encodeURIComponent(newVehicleDropdowns[1].value)}&year=${encodeURIComponent(currentSelect.value)}`, 'Yakıt Seçin');
+            else if (currentSelect === newVehicleDropdowns[3] && currentSelect.value) populateSelect(newVehicleDropdowns[4], `/api/models?brand=${encodeURIComponent(newVehicleDropdowns[0].value)}&series=${encodeURIComponent(newVehicleDropdowns[1].value)}&year=${encodeURIComponent(newVehicleDropdowns[2].value)}&fuel=${encodeURIComponent(currentSelect.value)}`, 'Model Seçin');
+        });
+    });
+    
+    document.getElementById('model').addEventListener('change', () => { addVehicleBtn.disabled = !document.getElementById('model').value; });
+    newPlateInput.addEventListener('input', () => { addVehicleBtn.disabled = !(document.getElementById('model').value && newPlateInput.value); });
+
+    addVehicleBtn.addEventListener('click', async () => {
+        const plateNumberRaw = newPlateInput.value;
+        if (!validatePlateNumberJS(plateNumberRaw)) {
+            displayMessage('addVehicleMessageContainer', 'Geçersiz plaka formatı. Örnek: 34ABC1234', 'error');
+            return;
+        }
+        const payload = {
+            plate_number: formatPlateForAPI(plateNumberRaw),
+            brand: document.getElementById('brand').value,
+            series: document.getElementById('series').value,
+            year: document.getElementById('year').value,
+            fuel: document.getElementById('fuel').value,
+            model: document.getElementById('model').value,
+            last_inspection_date: document.getElementById('new_last_inspection_date').value
+        };
+        addVehicleBtn.disabled = true;
+        try {
+            const response = await fetch('/api/vehicles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('Araç başarıyla eklendi!');
+            setTimeout(() => {
+                addVehicleFormContainer.classList.add('hidden');
+                showAddVehicleFormBtn.classList.remove('hidden');
+                populateAccountForm(); 
+            }, 1500);
+        } catch (error) {
+            displayMessage('addVehicleMessageContainer', error.message, 'error');
+        } finally {
+            addVehicleBtn.disabled = false;
+        }
+    });
+
+    closeEditModal.addEventListener('click', () => editVehicleModal.classList.add('hidden'));
+    cancelEditVehicleBtn.addEventListener('click', () => editVehicleModal.classList.add('hidden'));
+    
+    saveVehicleChangesBtn.addEventListener('click', async () => {
+        if (!currentEditingVehicleId) return;
+        const plateNumberRaw = document.getElementById('edit_plate_number').value;
+        if (!validatePlateNumberJS(plateNumberRaw)) {
+            displayMessage('editVehicleMessageContainer', 'Geçersiz plaka formatı. Örnek: 34ABC1234', 'error');
+            return;
+        }
+        const payload = {
+            plate_number: formatPlateForAPI(plateNumberRaw),
+            brand: document.getElementById('edit_brand').value,
+            series: document.getElementById('edit_series').value,
+            year: document.getElementById('edit_year').value,
+            fuel: document.getElementById('edit_fuel').value,
+            model: document.getElementById('edit_model').value,
+            last_inspection_date: document.getElementById('edit_last_inspection_date').value
+        };
+        saveVehicleChangesBtn.disabled = true;
+        try {
+            const response = await fetch(`/api/vehicles/${currentEditingVehicleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('Araç başarıyla güncellendi!');
+            setTimeout(() => {
+                editVehicleModal.classList.add('hidden');
+                populateAccountForm(); 
+            }, 1500);
+        } catch (error) {
+            displayMessage('editVehicleMessageContainer', error.message, 'error');
+        } finally {
+            saveVehicleChangesBtn.disabled = false;
+        }
+    });
+
+    document.getElementById('cancelEditRequestBtn').addEventListener('click', () => document.getElementById('editRequestModal').classList.add('hidden'));
+    document.getElementById('closeRequestModal').addEventListener('click', () => document.getElementById('editRequestModal').classList.add('hidden'));
+
+    document.getElementById('saveRequestChangesBtn').addEventListener('click', async () => {
+        if (!currentEditingRequestId) return;
+        const selectedParts = {};
+        document.querySelectorAll('#edit_partsToChangeList li').forEach(item => {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                const partName = item.querySelector('label').textContent;
+                const brandSelect = item.querySelector('select');
+                selectedParts[partName] = brandSelect.value;
+            }
+        });
+        const payload = {
+            vehicle_km: document.getElementById('edit_request_km').value,
+            selected_parts: selectedParts
+        };
+        const saveBtn = document.getElementById('saveRequestChangesBtn');
+        saveBtn.disabled = true;
+        try {
+            const response = await fetch(`/api/requests/${currentEditingRequestId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('Talep başarıyla güncellendi!');
+            setTimeout(() => {
+                document.getElementById('editRequestModal').classList.add('hidden');
+                populateRequestsList(true);
+            }, 1500);
+        } catch(error) {
+            displayMessage('editRequestMessageContainer', error.message, 'error');
+        } finally {
+            saveBtn.disabled = false;
+        }
+    });
+    
+    calculateFuelBtn.addEventListener('click', calculateFuelConsumption);
+
+    // --- Initial Call ---
+    checkAuthStatus();
+});
+</script>
+</body>
+</html>
