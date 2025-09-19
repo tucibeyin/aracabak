@@ -37,7 +37,7 @@ GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
 all_vehicle_data = []
 
-# --- Flask Uygulamasını Oluştur ve Yapılandır ---
+# --- Flask Uygulaması ve Oturum Yapılandırması ---
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
 app.config["SESSION_TYPE"] = "redis"
@@ -278,32 +278,50 @@ def get_fuel_prices():
         logging.error(f"Yakıt fiyatları alınırken beklenmedik bir hata oluştu: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-@app.route('/api/requests', methods=['GET', 'POST'])
-@app.route('/api/requests/<int:request_id>', methods=['PUT', 'DELETE'])
+@app.route('/api/requests', methods=['GET'])
 @limiter.limit("30 per minute")
-def manage_requests(request_id=None):
+def get_requests():
     if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 401
     conn = get_db_connection()
     try:
         user_id = session['user_id']
         user_type = session['user_type']
 
-        if request.method == 'GET':
-            if user_type == 'business':
-                query = "SELECT r.*, u.name as customer_name, u.phone_number as customer_phone FROM Requests r JOIN Users u ON r.user_id = u.id WHERE r.shop_user_id = ? ORDER BY r.created_at DESC"
-                requests_cursor = conn.execute(query, (user_id,))
-            elif user_type == 'owner':
-                query = "SELECT r.*, u.name as shop_name, s.phone as shop_phone, r.shop_google_place_id FROM Requests r JOIN Users u ON r.shop_user_id = u.id LEFT JOIN Shops s ON r.shop_user_id = s.user_id WHERE r.user_id = ? ORDER BY r.created_at DESC"
-                requests_cursor = conn.execute(query, (user_id,))
-            else:
-                return jsonify([])
+        if user_type == 'business':
+            query = "SELECT r.*, u.name as customer_name, u.phone_number as customer_phone, q.total_cost FROM Requests r JOIN Users u ON r.user_id = u.id LEFT JOIN Quotes q ON r.id = q.request_id WHERE r.shop_user_id = ? ORDER BY r.created_at DESC"
+            requests_cursor = conn.execute(query, (user_id,))
+        elif user_type == 'owner':
+            query = """
+                SELECT r.*, u.name as shop_name, s.phone as shop_phone, r.shop_google_place_id,
+                       q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes
+                FROM Requests r
+                JOIN Users u ON r.shop_user_id = u.id
+                LEFT JOIN Shops s ON r.shop_user_id = s.user_id
+                LEFT JOIN Quotes q ON r.id = q.request_id
+                WHERE r.user_id = ? ORDER BY r.created_at DESC
+            """
+            requests_cursor = conn.execute(query, (user_id,))
+        else:
+            return jsonify([])
+        
+        requests_list = []
+        for row in requests_cursor.fetchall():
+            req = dict(row)
+            if req.get('selected_parts'):
+                req['selected_parts'] = json.loads(req['selected_parts'])
             
-            requests_list = [dict(row) for row in requests_cursor.fetchall()]
-            for req in requests_list:
-                if req.get('selected_parts'):
-                    req['selected_parts'] = json.loads(req['selected_parts'])
-                
-                if user_type == 'owner' and req.get('shop_google_place_id') and GOOGLE_PLACES_API_KEY:
+            if user_type == 'owner':
+                if req.get('total_cost') is not None:
+                    req['quote'] = {
+                        "parts_cost": req['parts_cost'],
+                        "labor_cost": req['labor_cost'],
+                        "total_cost": req['total_cost'],
+                        "notes": req['quote_notes']
+                    }
+                for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes']:
+                    req.pop(key, None)
+
+                if req.get('shop_google_place_id') and GOOGLE_PLACES_API_KEY:
                     try:
                         place_id = req['shop_google_place_id']
                         fields = "name,formatted_phone_number"
@@ -316,102 +334,139 @@ def manage_requests(request_id=None):
                             req['shop_phone'] = result.get('formatted_phone_number', req.get('shop_phone'))
                     except requests.exceptions.RequestException as e:
                         logging.error(f"Google Places API isteği (talep listesi için) başarısız oldu: {e}")
+            requests_list.append(req)
 
-            return jsonify(requests_list)
-        
-        data = request.get_json()
-        if request.method == 'POST':
-            required_fields = ['shop_user_id', 'shop_google_place_id', 'vehicle', 'maintenance_km', 'selected_parts', 'city']
-            if not all(field in data for field in required_fields):
-                return jsonify({"description": "Eksik bilgi."}), 400
-            vehicle = data['vehicle']
-            selected_parts_json = json.dumps(data['selected_parts'])
-            conn.execute(
-                "INSERT INTO Requests (user_id, shop_user_id, shop_google_place_id, vehicle_brand, vehicle_series, vehicle_year, vehicle_fuel, vehicle_model, vehicle_km, city, maintenance_km, selected_parts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (user_id, data['shop_user_id'], data['shop_google_place_id'], vehicle['brand'], vehicle['series'], vehicle['year'], vehicle['fuel'], vehicle['model'], vehicle['km'], data['city'], data['maintenance_km'], selected_parts_json)
-            )
-            conn.commit()
-            return jsonify({"status": "success", "description": "Talep iletildi."}), 201
+        return jsonify(requests_list)
 
-        if request.method == 'PUT':
-            if user_type != 'owner': return jsonify({"description": "Yetkisiz işlem."}), 403
-            req_to_update = conn.execute('SELECT id FROM Requests WHERE id = ? AND user_id = ?', (request_id, user_id)).fetchone()
-            if not req_to_update: return jsonify({"description": "Talep bulunamadı veya yetkiniz yok."}), 404
-            conn.execute(
-                "UPDATE Requests SET vehicle_km = ?, selected_parts = ? WHERE id = ?",
-                (data.get('vehicle_km'), json.dumps(data.get('selected_parts')), request_id)
-            )
-            conn.commit()
-            return jsonify({"status": "success", "description": "Talep güncellendi."})
-
-        elif request.method == 'DELETE':
-            if user_type == 'business':
-                req_to_delete = conn.execute('SELECT id FROM Requests WHERE id = ? AND shop_user_id = ?', (request_id, user_id)).fetchone()
-            elif user_type == 'owner':
-                req_to_delete = conn.execute('SELECT id FROM Requests WHERE id = ? AND user_id = ?', (request_id, user_id)).fetchone()
-            else:
-                req_to_delete = None
-            if not req_to_delete: return jsonify({"description": "Talep bulunamadı veya silme yetkiniz yok."}), 404
-            conn.execute('DELETE FROM Requests WHERE id = ?', (request_id,))
-            conn.commit()
-            return jsonify({"status": "success", "description": "Talep silindi."})
     except Exception as e:
-        if conn: conn.rollback()
-        logging.error(f"Talep yönetimi hatası: {e}\n{traceback.format_exc()}")
+        logging.error(f"Talep listeleme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn: conn.close()
 
-@app.route('/api/requests/<int:request_id>/quote', methods=['POST'])
+
+@app.route('/api/requests', methods=['POST'])
 @limiter.limit("30 per minute")
-def submit_quote(request_id):
-    if 'user_id' not in session or session.get('user_type') != 'business':
-        return jsonify({"description": "Yetkisiz işlem."}), 403
-
-    data = request.get_json()
-    parts_cost = data.get('parts_cost')
-    labor_cost = data.get('labor_cost')
-    notes = data.get('notes', '')
-
-    if not isinstance(parts_cost, (int, float)) or not isinstance(labor_cost, (int, float)):
-        return jsonify({"description": "Parça ve işçilik maliyetleri sayı olmalıdır."}), 400
-
-    total_cost = parts_cost + labor_cost
-    shop_user_id = session['user_id']
-
+def create_request():
+    if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 401
     conn = get_db_connection()
     try:
-        request_to_quote = conn.execute(
-            "SELECT id, status FROM Requests WHERE id = ? AND shop_user_id = ?",
-            (request_id, shop_user_id)
-        ).fetchone()
-
-        if not request_to_quote:
-            return jsonify({"description": "Talep bulunamadı veya bu talebe teklif verme yetkiniz yok."}), 404
-        
-        if request_to_quote['status'] != 'pending':
-            return jsonify({"description": "Bu talebe zaten teklif verilmiş veya işlem yapılmış."}), 409
-        
+        user_id = session['user_id']
+        data = request.get_json()
+        required_fields = ['shop_user_id', 'shop_google_place_id', 'vehicle', 'maintenance_km', 'selected_parts', 'city']
+        if not all(field in data for field in required_fields):
+            return jsonify({"description": "Eksik bilgi."}), 400
+        vehicle = data['vehicle']
+        selected_parts_json = json.dumps(data['selected_parts'])
         conn.execute(
-            "INSERT INTO Quotes (request_id, shop_user_id, parts_cost, labor_cost, total_cost, notes) VALUES (?, ?, ?, ?, ?, ?)",
-            (request_id, shop_user_id, parts_cost, labor_cost, total_cost, notes)
+            "INSERT INTO Requests (user_id, shop_user_id, shop_google_place_id, vehicle_brand, vehicle_series, vehicle_year, vehicle_fuel, vehicle_model, vehicle_km, city, maintenance_km, selected_parts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (user_id, data['shop_user_id'], data['shop_google_place_id'], vehicle['brand'], vehicle['series'], vehicle['year'], vehicle['fuel'], vehicle['model'], vehicle['km'], data['city'], data['maintenance_km'], selected_parts_json)
         )
-        
-        conn.execute("UPDATE Requests SET status = 'quoted' WHERE id = ?", (request_id,))
-        
         conn.commit()
-        logging.info(f"İşletme {shop_user_id}, talep {request_id} için teklif gönderdi.")
-        
-        # TODO: Araç sahibine e-posta ile bildirim gönderilebilir.
+        return jsonify({"status": "success", "description": "Talep iletildi."}), 201
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Talep oluşturma hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
 
-        return jsonify({"status": "success", "description": "Teklif başarıyla gönderildi."}), 201
+@app.route('/api/requests/<int:request_id>', methods=['DELETE'])
+@limiter.limit("30 per minute")
+def delete_request(request_id):
+    if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 401
+    conn = get_db_connection()
+    try:
+        user_id = session['user_id']
+        user_type = session['user_type']
+
+        if user_type == 'business':
+            req_to_delete = conn.execute('SELECT id FROM Requests WHERE id = ? AND shop_user_id = ?', (request_id, user_id)).fetchone()
+        elif user_type == 'owner':
+            req_to_delete = conn.execute('SELECT id FROM Requests WHERE id = ? AND user_id = ?', (request_id, user_id)).fetchone()
+        else:
+            req_to_delete = None
+        
+        if not req_to_delete: return jsonify({"description": "Talep bulunamadı veya silme yetkiniz yok."}), 404
+        
+        # İlişkili teklifleri de sil
+        conn.execute('DELETE FROM Quotes WHERE request_id = ?', (request_id,))
+        conn.execute('DELETE FROM Requests WHERE id = ?', (request_id,))
+        conn.commit()
+        return jsonify({"status": "success", "description": "Talep silindi."})
+
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Talep silme hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/requests/<int:request_id>/quote', methods=['POST', 'PUT', 'DELETE'])
+@limiter.limit("30 per minute")
+def manage_quote(request_id):
+    if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 401
+    
+    conn = get_db_connection()
+    try:
+        user_id = session['user_id']
+        user_type = session['user_type']
+
+        if request.method in ['POST', 'PUT']:
+            if user_type != 'business':
+                return jsonify({"description": "Bu işlemi yapmaya yetkiniz yok."}), 403
+            
+            data = request.get_json()
+            parts_cost = data.get('parts_cost')
+            labor_cost = data.get('labor_cost')
+            notes = data.get('notes', '')
+
+            if not isinstance(parts_cost, (int, float)) or not isinstance(labor_cost, (int, float)):
+                return jsonify({"description": "Parça ve işçilik maliyetleri sayı olmalıdır."}), 400
+
+            total_cost = parts_cost + labor_cost
+            
+            request_to_quote = conn.execute("SELECT id FROM Requests WHERE id = ? AND shop_user_id = ?", (request_id, user_id)).fetchone()
+            if not request_to_quote:
+                return jsonify({"description": "Talep bulunamadı veya bu talebe teklif verme yetkiniz yok."}), 404
+
+            if request.method == 'POST':
+                conn.execute(
+                    "INSERT INTO Quotes (request_id, shop_user_id, parts_cost, labor_cost, total_cost, notes) VALUES (?, ?, ?, ?, ?, ?)",
+                    (request_id, user_id, parts_cost, labor_cost, total_cost, notes)
+                )
+                conn.execute("UPDATE Requests SET status = 'quoted' WHERE id = ?", (request_id,))
+                conn.commit()
+                return jsonify({"status": "success", "description": "Teklif başarıyla gönderildi."}), 201
+            
+            elif request.method == 'PUT':
+                conn.execute(
+                    "UPDATE Quotes SET parts_cost = ?, labor_cost = ?, total_cost = ?, notes = ? WHERE request_id = ? AND shop_user_id = ?",
+                    (parts_cost, labor_cost, total_cost, notes, request_id, user_id)
+                )
+                conn.commit()
+                return jsonify({"status": "success", "description": "Teklif başarıyla güncellendi."})
+
+        if request.method == 'DELETE':
+            if user_type != 'owner':
+                return jsonify({"description": "Bu işlemi yapmaya yetkiniz yok."}), 403
+
+            request_owner = conn.execute("SELECT user_id FROM Requests WHERE id = ?", (request_id,)).fetchone()
+            if not request_owner or request_owner['user_id'] != user_id:
+                return jsonify({"description": "Bu talebi yönetme yetkiniz yok."}), 404
+
+            conn.execute("DELETE FROM Quotes WHERE request_id = ?", (request_id,))
+            conn.execute("UPDATE Requests SET status = 'pending' WHERE id = ?", (request_id,))
+            conn.commit()
+            
+            return jsonify({"status": "success", "description": "Teklif başarıyla reddedildi."})
 
     except sqlite3.IntegrityError:
         if conn: conn.rollback()
         return jsonify({"description": "Bu talep için daha önce bir teklif oluşturulmuş."}), 409
     except Exception as e:
         if conn: conn.rollback()
-        logging.error(f"Teklif oluşturma hatası: {e}\n{traceback.format_exc()}")
+        logging.error(f"Teklif yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn: conn.close()
@@ -829,3 +884,4 @@ def google_register_complete():
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, load_dotenv=False)
+
