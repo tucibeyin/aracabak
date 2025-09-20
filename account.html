@@ -116,8 +116,8 @@
                             <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
                         </div>
                         <div>
-                            <label for="account_google_place_id" class="block text-sm font-medium text-gray-700">Google Place ID</label>
-                            <input type="text" id="account_google_place_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="ChIJ...">
+                            <label for="account_id" class="block text-sm font-medium text-gray-700">aracabak İşletme Üyelik Kodu</label>
+                            <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Örn: aBcDeF123" maxlength="100">
                         </div>
                     </div>
                     <div id="shopMessageContainer"></div>
@@ -225,6 +225,11 @@
                     </div>
                 </div>
             </div>
+        </div>
+        
+        <div id="appointmentsSection" class="w-full max-w-4xl hidden">
+             <h2 class="text-2xl sm:text-3xl font-bold mb-6">Randevularım</h2>
+             <div id="appointmentList" class="space-y-6"></div>
         </div>
         
         <div id="businessRequestsSection" class="w-full max-w-4xl hidden">
@@ -459,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${req.quote.notes ? `<div class="mt-4 text-sm text-gray-700 bg-green-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
                                 </div>
                                 <div class="flex gap-4 mt-4">
-                                    <button class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors">Teklifi Onayla</button>
+                                    <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors" data-request-id="${req.id}">Teklifi Onayla</button>
                                     <button class="reject-quote-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-gray-300 transition-colors" data-request-id="${req.id}">Reddet</button>
                                 </div>
                             </div>
@@ -577,11 +582,168 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.send-quote-btn').forEach(btn => btn.addEventListener('click', handleSendQuote));
             } else {
                  document.querySelectorAll('.reject-quote-btn').forEach(btn => btn.addEventListener('click', handleRejectQuote));
+                 document.querySelectorAll('.accept-quote-btn').forEach(btn => btn.addEventListener('click', handleAcceptQuote));
             }
             document.querySelectorAll('.delete-request-btn').forEach(btn => btn.addEventListener('click', handleDeleteRequest));
         } catch(error) {
             console.error("Talep listesi hatası:", error);
             listElement.innerHTML = `<p class="text-center text-red-500">Talepler yüklenirken bir hata oluştu.</p>`;
+        }
+    }
+    
+    async function populateAppointments(isOwner) {
+        const listElement = document.getElementById('appointmentList');
+        appointmentsSection.classList.remove('hidden');
+        listElement.innerHTML = '<div class="text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>';
+        try {
+            const response = await fetch(`/api/appointments`);
+            if (!response.ok) throw new Error('Randevular alınamadı.');
+            const appointments = await response.json();
+            listElement.innerHTML = '';
+            if (!appointments || appointments.length === 0) {
+                listElement.innerHTML = `<p class="text-center text-gray-500">Henüz bir randevunuz bulunmuyor.</p>`;
+                return;
+            }
+
+            appointments.forEach(app => {
+                const statusColors = {
+                    'tarih_bekleniyor': 'bg-yellow-100 text-yellow-800',
+                    'tamamlandi': 'bg-green-100 text-green-800'
+                };
+                const statusText = {
+                    'tarih_bekleniyor': 'Tarih Bekleniyor',
+                    'tamamlandi': 'Tamamlandı'
+                };
+
+                const statusBadge = `<span class="text-xs font-bold px-2 py-1 rounded-full ${statusColors[app.status] || 'bg-gray-100 text-gray-800'}">${statusText[app.status] || app.status}</span>`;
+
+                let appointmentCard = '';
+                if (isOwner) {
+                    appointmentCard = `
+                        <div class="border rounded-lg p-6 bg-white fade-in">
+                            <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
+                                <div>
+                                    <p class="text-sm text-gray-500">Servis</p>
+                                    <p class="font-bold text-xl">${app.shop_name}</p>
+                                </div>
+                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                    ${statusBadge}
+                                    <span class="text-sm text-gray-500">${new Date(app.created_at).toLocaleDateString('tr-TR')}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model}</h4>
+                                <p class="text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${app.appointment_date ? new Date(app.appointment_date).toLocaleString('tr-TR') : 'Henüz Belirlenmedi'}</p>
+                            </div>
+                        </div>
+                    `;
+                } else { // Business view
+                    let dateSection;
+                    if (app.status === 'tarih_bekleniyor') {
+                        dateSection = `
+                            <div class="mt-4 border-t pt-4 flex flex-wrap gap-2 items-end">
+                                <div class="flex-grow">
+                                    <label for="date-time-${app.id}" class="text-sm font-medium">Randevu Tarihi ve Saati</label>
+                                    <input type="datetime-local" id="date-time-${app.id}" class="w-full p-2 border rounded-lg">
+                                </div>
+                                <button class="update-appointment-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg" data-appointment-id="${app.id}">Onayla</button>
+                            </div>
+                        `;
+                    } else {
+                        dateSection = `<p class="mt-4 pt-4 border-t text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${new Date(app.appointment_date).toLocaleString('tr-TR')}</p>`;
+                    }
+                    
+                    let completeButton = '';
+                    if (app.status !== 'tamamlandi') {
+                        completeButton = `<button class="complete-appointment-btn bg-green-500 text-white font-bold py-2 px-4 rounded-lg mt-2" data-appointment-id="${app.id}">İşlemi Tamamla</button>`;
+                    }
+
+                    appointmentCard = `
+                         <div class="border rounded-lg p-6 bg-white fade-in">
+                            <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
+                                <div>
+                                    <p class="text-sm text-gray-500">Müşteri</p>
+                                    <p class="font-bold text-xl">${app.customer_name}</p>
+                                </div>
+                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                     ${statusBadge}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model} (${app.vehicle_plate})</h4>
+                                ${dateSection}
+                                ${completeButton}
+                            </div>
+                        </div>
+                    `;
+                }
+                listElement.innerHTML += appointmentCard;
+            });
+            
+            if (!isOwner) {
+                document.querySelectorAll('.update-appointment-btn').forEach(btn => btn.addEventListener('click', handleUpdateAppointment));
+                document.querySelectorAll('.complete-appointment-btn').forEach(btn => btn.addEventListener('click', handleCompleteAppointment));
+            }
+
+        } catch (error) {
+            console.error("Randevu listesi hatası:", error);
+            listElement.innerHTML = `<p class="text-center text-red-500">Randevular yüklenirken bir hata oluştu.</p>`;
+        }
+    }
+
+    async function handleAcceptQuote(e) {
+        const button = e.currentTarget;
+        const requestId = button.dataset.requestId;
+        if (confirm('Bu teklifi onaylamak ve randevu oluşturmak istediğinizden emin misiniz?')) {
+            try {
+                const response = await fetch(`/api/requests/${requestId}/accept`, { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('Teklif onaylandı ve randevu oluşturuldu!');
+                await populateAccountForm();
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        }
+    }
+    
+    async function handleUpdateAppointment(e) {
+        const button = e.currentTarget;
+        const appointmentId = button.dataset.appointmentId;
+        const dateTimeValue = document.getElementById(`date-time-${appointmentId}`).value;
+        if (!dateTimeValue) {
+            showToast('Lütfen bir tarih ve saat seçin.', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/appointments/${appointmentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appointment_date: dateTimeValue })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('Randevu tarihi başarıyla güncellendi!');
+            await populateAppointments(false);
+        } catch (error) {
+            showToast(`Hata: ${error.message}`, 'error');
+        }
+    }
+
+    async function handleCompleteAppointment(e) {
+        const button = e.currentTarget;
+        const appointmentId = button.dataset.appointmentId;
+        if (confirm('Bu randevuyu tamamlandı olarak işaretlemek istediğinizden emin misiniz?')) {
+            try {
+                const response = await fetch(`/api/appointments/${appointmentId}/complete`, { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('Randevu tamamlandı olarak işaretlendi!');
+                await populateAppointments(false);
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
         }
     }
     
@@ -1051,7 +1213,7 @@ document.addEventListener('DOMContentLoaded', () => {
         detailsEl.innerHTML = `
             <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
-            <p><strong class="font-semibold">Google Place ID:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">İşletme ID:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Servis Verilen Markalar:</strong> ${shopData.serviced_brands ? shopData.serviced_brands.replace(/,/g, ', ') : 'Belirtilmemiş'}</p>
         `;
     }
@@ -1077,7 +1239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         document.getElementById('account_shop_phone').value = shopData.shop_phone || '';
-        document.getElementById('account_google_place_id').value = shopData.google_place_id || '';
+        document.getElementById('account_id').value = shopData.google_place_id || '';
     }
     
     document.getElementById('addShopBtn').addEventListener('click', () => showShopForm());
@@ -1110,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             phone_number: document.getElementById('account_phone_number').value,
             city: document.getElementById('account_city').value,
             shop_phone: document.getElementById('account_shop_phone').value,
-            google_place_id: document.getElementById('account_google_place_id').value,
+            google_place_id: document.getElementById('account_id').value,
             serviced_brands: Array.from(document.getElementById('account_serviced_brands').selectedOptions).map(opt => opt.value)
         };
         const submitButton = document.getElementById('saveShopBtn');
@@ -1167,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             phone_number: document.getElementById('account_phone_number').value,
             city: document.getElementById('account_city').value,
             shop_phone: document.getElementById('account_shop_phone').value,
-            google_place_id: document.getElementById('account_google_place_id').value,
+            google_place_id: document.getElementById('account_id').value,
             serviced_brands: Array.from(document.getElementById('account_serviced_brands').selectedOptions).map(opt => opt.value)
         };
         const submitButton = document.getElementById('saveShopBtn');
