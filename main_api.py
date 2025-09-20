@@ -82,6 +82,7 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
         add_column_if_not_exists(cursor, "Users", "phone_number", "TEXT")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Vehicles (
@@ -91,77 +92,79 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE
             )
         ''')
+
         add_column_if_not_exists(cursor, "Vehicles", "tax_paid_jan", "INTEGER DEFAULT 0")
         add_column_if_not_exists(cursor, "Vehicles", "tax_paid_jul", "INTEGER DEFAULT 0")
         add_column_if_not_exists(cursor, "Vehicles", "last_inspection_date", "TEXT")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Shops (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL UNIQUE, city TEXT,
-                phone TEXT, google_place_id TEXT,
+                phone TEXT, google_place_id TEXT, serviced_brands TEXT,
                 FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE
             )
         ''')
+
         add_column_if_not_exists(cursor, "Shops", "serviced_brands", "TEXT")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                shop_user_id INTEGER NOT NULL,
-                vehicle_brand TEXT, vehicle_series TEXT, vehicle_year TEXT,
-                vehicle_fuel TEXT, vehicle_model TEXT, vehicle_km INTEGER,
-                city TEXT, maintenance_km INTEGER, selected_parts TEXT,
-                status TEXT DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, shop_user_id INTEGER NOT NULL,
+                vehicle_brand TEXT, vehicle_series TEXT, vehicle_year TEXT, vehicle_fuel TEXT, 
+                vehicle_model TEXT, vehicle_km INTEGER, city TEXT, maintenance_km INTEGER, 
+                selected_parts TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 shop_google_place_id TEXT,
                 FOREIGN KEY (user_id) REFERENCES Users (id),
                 FOREIGN KEY (shop_user_id) REFERENCES Users (id)
             )
         ''')
+
         add_column_if_not_exists(cursor, "Requests", "status", "TEXT DEFAULT 'pending'")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Quotes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 request_id INTEGER NOT NULL UNIQUE,
                 shop_user_id INTEGER NOT NULL,
-                parts_cost REAL NOT NULL,
-                labor_cost REAL NOT NULL,
-                total_cost REAL NOT NULL,
+                parts_cost REAL,
+                labor_cost REAL,
+                total_cost REAL,
                 notes TEXT,
                 status TEXT DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (request_id) REFERENCES Requests (id),
+                FOREIGN KEY (request_id) REFERENCES Requests (id) ON DELETE CASCADE,
                 FOREIGN KEY (shop_user_id) REFERENCES Users (id)
             )
         ''')
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS FuelEntries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                vehicle_id INTEGER NOT NULL,
-                date TEXT NOT NULL,
-                amount_tl REAL,
-                amount_liter REAL,
-                distance_km REAL NOT NULL,
+                id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, vehicle_id INTEGER NOT NULL,
+                date TEXT NOT NULL, amount_tl REAL, amount_liter REAL, distance_km REAL NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE,
                 FOREIGN KEY (vehicle_id) REFERENCES Vehicles (id) ON DELETE CASCADE
             )
         ''')
+
+        add_column_if_not_exists(cursor, "Appointments", "vehicle_plate", "TEXT")
+        add_column_if_not_exists(cursor, "Appointments", "vehicle_brand", "TEXT")
+        add_column_if_not_exists(cursor, "Appointments", "vehicle_model", "TEXT")              
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Appointments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                request_id INTEGER NOT NULL,
-                quote_id INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
                 shop_user_id INTEGER NOT NULL,
+                request_id INTEGER NOT NULL UNIQUE,
+                vehicle_plate TEXT,
+                vehicle_brand TEXT,
+                vehicle_model TEXT,
+                status TEXT DEFAULT 'tarih_bekleniyor',
                 appointment_date TEXT,
-                status TEXT DEFAULT 'scheduled',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (request_id) REFERENCES Requests (id) ON DELETE CASCADE,
-                FOREIGN KEY (quote_id) REFERENCES Quotes (id) ON DELETE CASCADE,
-                FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE,
-                FOREIGN KEY (shop_user_id) REFERENCES Users (id) ON DELETE CASCADE
+                FOREIGN KEY (user_id) REFERENCES Users (id),
+                FOREIGN KEY (shop_user_id) REFERENCES Users (id),
+                FOREIGN KEY (request_id) REFERENCES Requests (id) ON DELETE CASCADE
             )
         ''')
+
         conn.commit()
         logging.info("Veritabanı başarıyla kontrol edildi.")
     except Exception as e:
@@ -485,50 +488,6 @@ def manage_quote(request_id):
     except Exception as e:
         if conn: conn.rollback()
         logging.error(f"Teklif yönetimi hatası: {e}\n{traceback.format_exc()}")
-        return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn: conn.close()
-
-@app.route('/api/quotes/<int:quote_id>/accept', methods=['POST'])
-@limiter.limit("20 per hour")
-def accept_quote(quote_id):
-    if 'user_id' not in session or session.get('user_type') != 'owner':
-        return jsonify({"description": "Bu işlemi yapmaya yetkiniz yok."}), 403
-
-    conn = get_db_connection()
-    try:
-        user_id = session['user_id']
-        
-        quote_query = """
-            SELECT q.id, q.request_id, q.shop_user_id, r.user_id as request_owner_id
-            FROM Quotes q
-            JOIN Requests r ON q.request_id = r.id
-            WHERE q.id = ?
-        """
-        quote_data = conn.execute(quote_query, (quote_id,)).fetchone()
-
-        if not quote_data:
-            return jsonify({"description": "Teklif bulunamadı."}), 404
-        
-        if quote_data['request_owner_id'] != user_id:
-            return jsonify({"description": "Bu teklifi onaylama yetkiniz yok."}), 403
-
-        conn.execute("UPDATE Quotes SET status = 'accepted' WHERE id = ?", (quote_id,))
-        conn.execute("UPDATE Requests SET status = 'accepted' WHERE id = ?", (quote_data['request_id'],))
-        conn.execute(
-            "INSERT INTO Appointments (request_id, quote_id, user_id, shop_user_id, status) VALUES (?, ?, ?, ?, ?)",
-            (quote_data['request_id'], quote_id, user_id, quote_data['shop_user_id'], 'scheduled')
-        )
-        conn.commit()
-        
-        logging.info(f"Kullanıcı {user_id}, teklif {quote_id} için randevu oluşturdu.")
-        # TODO: İşletmeye e-posta ile bildirim gönderilebilir.
-
-        return jsonify({"status": "success", "description": "Teklif kabul edildi ve randevu oluşturuldu."}), 201
-
-    except Exception as e:
-        if conn: conn.rollback()
-        logging.error(f"Teklif kabul etme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn: conn.close()
@@ -942,7 +901,144 @@ def google_register_complete():
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn: conn.close()
+
+@app.route('/api/requests/<int:request_id>/accept', methods=['POST'])
+@limiter.limit("10 per minute")
+def accept_quote(request_id):
+    if 'user_id' not in session or session.get('user_type') != 'owner':
+        return jsonify({"description": "Yetkisiz işlem."}), 403
+    
+    conn = get_db_connection()
+    try:
+        request_data = conn.execute('SELECT * FROM Requests WHERE id = ? AND user_id = ?', (request_id, session['user_id'])).fetchone()
+        if not request_data:
+            return jsonify({"description": "Talep bulunamadı veya yetkiniz yok."}), 404
+
+        if request_data['status'] != 'quoted':
+            return jsonify({"description": "Bu talep için onaylanacak bir teklif bulunmuyor."}), 400
         
+        vehicle = conn.execute(
+            'SELECT plate_number FROM Vehicles WHERE user_id = ? AND brand = ? AND model = ? ORDER BY id DESC LIMIT 1',
+            (session['user_id'], request_data['vehicle_brand'], request_data['vehicle_model'])
+        ).fetchone()
+        
+        vehicle_plate = vehicle['plate_number'] if vehicle else "PLAKA BULUNAMADI"
+        if not vehicle:
+             logging.warning(f"Kullanıcı {session['user_id']} için talep ID {request_id} onaylanırken eşleşen araç bulunamadı.")
+
+        conn.execute(
+            """
+            INSERT INTO Appointments (user_id, shop_user_id, request_id, vehicle_plate, vehicle_brand, vehicle_model)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (request_data['user_id'], request_data['shop_user_id'], request_id, vehicle_plate, request_data['vehicle_brand'], request_data['vehicle_model'])
+        )
+        
+        conn.execute("UPDATE Requests SET status = 'accepted' WHERE id = ?", (request_id,))
+        
+        conn.commit()
+        return jsonify({"status": "success", "description": "Teklif onaylandı ve randevu oluşturuldu."})
+
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return jsonify({"description": "Bu talep için zaten bir randevu oluşturulmuş."}), 409
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Teklif kabul etme hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/appointments', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_appointments():
+    if 'user_id' not in session:
+        return jsonify({"description": "Yetkilendirme gerekli."}), 401
+    
+    conn = get_db_connection()
+    try:
+        user_id = session['user_id']
+        user_type = session['user_type']
+        
+        if user_type == 'owner':
+            query = """
+            SELECT a.*, u.name as shop_name 
+            FROM Appointments a 
+            JOIN Users u ON a.shop_user_id = u.id 
+            WHERE a.user_id = ? 
+            ORDER BY a.created_at DESC
+            """
+            cursor = conn.execute(query, (user_id,))
+        elif user_type == 'business':
+            query = """
+            SELECT a.*, u.name as customer_name, a.vehicle_plate
+            FROM Appointments a 
+            JOIN Users u ON a.user_id = u.id
+            WHERE a.shop_user_id = ? 
+            ORDER BY a.created_at DESC
+            """
+            cursor = conn.execute(query, (user_id,))
+        else:
+            return jsonify([])
+
+        appointments = [dict(row) for row in cursor.fetchall()]
+        return jsonify(appointments)
+
+    except Exception as e:
+        logging.error(f"Randevu listeleme hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
+@limiter.limit("30 per minute")
+def update_appointment(appointment_id):
+    if 'user_id' not in session or session.get('user_type') != 'business':
+        return jsonify({"description": "Yetkisiz işlem."}), 403
+    
+    data = request.get_json()
+    appointment_date = data.get('appointment_date')
+    if not appointment_date:
+        return jsonify({"description": "Randevu tarihi gereklidir."}), 400
+
+    conn = get_db_connection()
+    try:
+        appointment = conn.execute('SELECT id FROM Appointments WHERE id = ? AND shop_user_id = ?', (appointment_id, session['user_id'])).fetchone()
+        if not appointment:
+            return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
+        
+        conn.execute("UPDATE Appointments SET appointment_date = ?, status = 'scheduled' WHERE id = ?", (appointment_date, appointment_id))
+        conn.commit()
+        return jsonify({"status": "success", "description": "Randevu tarihi güncellendi."})
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Randevu güncelleme hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/appointments/<int:appointment_id>/complete', methods=['POST'])
+@limiter.limit("30 per minute")
+def complete_appointment(appointment_id):
+    if 'user_id' not in session or session.get('user_type') != 'business':
+        return jsonify({"description": "Yetkisiz işlem."}), 403
+    
+    conn = get_db_connection()
+    try:
+        appointment = conn.execute('SELECT id FROM Appointments WHERE id = ? AND shop_user_id = ?', (appointment_id, session['user_id'])).fetchone()
+        if not appointment:
+            return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
+        
+        conn.execute("UPDATE Appointments SET status = 'tamamlandi' WHERE id = ?", (appointment_id,))
+        conn.commit()
+        return jsonify({"status": "success", "description": "Randevu tamamlandı olarak işaretlendi."})
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Randevu tamamlama hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, load_dotenv=False)
