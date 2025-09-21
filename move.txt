@@ -1,0 +1,184 @@
+Araca Bak - Proje Taşıma ve Yeni Sunucu Kurulum Rehberi (Detaylı Versiyon)
+Bu doküman, "Araca Bak" projesinin mevcut sunucudan yeni bir sunucuya nasıl taşınacağını ve tüm servislerin (Apache, Gunicorn, Redis) sıfırdan nasıl yapılandırılacağını, her adımın amacını açıklayarak detaylı bir şekilde anlatmaktadır.
+
+Aşama 1: Mevcut Sunucudan Yedekleme
+Taşıma işlemine başlamadan önce mevcut sunucudaki tüm proje dosyalarını ve en önemlisi veritabanını yedeklemek, veri kaybını önlemek için en kritik adımdır.
+
+Proje Klasörünü Arşivleyin:
+Sunucunuza SSH ile bağlanın ve projenizin bulunduğu ana dizine gidin (örneğin, /var/www/aracabak.com). Ardından tar komutuyla tüm proje dosyalarını aracabak_yedek.tar.gz adında sıkıştırılmış bir arşive dönüştürün.
+
+cd /var/www/aracabak.com
+tar -czvf ~/aracabak_yedek.tar.gz .
+
+tar -czvf komutu ne işe yarar?
+
+c (create): Yeni bir arşiv oluşturur.
+
+z (gzip): Arşivi gzip formatında sıkıştırır, bu da dosya boyutunu küçültür.
+
+v (verbose): Hangi dosyaların arşive eklendiğini terminalde gösterir.
+
+f (file): Sonucun bir dosyaya yazılacağını belirtir.
+
+Yedek Dosyasını Bilgisayarınıza İndirin:
+Lokal makinenizin terminalinde scp (secure copy) komutunu kullanarak yedek dosyasını sunucudan bilgisayarınıza güvenli bir şekilde indirin. (kullanici_adiniz ve sunucu_ip_adresiniz kısımlarını kendi bilgilerinizle değiştirin).
+
+scp kullanici_adiniz@sunucu_ip_adresiniz:~/aracabak_yedek.tar.gz .
+
+Aşama 2: Yeni Sunucunun Hazırlanması
+Yeni sunucunuza (Ubuntu/Debian tabanlı sistemler için) SSH ile bağlanın ve aşağıdaki komutlarla temel altyapıyı kurun.
+
+Sistemi Güncelleyin:
+Paket listelerini güncelleyerek ve mevcut paketleri en son sürümlerine yükselterek sunucunuzu güvenli ve stabil hale getirin.
+
+sudo apt update && sudo apt upgrade -y
+
+Gerekli Paketleri Kurun:
+Projenin çalışması için gereken temel yazılımları yükleyin.
+
+sudo apt install -y python3 python3-pip python3-venv apache2 redis-server
+
+python3, python3-pip, python3-venv: Python dilini, paket yöneticisini ve sanal ortam aracını kurar.
+
+apache2: Web sunucusu olarak görev yapacak ve dışarıdan gelen istekleri karşılayacaktır.
+
+redis-server: Kullanıcı oturum (session) bilgilerini hızlı ve verimli bir şekilde saklamak için kullanılır.
+
+Apache Modüllerini Etkinleştirin:
+Apache'nin gelen istekleri Python uygulamanıza (Gunicorn) yönlendirebilmesi için gerekli proxy modüllerini etkinleştirin.
+
+sudo a2enmod proxy
+sudo a2enmod proxy_http
+sudo systemctl restart apache2
+
+Aşama 3: Proje Dosyalarının Yeni Sunucuya Aktarılması
+Yedek Dosyasını Yükleyin:
+Lokal makinenizden yeni sunucuya scp ile yedek dosyasını yükleyin.
+
+scp aracabak_yedek.tar.gz kullanici_adiniz@yeni_sunucu_ip_adresiniz:~/
+
+Dosyaları Ayıklayın:
+Yeni sunucunuza SSH ile bağlanın, proje için standart bir dizin oluşturun ve yedek dosyasını bu dizine açın.
+
+# Proje dizinini oluştur ve sahipliğini ayarla
+sudo mkdir -p /var/www/aracabak.com
+sudo chown -R $USER:$USER /var/www/aracabak.com
+
+# Yedek dosyasını bu dizine taşı ve aç
+mv ~/aracabak_yedek.tar.gz /var/www/aracabak.com/
+cd /var/www/aracabak.com
+tar -xzvf aracabak_yedek.tar.gz
+
+Aşama 4: Python Sanal Ortamının Kurulması
+Proje bağımlılıklarını sistem genelindeki Python paketlerinden izole etmek için sanal bir ortam oluşturmak en iyi pratiktir.
+
+Sanal Ortamı Oluşturun:
+
+cd /var/www/aracabak.com
+python3 -m venv venv
+
+Sanal Ortamı Aktifleştirin:
+Bu komutu çalıştırdığınızda, terminal satırınızın başında (venv) ifadesini göreceksiniz. Bu, artık bu sanal ortam içinde çalıştığınızı gösterir.
+
+source venv/bin/activate
+
+Gerekli Kütüphaneleri Yükleyin:
+Projenizin ihtiyaç duyduğu tüm Python paketlerini requirements.txt dosyasını kullanarak otomatik olarak yükleyin.
+
+pip install -r requirements.txt
+
+Aşama 5: Gunicorn Servisinin Yapılandırılması
+Gunicorn (Green Unicorn), Python web uygulamaları için bir WSGI HTTP sunucusudur. Projenizin arka planda sürekli ve stabil bir şekilde çalışmasını sağlar.
+
+Servis Dosyasını Oluşturun:
+
+sudo nano /etc/systemd/system/aracabak.service
+
+Servis Dosyasının İçeriğini Doldurun:
+Aşağıdaki içeriği açtığınız dosyaya yapıştırın.
+
+[Unit]
+Description=Araca Bak Flask API servisi
+After=network.target
+
+[Service]
+User=debian
+Group=www-data
+WorkingDirectory=/var/www/aracabak.com/public/api
+ExecStart=/var/www/aracabak.com/venv/bin/gunicorn --workers 3 --bind unix:/var/www/aracabak.com/aracabak.sock -m 007 main_api:app
+
+[Install]
+WantedBy=multi-user.target
+
+User & Group: Servisin hangi kullanıcı ve grup yetkileriyle çalışacağını belirtir. www-data grubu, Apache ile iletişim kurabilmesi için önemlidir.
+
+WorkingDirectory: Servis çalışmaya başlamadan önce hangi dizine geçeceğini belirtir. main_api.py dosyanızın bulunduğu dizin olmalıdır.
+
+ExecStart: Servis başladığında çalıştırılacak olan asıl komuttur.
+
+/var/www/aracabak.com/venv/bin/gunicorn: Sanal ortamdaki Gunicorn'u çalıştırır.
+
+--workers 3: Sunucunuzun işlemci çekirdek sayısına bağlı olarak ayarlanabilecek çalışan (worker) sayısını belirtir. Genellikle (2 * Çekirdek Sayısı) + 1 formülü kullanılır.
+
+--bind unix:/var/www/aracabak.com/aracabak.sock: Gunicorn'un bir IP ve port yerine, daha güvenli ve hızlı olan bir Unix soket dosyası üzerinden iletişim kurmasını sağlar.
+
+-m 007: Soket dosyasının izinlerini ayarlar, böylece Apache (www-data grubu) bu dosyaya yazabilir.
+
+main_api:app: main_api.py dosyasının içindeki app adlı Flask uygulamasını çalıştıracağını belirtir.
+
+Servisi Etkinleştirin ve Başlatın:
+
+sudo systemctl daemon-reload  # Yeni servis dosyasını sisteme tanıt
+sudo systemctl start aracabak     # Servisi başlat
+sudo systemctl enable aracabak    # Sunucu yeniden başladığında servisin otomatik başlamasını sağla
+sudo systemctl status aracabak    # Servisin durumunu kontrol et
+
+Aşama 6: Apache Sanal Konak (VirtualHost) Yapılandırması
+Apache'nin gelen istekleri doğru bir şekilde Gunicorn'a yönlendirmesi için sanal konak dosyası oluşturacağız.
+
+Yapılandırma Dosyasını Oluşturun:
+
+sudo nano /etc/apache2/sites-available/aracabak.com.conf
+
+Dosyanın İçeriğini Doldurun:
+Aşağıdaki yapılandırmayı dosyaya yapıştırın. ServerName ve ServerAlias kısımlarını kendi alan adınızla güncelleyin.
+
+<VirtualHost *:80>
+    ServerName aracabak.com
+    ServerAlias [www.aracabak.com](https://www.aracabak.com)
+
+    DocumentRoot /var/www/[aracabak.com/public](https://aracabak.com/public)
+
+    ProxyPreserveHost On
+    ProxyPass /api http://unix:/var/www/[aracabak.com/aracabak.sock](https://aracabak.com/aracabak.sock)|http://localhost/api
+    ProxyPassReverse /api http://unix:/var/www/[aracabak.com/aracabak.sock](https://aracabak.com/aracabak.sock)|http://localhost/api
+
+    ErrorLog ${APACHE_LOG_DIR}/aracabak-error.log
+    CustomLog ${APACHE_LOG_DIR}/aracabak-access.log combined
+</VirtualHost>
+
+DocumentRoot: Statik dosyalarınızın (index.html, resimler vb.) bulunduğu klasörü belirtir.
+
+ProxyPass /api ...: /api ile başlayan tüm URL'leri Gunicorn soketine yönlendirir. Bu, projenizin can damarıdır.
+
+ProxyPassReverse /api ...: Gunicorn'dan gelen yanıtların başlıklarını Apache'nin doğru bir şekilde işlemesini sağlar.
+
+Sitenizi Etkinleştirin ve Apache'yi Yeniden Başlatın:
+
+sudo a2ensite aracabak.com.conf
+sudo systemctl restart apache2
+
+Aşama 7: Son Kontroller ve DNS
+Servis Durumlarını Kontrol Edin:
+Hem aracabak.service hem de apache2 servislerinin active (running) olduğundan emin olun.
+
+sudo systemctl status aracabak.service
+sudo systemctl status apache2
+
+Logları İnceleyin:
+Bir sorun varsa, journalctl -u aracabak.service ve /var/log/apache2/error.log dosyalarını inceleyin.
+
+DNS Ayarları:
+Son olarak, alan adınızın (DNS A kaydı) yeni sunucunuzun IP adresini gösterdiğinden emin olun. DNS değişikliklerinin yayılması biraz zaman alabilir.
+
+Bu adımları tamamladığınızda projeniz yeni sunucunuzda sorunsuz bir şekilde çalışacaktır.
