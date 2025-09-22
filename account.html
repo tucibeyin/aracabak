@@ -464,8 +464,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${req.quote.notes ? `<div class="mt-4 text-sm text-gray-700 bg-green-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
                                 </div>
                                 <div class="flex gap-4 mt-4">
-                                    <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors" data-request-id="${req.id}">Teklifi Onayla</button>
-                                    <button class="reject-quote-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-gray-300 transition-colors" data-request-id="${req.id}">Reddet</button>
+                                    <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors" data-quote-id="${req.id}">Teklifi Onayla</button>
+                                    <button class="reject-quote-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-gray-300 transition-colors" data-quote-id="${req.id}">Reddet</button>
                                 </div>
                             </div>
                         `;
@@ -483,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${statusHtml}
                                     <span class="text-sm text-gray-500">${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
                                     <a href="${phoneUrl}" class="bg-blue-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-blue-600 ${phoneButtonClass}"><i class="fas fa-phone"></i></a>
-                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-quote-id="${req.id}">Sil</button>
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -519,27 +519,27 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span class="font-bold text-base border-t pt-2 mt-1">Toplam:</span><span class="font-bold text-base border-t pt-2 mt-1 text-right">${req.quote.total_cost.toFixed(2)} TL</span>
                                     </div>
                                     ${req.quote.notes ? `<div class="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md"><strong>Not:</strong> ${req.quote.notes}</div>` : ''}
-                                    <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-request-id="${req.id}">Teklifi Güncelle</button>
+                                    <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-quote-id="${req.id}">Teklifi Güncelle</button>
                                 </div>
                                 <div id="quote-form-${req.id}" class="hidden mt-4 space-y-3">
                                     <input type="number" placeholder="Parça Maliyeti (TL)" class="p-2 border rounded w-full" id="parts-cost-${req.id}" value="${req.quote.parts_cost.toFixed(2)}">
                                     <input type="number" placeholder="İşçilik Maliyeti (TL)" class="p-2 border rounded w-full" id="labor-cost-${req.id}" value="${req.quote.labor_cost.toFixed(2)}">
                                     <textarea placeholder="Müşteriye ek notlar..." class="p-2 border rounded w-full text-sm" id="notes-${req.id}">${req.quote.notes || ''}</textarea>
                                     <div class="flex gap-2">
-                                        <button class="cancel-update-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}">İptal</button>
-                                        <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}" data-method="PUT">Güncellemeyi Gönder</button>
+                                        <button class="cancel-update-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}">İptal</button>
+                                        <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}" data-method="PUT">Güncellemeyi Gönder</button>
                                     </div>
                                 </div>
                             </div>`;
                     } else if (req.status === 'pending') {
                         actionSectionHtml = `
                             <div class="mt-4 border-t border-dashed pt-4">
-                                <button class="make-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}">Teklif Ver</button>
+                                <button class="make-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}">Teklif Ver</button>
                                 <div id="quote-form-${req.id}" class="hidden mt-4 space-y-3">
                                     <input type="number" placeholder="Parça Maliyeti (TL)" class="p-2 border rounded w-full" id="parts-cost-${req.id}">
                                     <input type="number" placeholder="İşçilik Maliyeti (TL)" class="p-2 border rounded w-full" id="labor-cost-${req.id}">
                                     <textarea placeholder="Müşteriye ek notlar..." class="p-2 border rounded w-full text-sm" id="notes-${req.id}"></textarea>
-                                    <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}" data-method="POST">Teklifi Gönder</button>
+                                    <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}" data-method="POST">Teklifi Gönder</button>
                                 </div>
                             </div>`;
                     } else {
@@ -552,7 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${requestCardHeader}
                                 <div class="flex items-center gap-2 mt-2 sm:mt-0">
                                     <span class="text-sm text-gray-500">Talep: ${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
-                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-quote-id="${req.id}">Sil</button>
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -693,10 +693,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleAcceptQuote(e) {
         const button = e.currentTarget;
-        const requestId = button.dataset.requestId;
+        const quoteId = button.dataset.quoteId;
         if (confirm('Bu teklifi onaylamak ve randevu oluşturmak istediğinizden emin misiniz?')) {
             try {
-                const response = await fetch(`/api/requests/${requestId}/accept`, { method: 'POST' });
+                const response = await fetch(`/api/quotes/${quoteId}/accept`, { method: 'POST' });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
                 showToast('Teklif onaylandı ve randevu oluşturuldu!');
