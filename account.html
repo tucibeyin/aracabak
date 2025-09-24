@@ -116,8 +116,8 @@
                             <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
                         </div>
                         <div>
-                            <label for="account_id" class="block text-sm font-medium text-gray-700">aracabak İşletme Üyelik Kodu</label>
-                            <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Örn: aBcDeF123" maxlength="100">
+                            <label for="account_id" class="block text-sm font-medium text-gray-700">Google Place ID</label>
+                            <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Örn: ChIJ..." maxlength="100">
                         </div>
                     </div>
                     <div id="shopMessageContainer"></div>
@@ -145,7 +145,7 @@
                     <div id="inspectionReminderList" class="space-y-4"></div>
                 </div>
             </div>
-            <div id="fuelTrackerSection" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg mb-12 hidden">
+            <div id="fuelTrackerSection" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg mb-12">
                 <h2 class="text-2xl sm:text-3xl font-bold mb-6">Yakıt Girişi ve Raporlama</h2>
                 <div class="mb-4">
                     <label for="fuelVehicleSelect" class="block text-sm font-medium text-gray-700 mb-1">İşlem Yapılacak Araç</label>
@@ -313,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const accountForm = document.getElementById('accountForm');
     const businessSection = document.getElementById('businessSection');
     const ownerVehicleSection = document.getElementById('ownerVehicleSection');
+    const appointmentsSection = document.getElementById('appointmentsSection');
     const businessRequestsSection = document.getElementById('businessRequestsSection');
     const ownerSentRequestsSection = document.getElementById('ownerSentRequestsSection');
     const showAddVehicleFormBtn = document.getElementById('showAddVehicleFormBtn');
@@ -397,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        document.getElementById('fuelTrackerSection').classList.remove('hidden');
         fuelVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin</option>';
         vehicles.forEach(vehicle => {
             fuelVehicleSelect.add(new Option(`${vehicle.plate_number} - ${vehicle.brand} ${vehicle.model}`, vehicle.id));
@@ -447,6 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     let statusHtml = '';
                     if (req.status === 'quoted') {
                         statusHtml = `<span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Alındı</span>`;
+                    } else if (req.status === 'accepted') {
+                        statusHtml = `<span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Onaylandı</span>`;
                     } else {
                         statusHtml = `<span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Bekleniyor</span>`;
                     }
@@ -464,8 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${req.quote.notes ? `<div class="mt-4 text-sm text-gray-700 bg-green-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
                                 </div>
                                 <div class="flex gap-4 mt-4">
-                                    <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors" data-quote-id="${req.id}">Teklifi Onayla</button>
-                                    <button class="reject-quote-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-gray-300 transition-colors" data-quote-id="${req.id}">Reddet</button>
+                                    <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
+                                    <button class="reject-quote-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-gray-300 transition-colors" data-request-id="${req.id}">Reddet</button>
                                 </div>
                             </div>
                         `;
@@ -483,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${statusHtml}
                                     <span class="text-sm text-gray-500">${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
                                     <a href="${phoneUrl}" class="bg-blue-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-blue-600 ${phoneButtonClass}"><i class="fas fa-phone"></i></a>
-                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-quote-id="${req.id}">Sil</button>
+                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -519,27 +523,27 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span class="font-bold text-base border-t pt-2 mt-1">Toplam:</span><span class="font-bold text-base border-t pt-2 mt-1 text-right">${req.quote.total_cost.toFixed(2)} TL</span>
                                     </div>
                                     ${req.quote.notes ? `<div class="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md"><strong>Not:</strong> ${req.quote.notes}</div>` : ''}
-                                    <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-quote-id="${req.id}">Teklifi Güncelle</button>
+                                    <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-request-id="${req.id}">Teklifi Güncelle</button>
                                 </div>
                                 <div id="quote-form-${req.id}" class="hidden mt-4 space-y-3">
                                     <input type="number" placeholder="Parça Maliyeti (TL)" class="p-2 border rounded w-full" id="parts-cost-${req.id}" value="${req.quote.parts_cost.toFixed(2)}">
                                     <input type="number" placeholder="İşçilik Maliyeti (TL)" class="p-2 border rounded w-full" id="labor-cost-${req.id}" value="${req.quote.labor_cost.toFixed(2)}">
                                     <textarea placeholder="Müşteriye ek notlar..." class="p-2 border rounded w-full text-sm" id="notes-${req.id}">${req.quote.notes || ''}</textarea>
                                     <div class="flex gap-2">
-                                        <button class="cancel-update-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}">İptal</button>
-                                        <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}" data-method="PUT">Güncellemeyi Gönder</button>
+                                        <button class="cancel-update-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}">İptal</button>
+                                        <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}" data-method="PUT">Güncellemeyi Gönder</button>
                                     </div>
                                 </div>
                             </div>`;
                     } else if (req.status === 'pending') {
                         actionSectionHtml = `
                             <div class="mt-4 border-t border-dashed pt-4">
-                                <button class="make-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}">Teklif Ver</button>
+                                <button class="make-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}">Teklif Ver</button>
                                 <div id="quote-form-${req.id}" class="hidden mt-4 space-y-3">
                                     <input type="number" placeholder="Parça Maliyeti (TL)" class="p-2 border rounded w-full" id="parts-cost-${req.id}">
                                     <input type="number" placeholder="İşçilik Maliyeti (TL)" class="p-2 border rounded w-full" id="labor-cost-${req.id}">
                                     <textarea placeholder="Müşteriye ek notlar..." class="p-2 border rounded w-full text-sm" id="notes-${req.id}"></textarea>
-                                    <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.id}" data-method="POST">Teklifi Gönder</button>
+                                    <button class="send-quote-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-request-id="${req.id}" data-method="POST">Teklifi Gönder</button>
                                 </div>
                             </div>`;
                     } else {
@@ -552,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${requestCardHeader}
                                 <div class="flex items-center gap-2 mt-2 sm:mt-0">
                                     <span class="text-sm text-gray-500">Talep: ${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
-                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-quote-id="${req.id}">Sil</button>
+                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -608,10 +612,12 @@ document.addEventListener('DOMContentLoaded', () => {
             appointments.forEach(app => {
                 const statusColors = {
                     'tarih_bekleniyor': 'bg-yellow-100 text-yellow-800',
+                    'tarih_belirlendi': 'bg-blue-100 text-blue-800',
                     'tamamlandi': 'bg-green-100 text-green-800'
                 };
                 const statusText = {
                     'tarih_bekleniyor': 'Tarih Bekleniyor',
+                    'tarih_belirlendi': 'Tarih Belirlendi',
                     'tamamlandi': 'Tamamlandı'
                 };
 
@@ -633,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div>
                                 <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model}</h4>
-                                <p class="text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${app.appointment_date ? new Date(app.appointment_date).toLocaleString('tr-TR') : 'Henüz Belirlenmedi'}</p>
+                                <p class="text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${app.appointment_date ? new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'Henüz Belirlenmedi'}</p>
                             </div>
                         </div>
                     `;
@@ -650,29 +656,36 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         `;
                     } else {
-                        dateSection = `<p class="mt-4 pt-4 border-t text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${new Date(app.appointment_date).toLocaleString('tr-TR')}</p>`;
+                        dateSection = `<p class="mt-4 pt-4 border-t text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</p>`;
                     }
                     
-                    let completeButton = '';
+                    let actionButtons = '';
                     if (app.status !== 'tamamlandi') {
-                        completeButton = `<button class="complete-appointment-btn bg-green-500 text-white font-bold py-2 px-4 rounded-lg mt-2" data-appointment-id="${app.id}">İşlemi Tamamla</button>`;
+                        actionButtons += `<button class="complete-appointment-btn bg-green-500 text-white font-bold py-2 px-4 rounded-lg mt-2" data-appointment-id="${app.id}">İşlemi Tamamla</button>`;
+                    } else {
+                        actionButtons += `<button class="delete-appointment-btn bg-red-500 text-white font-bold py-2 px-4 rounded-lg mt-2" data-appointment-id="${app.id}">Sil</button>`;
                     }
 
+                    const customerPhoneHtml = app.customer_phone ? `<a href="tel:${app.customer_phone}" class="text-sm text-blue-600 hover:underline"><i class="fas fa-phone mr-1"></i>${app.customer_phone}</a>` : '<span class="text-sm text-gray-500">Telefon yok</span>';
+                    
                     appointmentCard = `
                          <div class="border rounded-lg p-6 bg-white fade-in">
                             <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
                                 <div>
-                                    <p class="text-sm text-gray-500">Müşteri</p>
                                     <p class="font-bold text-xl">${app.customer_name}</p>
+                                    <p>${customerPhoneHtml}</p>
                                 </div>
                                 <div class="flex items-center gap-2 mt-2 sm:mt-0">
                                      ${statusBadge}
                                 </div>
                             </div>
                             <div>
-                                <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model} (${app.vehicle_plate})</h4>
+                                <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model} (${app.vehicle_plate || 'Plaka Yok'})</h4>
+                                <p class="text-sm text-gray-500">Araç KM: ${app.vehicle_km ? app.vehicle_km.toLocaleString() + ' km' : 'Belirtilmemiş'}</p>
                                 ${dateSection}
-                                ${completeButton}
+                                <div class="mt-2">
+                                ${actionButtons}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -683,6 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isOwner) {
                 document.querySelectorAll('.update-appointment-btn').forEach(btn => btn.addEventListener('click', handleUpdateAppointment));
                 document.querySelectorAll('.complete-appointment-btn').forEach(btn => btn.addEventListener('click', handleCompleteAppointment));
+                document.querySelectorAll('.delete-appointment-btn').forEach(btn => btn.addEventListener('click', handleDeleteAppointment));
             }
 
         } catch (error) {
@@ -746,41 +760,70 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
+    async function handleDeleteAppointment(e) {
+        const button = e.currentTarget;
+        const appointmentId = button.dataset.appointmentId;
+        if (confirm('Bu randevuyu kalıcı olarak silmek istediğinizden emin misiniz?')) {
+            try {
+                const response = await fetch(`/api/appointments/${appointmentId}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                showToast('Randevu başarıyla silindi!');
+                await populateAppointments(false);
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        }
+    }
     
     async function populateAccountForm() {
         try {
             const response = await fetch(`/api/account`);
             if (!response.ok) throw new Error('Hesap bilgileri alınamadı.');
             const data = await response.json();
-            if (!data.phone_number) {
+            
+            document.getElementById('account_name').value = data.name;
+            document.getElementById('account_email').value = data.email;
+            document.getElementById('account_user_type').value = data.user_type === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+            document.getElementById('account_phone_number').value = data.phone_number || '';
+
+            if (!data.phone_number && data.user_type !== 'business_without_phone') { // Örnek bir kontrol
                 mainContent.classList.add('blur-sm', 'pointer-events-none');
                 phoneEntryOverlay.classList.remove('hidden');
                 document.body.style.overflow = 'hidden';
             } else {
-                mainContent.classList.remove('blur-sm', 'pointer-events-none');
+                 mainContent.classList.remove('blur-sm', 'pointer-events-none');
                 phoneEntryOverlay.classList.add('hidden');
                 document.body.style.overflow = '';
-                document.getElementById('account_name').value = data.name;
-                document.getElementById('account_email').value = data.email;
-                document.getElementById('account_user_type').value = data.user_type === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
-                document.getElementById('account_phone_number').value = data.phone_number || '';
-                if (data.user_type === 'owner') {
-                    ownerVehicleSection.classList.remove('hidden');
-                    ownerSentRequestsSection.classList.remove('hidden');
-                    populateVehicleList(data.vehicles);
-                    populateTaxReminders(data.vehicles);
-                    populateInspectionReminders(data.vehicles);
-                    await populateRequestsList(true);
-                } else if (data.user_type === 'business') {
-                    businessSection.classList.remove('hidden');
-                    businessRequestsSection.classList.remove('hidden');
-                    if (data.city || data.shop_phone || data.google_place_id) {
-                        displayShopInfo(data);
-                    } else {
-                        showAddShopButton();
-                    }
-                    await populateRequestsList(false);
+            }
+
+            if (data.user_type === 'owner') {
+                ownerVehicleSection.classList.remove('hidden');
+                ownerSentRequestsSection.classList.remove('hidden');
+                appointmentsSection.classList.remove('hidden');
+                businessSection.classList.add('hidden');
+                businessRequestsSection.classList.add('hidden');
+
+                populateVehicleList(data.vehicles);
+                populateTaxReminders(data.vehicles);
+                populateInspectionReminders(data.vehicles);
+                await populateRequestsList(true);
+                await populateAppointments(true);
+            } else if (data.user_type === 'business') {
+                businessSection.classList.remove('hidden');
+                businessRequestsSection.classList.remove('hidden');
+                appointmentsSection.classList.remove('hidden');
+                ownerVehicleSection.classList.add('hidden');
+                ownerSentRequestsSection.classList.add('hidden');
+
+                if (data.city || data.phone || data.google_place_id) {
+                    displayShopInfo(data);
+                } else {
+                    showAddShopButton();
                 }
+                await populateRequestsList(false);
+                await populateAppointments(false);
             }
         } catch (error) { displayMessage('accountMessageContainer', error.message, 'error'); }
     }
@@ -866,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleRejectQuote(e) {
         const button = e.currentTarget;
         const requestId = button.dataset.requestId;
-        if (confirm('Bu teklifi reddetmek istediğinizden emin misiniz? Talep, diğer işletmelerin görebilmesi için yeniden aktif hale gelecektir.')) {
+        if (confirm('Bu teklifi reddetmek istediğinizden emin misiniz? Talep, teklif bekliyor durumuna geri dönecektir.')) {
             try {
                 const response = await fetch(`/api/requests/${requestId}/quote`, {
                     method: 'DELETE'
@@ -1153,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     accountForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const phoneNumber = document.getElementById('account_phone_number').value;
-        if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
+        if (phoneNumber && (!phoneNumber.startsWith('0') || phoneNumber.length !== 11)) {
             displayMessage('accountMessageContainer', 'Kişisel telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
             return;
         }
@@ -1212,8 +1255,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const detailsEl = document.getElementById('shopDetails');
         detailsEl.innerHTML = `
             <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
-            <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
-            <p><strong class="font-semibold">İşletme ID:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.phone || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">Google Place ID:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Servis Verilen Markalar:</strong> ${shopData.serviced_brands ? shopData.serviced_brands.replace(/,/g, ', ') : 'Belirtilmemiş'}</p>
         `;
     }
@@ -1238,7 +1281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedBrands.includes(option.value)) option.selected = true;
             }
         }
-        document.getElementById('account_shop_phone').value = shopData.shop_phone || '';
+        document.getElementById('account_shop_phone').value = shopData.phone || '';
         document.getElementById('account_id').value = shopData.google_place_id || '';
     }
     
@@ -1251,11 +1294,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cancelShopEditBtn').addEventListener('click', populateAccountForm);
 
     document.getElementById('deleteShopBtn').addEventListener('click', async () => {
-        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz?')) {
+        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
             try {
                 const response = await fetch('/api/shops', {
                     method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
@@ -1269,9 +1311,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('saveShopBtn').addEventListener('click', async () => {
         const payload = {
-            phone_number: document.getElementById('account_phone_number').value,
             city: document.getElementById('account_city').value,
-            shop_phone: document.getElementById('account_shop_phone').value,
+            phone: document.getElementById('account_shop_phone').value,
             google_place_id: document.getElementById('account_id').value,
             serviced_brands: Array.from(document.getElementById('account_serviced_brands').selectedOptions).map(opt => opt.value)
         };
@@ -1286,64 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (!response.ok) throw new Error(result.description);
             showToast('İşletme bilgileri başarıyla güncellendi!');
-            setTimeout(populateAccountForm, 1500);
-        } catch (error) {
-            displayMessage('shopMessageContainer', error.message, 'error');
-        } finally {
-            submitButton.disabled = false;
-        }
-    });
-    const addShopBtn = document.getElementById('addShopBtn');
-    if(addShopBtn) addShopBtn.addEventListener('click', () => showShopForm());
-    
-    const editShopBtn = document.getElementById('editShopBtn');
-    if(editShopBtn) editShopBtn.addEventListener('click', async () => {
-        const response = await fetch(`/api/account`);
-        const data = await response.json();
-        showShopForm(data);
-    });
-
-    const cancelShopEditBtn = document.getElementById('cancelShopEditBtn');
-    if(cancelShopEditBtn) cancelShopEditBtn.addEventListener('click', populateAccountForm);
-
-    const deleteShopBtn = document.getElementById('deleteShopBtn');
-    if(deleteShopBtn) deleteShopBtn.addEventListener('click', async () => {
-        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz?')) {
-            try {
-                const response = await fetch('/api/shops', {
-                    method: 'DELETE'
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.description);
-                showToast('İşletme profili başarıyla silindi!');
-                populateAccountForm(); 
-            } catch(error) {
-                showToast(error.message, 'error');
-            }
-        }
-    });
-
-    const saveShopBtn = document.getElementById('saveShopBtn');
-    if(saveShopBtn) saveShopBtn.addEventListener('click', async () => {
-        const payload = {
-            phone_number: document.getElementById('account_phone_number').value,
-            city: document.getElementById('account_city').value,
-            shop_phone: document.getElementById('account_shop_phone').value,
-            google_place_id: document.getElementById('account_id').value,
-            serviced_brands: Array.from(document.getElementById('account_serviced_brands').selectedOptions).map(opt => opt.value)
-        };
-        const submitButton = document.getElementById('saveShopBtn');
-        submitButton.disabled = true;
-        try {
-            const response = await fetch('/api/account', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.description);
-            showToast('İşletme bilgileri başarıyla güncellendi!');
-            setTimeout(populateAccountForm, 1500);
+            setTimeout(populateAccountForm, 1000);
         } catch (error) {
             displayMessage('shopMessageContainer', error.message, 'error');
         } finally {
