@@ -317,7 +317,7 @@ def get_requests():
 
         if user_type == 'business':
             query = """
-                SELECT r.*, u.name as customer_name, u.phone_number as customer_phone, q.total_cost
+                SELECT r.*, u.name as customer_name, u.phone_number as customer_phone, q.total_cost, q.parts_cost, q.labor_cost, q.notes as quote_notes, q.id as quote_id
                 FROM Requests r JOIN Users u ON r.user_id = u.id
                 LEFT JOIN Quotes q ON r.id = q.request_id
                 WHERE r.shop_user_id = %s ORDER BY r.created_at DESC
@@ -341,29 +341,31 @@ def get_requests():
             req = dict(row)
             if req.get('selected_parts'):
                 req['selected_parts'] = json.loads(req['selected_parts'])
-            if user_type == 'owner':
-                if req.get('total_cost') is not None:
-                    req['quote'] = {
-                        "id": req['quote_id'],
-                        "parts_cost": req['parts_cost'],
-                        "labor_cost": req['labor_cost'],
-                        "total_cost": req['total_cost'],
-                        "notes": req['quote_notes']
-                    }
-                for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes', 'quote_id']:
-                    req.pop(key, None)
-                if req.get('shop_google_place_id') and GOOGLE_PLACES_API_KEY:
-                    try:
-                        place_id = req['shop_google_place_id']
-                        url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_phone_number&key={GOOGLE_PLACES_API_KEY}&language=tr"
-                        response = requests.get(url, timeout=5)
-                        place_data = response.json()
-                        if place_data.get("status") == "OK" and "result" in place_data:
-                            result = place_data['result']
-                            req['shop_name'] = result.get('name', req.get('shop_name'))
-                            req['shop_phone'] = result.get('formatted_phone_number', req.get('shop_phone'))
-                    except requests.exceptions.RequestException as e:
-                        logging.error(f"Google Places API isteği başarısız oldu: {e}")
+
+            if req.get('total_cost') is not None:
+                req['quote'] = {
+                    "id": req['quote_id'],
+                    "parts_cost": req['parts_cost'],
+                    "labor_cost": req['labor_cost'],
+                    "total_cost": req['total_cost'],
+                    "notes": req['quote_notes']
+                }
+            
+            for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes', 'quote_id']:
+                req.pop(key, None)
+
+            if user_type == 'owner' and req.get('shop_google_place_id') and GOOGLE_PLACES_API_KEY:
+                try:
+                    place_id = req['shop_google_place_id']
+                    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_phone_number&key={GOOGLE_PLACES_API_KEY}&language=tr"
+                    response = requests.get(url, timeout=5)
+                    place_data = response.json()
+                    if place_data.get("status") == "OK" and "result" in place_data:
+                        result = place_data['result']
+                        req['shop_name'] = result.get('name', req.get('shop_name'))
+                        req['shop_phone'] = result.get('formatted_phone_number', req.get('shop_phone'))
+                except requests.exceptions.RequestException as e:
+                    logging.error(f"Google Places API isteği başarısız oldu: {e}")
             requests_list.append(req)
         return jsonify(requests_list)
     except Exception as e:
@@ -537,7 +539,7 @@ def accept_quote(quote_id):
         cursor.execute("UPDATE Requests SET status = 'accepted' WHERE id = %s", (quote_data['request_id'],))
         cursor.execute(
             "INSERT INTO Appointments (request_id, quote_id, user_id, shop_user_id, status) VALUES (%s, %s, %s, %s, %s)",
-            (quote_data['request_id'], quote_id, user_id, quote_data['shop_user_id'], 'scheduled')
+            (quote_data['request_id'], quote_id, user_id, quote_data['shop_user_id'], 'tarih_bekleniyor')
         )
         conn.commit()
         logging.info(f"Kullanıcı {user_id}, teklif {quote_id} için randevu oluşturdu.")
@@ -550,6 +552,115 @@ def accept_quote(quote_id):
     finally:
         if conn:
             conn.close()
+
+@app.route('/api/appointments', methods=['GET'])
+@limiter.limit("60 per minute")
+def get_appointments():
+    if 'user_id' not in session:
+        return jsonify({"description": "Yetkilendirme gerekli."}), 401
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        user_id = session['user_id']
+        user_type = session['user_type']
+
+        if user_type == 'owner':
+            query = """
+                SELECT a.*, r.vehicle_brand, r.vehicle_model, u.name as shop_name
+                FROM Appointments a
+                JOIN Requests r ON a.request_id = r.id
+                JOIN Users u ON a.shop_user_id = u.id
+                WHERE a.user_id = %s ORDER BY a.created_at DESC
+            """
+            cursor.execute(query, (user_id,))
+        elif user_type == 'business':
+            query = """
+                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.vehicle_km, v.plate_number as vehicle_plate, u.name as customer_name, u.phone_number as customer_phone
+                FROM Appointments a
+                JOIN Requests r ON a.request_id = r.id
+                JOIN Users u ON a.user_id = u.id
+                LEFT JOIN Vehicles v ON r.user_id = v.user_id AND r.vehicle_brand = v.brand AND r.vehicle_model = v.model
+                WHERE a.shop_user_id = %s ORDER BY a.created_at DESC
+            """
+            cursor.execute(query, (user_id,))
+        else:
+            return jsonify([])
+        
+        appointments = [dict(row) for row in cursor.fetchall()]
+        return jsonify(appointments)
+
+    except Exception as e:
+        logging.error(f"Randevu listeleme hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['PUT', 'DELETE'])
+@limiter.limit("30 per minute")
+def manage_appointment(appointment_id):
+    if 'user_id' not in session or session['user_type'] != 'business':
+        return jsonify({"description": "Yetkisiz işlem."}), 403
+    
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if request.method == 'PUT':
+            data = request.get_json()
+            appointment_date = data.get('appointment_date')
+            if not appointment_date:
+                return jsonify({"description": "Randevu tarihi gereklidir."}), 400
+            
+            cursor.execute("UPDATE Appointments SET appointment_date = %s, status = 'tarih_belirlendi' WHERE id = %s AND shop_user_id = %s",
+                           (appointment_date, appointment_id, session['user_id']))
+            conn.commit()
+            if cursor.rowcount == 0:
+                return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
+            return jsonify({"status": "success", "description": "Randevu tarihi güncellendi."})
+
+        elif request.method == 'DELETE':
+            cursor.execute("SELECT status FROM Appointments WHERE id = %s AND shop_user_id = %s", (appointment_id, session['user_id']))
+            appointment = cursor.fetchone()
+            if not appointment:
+                return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
+            if appointment[0] != 'tamamlandi':
+                return jsonify({"description": "Sadece tamamlanmış randevular silinebilir."}), 403
+
+            cursor.execute("DELETE FROM Appointments WHERE id = %s", (appointment_id,))
+            conn.commit()
+            return jsonify({"status": "success", "description": "Randevu başarıyla silindi."})
+
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Randevu yönetimi hatası: {e}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/appointments/<int:appointment_id>/complete', methods=['POST'])
+@limiter.limit("30 per minute")
+def complete_appointment(appointment_id):
+    if 'user_id' not in session or session['user_type'] != 'business':
+        return jsonify({"description": "Yetkisiz işlem."}), 403
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Appointments SET status = 'tamamlandi' WHERE id = %s AND shop_user_id = %s",
+                       (appointment_id, session['user_id']))
+        conn.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
+        return jsonify({"status": "success", "description": "Randevu tamamlandı olarak işaretlendi."})
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Randevu tamamlama hatası: {e}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
 
 @app.route('/api/vehicles/<int:vehicle_id>/fuel_entries', methods=['GET', 'POST'])
 @limiter.limit("60 per minute")
@@ -617,7 +728,7 @@ def find_shops():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         query = """
-            SELECT u.id as shop_user_id, u.name, s.phone, s.city, s.google_place_id
+            SELECT u.id as shop_user_id, u.name as db_name, s.phone as db_phone, s.city, s.google_place_id
             FROM Shops s JOIN Users u ON s.user_id = u.id
             WHERE s.city = %s AND s.serviced_brands LIKE %s
         """
@@ -625,6 +736,8 @@ def find_shops():
         cursor.execute(query, (city, brand_search_term))
         shops = [dict(row) for row in cursor.fetchall()]
         for shop in shops:
+            shop['name'] = shop['db_name']
+            shop['phone'] = shop['db_phone']
             if shop.get('google_place_id') and GOOGLE_PLACES_API_KEY:
                 try:
                     place_id = shop['google_place_id']
@@ -634,11 +747,11 @@ def find_shops():
                     if place_data.get("status") == "OK" and "result" in place_data:
                         result = place_data['result']
                         shop.update({
-                            'name': result.get('name', shop.get('name')),
+                            'name': result.get('name') or shop['db_name'],
                             'rating': result.get('rating', 0),
                             'user_ratings_total': result.get('user_ratings_total', 0),
                             'reviews': result.get('reviews', [])[:2],
-                            'formatted_phone_number': result.get('formatted_phone_number', shop.get('phone')),
+                            'phone': result.get('formatted_phone_number') or shop['db_phone'],
                             'url': result.get('url')
                         })
                 except requests.exceptions.RequestException as e:
@@ -766,21 +879,24 @@ def account_details():
         if request.method == 'POST':
             data = request.get_json()
             phone_number = data.get('phone_number')
-            if not phone_number or not validate_phone_number(phone_number):
+            if phone_number and not validate_phone_number(phone_number):
                 return jsonify({"description": "Geçersiz telefon no."}), 400
-            cursor.execute('UPDATE Users SET phone_number = %s WHERE id = %s', (phone_number, user['id']))
+            
+            if phone_number:
+                cursor.execute('UPDATE Users SET phone_number = %s WHERE id = %s', (phone_number, user['id']))
+
             if user['user_type'] == 'business':
                 serviced_brands_str = ",".join(data.get('serviced_brands', []))
                 cursor.execute('SELECT id FROM Shops WHERE user_id = %s', (user['id'],))
                 if cursor.fetchone():
                     cursor.execute(
                         'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s WHERE user_id = %s',
-                        (data.get('city'), data.get('shop_phone'), data.get('google_place_id'), serviced_brands_str, user['id'])
+                        (data.get('city'), data.get('phone'), data.get('google_place_id'), serviced_brands_str, user['id'])
                     )
                 else:
                     cursor.execute(
                         'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands) VALUES (%s, %s, %s, %s, %s)',
-                        (user['id'], data.get('city'), data.get('shop_phone'), data.get('google_place_id'), serviced_brands_str)
+                        (user['id'], data.get('city'), data.get('phone'), data.get('google_place_id'), serviced_brands_str)
                     )
             conn.commit()
             return jsonify({"status": "success", "description": "Hesap güncellendi."})
