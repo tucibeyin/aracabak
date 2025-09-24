@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (shops.length > 0) {
                 shops.forEach(shop => {
                     const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
-                    const phoneUrl = shop.formatted_phone_number ? `tel:${shop.formatted_phone_number}` : (shop.phone ? `tel:${shop.phone}` : '#');
+                    const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
                     const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
                     let reviewsHtml = '';
                     if (shop.reviews && shop.reviews.length > 0) {
