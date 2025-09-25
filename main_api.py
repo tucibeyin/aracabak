@@ -1212,7 +1212,12 @@ def account_details():
                 cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel, tax_paid_jan, tax_paid_jul, last_inspection_date FROM Vehicles WHERE user_id = %s', (user['id'],))
                 user_data['vehicles'] = [dict(row) for row in cursor.fetchall()]
             elif user_data['user_type'] == 'business':
-                cursor.execute('SELECT city, phone as shop_phone, google_place_id, serviced_brands FROM Shops WHERE user_id = %s', (user['id'],))
+                cursor.execute("""
+                    SELECT s.city, s.phone as shop_phone, s.google_place_id, s.serviced_brands, l.is_active as license_is_active
+                    FROM Shops s
+                    LEFT JOIN Licenses l ON s.id = l.shop_id
+                    WHERE s.user_id = %s
+                """, (user['id'],))
                 shop = cursor.fetchone()
                 if shop:
                     user_data.update(dict(shop))
