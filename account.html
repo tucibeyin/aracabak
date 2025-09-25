@@ -473,9 +473,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.delete-vehicle-btn').forEach(btn => btn.addEventListener('click', handleDeleteVehicle));
     }
 
-    async function populateRequestsList(isOwner) {
+    async function populateRequestsList(isOwner, accountData = null) {
         const listId = isOwner ? 'sentRequestList' : 'requestList';
         const listElement = document.getElementById(listId);
+
+        if (!isOwner && accountData && accountData.google_place_id && accountData.license_is_active === false) {
+             listElement.innerHTML = `
+                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg text-center" role="alert">
+                    <h3 class="font-bold text-lg mb-2">Lisansınız Pasif Durumda</h3>
+                    <p>Google Maps lisansınız aktif olmadığı için yeni bakım taleplerini görüntüleyemezsiniz.</p>
+                    <p class="mt-1">Lütfen "İşletme Profilim" bölümünden lisans anahtarınızı kontrol edip güncelleyin.</p>
+                </div>
+            `;
+            return;
+        }
+
         listElement.innerHTML = '<div class="text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>';
         try {
             const response = await fetch(`/api/requests`);
@@ -595,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${req.quote.notes && !lastOfferByOwner ? `<div class="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md"><strong>Not:</strong> ${req.quote.notes}</div>` : ''}
                                     ${lastOfferByOwner ? `
                                         <div class="flex gap-2 mt-4">
-                                             <button class="accept-owner-offer-btn bg-green-600 text-white font-bold py-2 px-3 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Onayla</button>
+                                             <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-3 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Onayla</button>
                                              <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-3 rounded-lg w-full text-sm" data-request-id="${req.id}">Yeni Teklif Ver</button>
                                         </div>
                                     ` : `<button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-request-id="${req.id}">Teklifi Güncelle</button>`}
@@ -660,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.update-offer-btn').forEach(btn => btn.addEventListener('click', handleUpdateOfferClick));
                 document.querySelectorAll('.cancel-update-btn').forEach(btn => btn.addEventListener('click', handleCancelUpdateClick));
                 document.querySelectorAll('.send-quote-btn').forEach(btn => btn.addEventListener('click', handleSendQuote));
-                document.querySelectorAll('.accept-owner-offer-btn').forEach(btn => btn.addEventListener('click', handleAcceptQuote));
+                document.querySelectorAll('.accept-quote-btn').forEach(btn => btn.addEventListener('click', handleAcceptQuote));
             } else {
                  document.querySelectorAll('.reject-quote-btn').forEach(btn => btn.addEventListener('click', handleRejectQuote));
                  document.querySelectorAll('.accept-quote-btn').forEach(btn => btn.addEventListener('click', handleAcceptQuote));
@@ -957,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         showAddShopButton();
                     }
-                    await populateRequestsList(false);
+                    await populateRequestsList(false, data);
                     await populateAppointments(false);
                 }
             }
@@ -1395,10 +1407,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('addShopContainer').classList.add('hidden');
         document.getElementById('shopInfoForm').classList.add('hidden');
         const detailsEl = document.getElementById('shopDetails');
+
+        const licenseStatusHtml = shopData.license_is_active === null || shopData.license_is_active === undefined
+            ? `<span class="bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded">Bilinmiyor (Lisans eklenmemiş)</span>`
+            : shopData.license_is_active
+                ? `<span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded">Aktif</span>`
+                : `<span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded">Pasif</span>`;
+
         detailsEl.innerHTML = `
             <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Google Maps Lisansı:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">Lisans Durumu:</strong> ${licenseStatusHtml}</p>
             <p><strong class="font-semibold">Servis Verilen Markalar:</strong> ${shopData.serviced_brands ? shopData.serviced_brands.replace(/,/g, ', ') : 'Belirtilmemiş'}</p>
         `;
     }
@@ -1726,3 +1746,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
