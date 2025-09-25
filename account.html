@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hesabım - Araca Bak</title>
+    <title>Hesabım - aracabak</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" href="/logolar/favicon.ico" type="image/x-icon">
@@ -36,6 +36,18 @@
         }
         .toast-success { background-color: #28a745; }
         .toast-error { background-color: #dc3545; }
+        .details-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .details-content.show {
+            max-height: 500px; /* Or a large enough value */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -44,7 +56,7 @@
     <header class="bg-white shadow-md sticky top-0 z-40">
         <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
             <a href="/">
-                <img src="/logolar/aracabak_menu_logo.png" alt="Araca Bak Logo" class="h-8 sm:h-10 w-auto">
+                <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
             </a>
             <div id="auth-container">
                  <div id="user-menu" class="hidden items-center space-x-2 sm:space-x-4">
@@ -101,7 +113,7 @@
                 </div>
                 <div id="shopInfoForm" class="hidden">
                     <h2 id="shopFormTitle" class="text-2xl sm:text-3xl font-bold mb-6"></h2>
-                    <div class="space-y-4">
+                    <form id="businessProfileForm" class="space-y-4">
                          <div>
                             <label for="account_city" class="block text-sm font-medium text-gray-700">Şehir</label>
                             <select id="account_city" class="w-full mt-1 p-3 border rounded-lg bg-white"></select>
@@ -109,17 +121,17 @@
                         <div>
                             <label for="account_serviced_brands" class="block text-sm font-medium text-gray-700">Servis Verilen Markalar</label>
                             <select id="account_serviced_brands" multiple class="w-full mt-1 p-3 border rounded-lg bg-white h-48"></select>
-                            <p class="text-xs text-gray-500 mt-1">Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
+                            <p class="text-xs text-gray-500 mt-1">En fazla 6 marka seçebilirsiniz. Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
                         </div>
                         <div>
                             <label for="account_shop_phone" class="block text-sm font-medium text-gray-700">İşletme Telefonu</label>
                             <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
                         </div>
                         <div>
-                            <label for="account_id" class="block text-sm font-medium text-gray-700">Google Place ID</label>
-                            <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Örn: ChIJ..." maxlength="100">
+                            <label for="account_id" class="block text-sm font-medium text-gray-700">İşletme Lisansı (Opsiyonel)</label>
+                            <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Lisans kodunuz (örn: ChIJ...)" maxlength="100">
                         </div>
-                    </div>
+                    </form>
                     <div id="shopMessageContainer"></div>
                     <div class="flex justify-end gap-4 mt-6">
                         <button type="button" id="cancelShopEditBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
@@ -145,7 +157,7 @@
                     <div id="inspectionReminderList" class="space-y-4"></div>
                 </div>
             </div>
-            <div id="fuelTrackerSection" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg mb-12">
+            <div id="fuelTrackerSection" class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg mb-12 hidden">
                 <h2 class="text-2xl sm:text-3xl font-bold mb-6">Yakıt Girişi ve Raporlama</h2>
                 <div class="mb-4">
                     <label for="fuelVehicleSelect" class="block text-sm font-medium text-gray-700 mb-1">İşlem Yapılacak Araç</label>
@@ -313,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const accountForm = document.getElementById('accountForm');
     const businessSection = document.getElementById('businessSection');
     const ownerVehicleSection = document.getElementById('ownerVehicleSection');
-    const appointmentsSection = document.getElementById('appointmentsSection');
     const businessRequestsSection = document.getElementById('businessRequestsSection');
     const ownerSentRequestsSection = document.getElementById('ownerSentRequestsSection');
     const showAddVehicleFormBtn = document.getElementById('showAddVehicleFormBtn');
@@ -332,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fuelVehicleSelect = document.getElementById('fuelVehicleSelect');
     const saveFuelEntryBtn = document.getElementById('saveFuelEntryBtn');
     const getReportBtn = document.getElementById('getReportBtn');
+    const appointmentsSection = document.getElementById('appointmentsSection');
     let currentEditingVehicleId = null;
     let currentEditingRequestId = null;
 
@@ -398,7 +410,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        document.getElementById('fuelTrackerSection').classList.remove('hidden');
         fuelVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin</option>';
         vehicles.forEach(vehicle => {
             fuelVehicleSelect.add(new Option(`${vehicle.plate_number} - ${vehicle.brand} ${vehicle.model}`, vehicle.id));
@@ -443,20 +454,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 let requestCard = '';
                 if (isOwner) {
-                    const cardBorderClass = req.status === 'quoted' ? 'border-green-500 border-2' : 'border';
+                    const statusText = {
+                        'pending': 'Teklif Bekleniyor',
+                        'quoted': 'Teklif Alındı',
+                        'accepted': 'Teklif Onaylandı',
+                        'rejected': 'Teklif Reddedildi'
+                    };
+                     const statusColors = {
+                        'pending': 'bg-yellow-100 text-yellow-800',
+                        'quoted': 'bg-green-100 text-green-800',
+                        'accepted': 'bg-blue-100 text-blue-800',
+                        'rejected': 'bg-red-100 text-red-800'
+                    };
+                    const cardBorderClass = req.status === 'quoted' ? 'border-green-500 border-2' : (req.status === 'accepted' ? 'border-blue-500 border-2' : 'border');
+                    
                     const phoneUrl = `tel:${req.shop_phone || ''}`;
                     const phoneButtonClass = !req.shop_phone ? 'opacity-50 cursor-not-allowed' : '';
-                    let statusHtml = '';
-                    if (req.status === 'quoted') {
-                        statusHtml = `<span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Alındı</span>`;
-                    } else if (req.status === 'accepted') {
-                        statusHtml = `<span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Onaylandı</span>`;
-                    } else {
-                        statusHtml = `<span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded-full">Teklif Bekleniyor</span>`;
-                    }
-                    let quoteSectionHtml = '';
+                    let statusHtml = `<span class="text-xs font-bold px-2 py-1 rounded-full ${statusColors[req.status] || ''}">${statusText[req.status] || req.status}</span>`;
+                    
+                    let actionSectionHtml = '';
                     if (req.status === 'quoted' && req.quote) {
-                        quoteSectionHtml = `
+                        actionSectionHtml = `
                             <div class="mt-4 border-t border-dashed pt-4">
                                 <h4 class="font-semibold text-lg mb-3 flex items-center text-gray-800"><i class="fas fa-file-invoice-dollar text-green-600 mr-3"></i>İşletmenin Fiyat Teklifi</h4>
                                 <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
@@ -473,20 +491,25 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>
                         `;
-                    } else if (req.status !== 'pending') {
-                         quoteSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-gray-600 p-2 bg-gray-100 rounded-md">Bu talep için işlem yapıldı.</div>`;
+                    } else if (req.status === 'accepted') {
+                         actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-blue-700 p-3 bg-blue-50 rounded-md">Bu teklif onaylanarak randevuya dönüştürülmüştür. "Randevularım" bölümünden takip edebilirsiniz.</div>`;
+                    } else if (req.status === 'rejected') {
+                         actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-red-700 p-3 bg-red-50 rounded-md">Bu teklifi reddettiniz.</div>`;
                     } else {
-                        quoteSectionHtml = `<div class="mt-4 text-center text-sm text-gray-500 italic">İşletmeden teklif bekleniyor...</div>`;
+                        actionSectionHtml = `<div class="mt-4 text-center text-sm text-gray-500 italic">İşletmeden teklif bekleniyor...</div>`;
                     }
 
                     requestCard = `
                         <div class="${cardBorderClass} rounded-lg p-6 bg-white fade-in">
-                             <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
-                                <div><p class="text-sm text-gray-500">Talebin Gönderildiği İşletme</p><p class="font-bold text-xl">${req.shop_name}</p></div>
-                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                             <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4 gap-y-2">
+                                <div>
+                                    <p class="text-sm text-gray-500">Talebin Gönderildiği İşletme</p>
+                                    <p class="font-bold text-xl">${req.shop_name}</p>
+                                    <a href="${phoneUrl}" class="text-sm text-blue-600 hover:underline ${phoneButtonClass}"><i class="fas fa-phone mr-1"></i>${req.shop_phone || 'Telefon Yok'}</a>
+                                </div>
+                                <div class="flex items-center gap-2">
                                     ${statusHtml}
                                     <span class="text-sm text-gray-500">${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
-                                    <a href="${phoneUrl}" class="bg-blue-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-blue-600 ${phoneButtonClass}"><i class="fas fa-phone"></i></a>
                                     <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
                                 </div>
                             </div>
@@ -504,10 +527,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
                                 </div>
                             </div>
-                            ${quoteSectionHtml}
+                            ${actionSectionHtml}
                         </div>`;
 
-                } else {
+                } else { // Business View
+                    const statusText = {
+                        'pending': 'Teklif Bekleniyor',
+                        'quoted': 'Teklif Gönderildi',
+                        'accepted': 'Müşteri Onayladı',
+                        'rejected': 'Müşteri Reddetti'
+                    };
                     const customerPhoneHtml = req.customer_phone ? `<a href="tel:${req.customer_phone}" class="text-sm text-blue-600 hover:underline"><i class="fas fa-phone mr-1"></i>${req.customer_phone}</a>` : '<span class="text-sm text-gray-500">Telefon yok</span>';
                     const requestCardHeader = `<div><p class="font-bold text-xl">${req.customer_name}</p><p>${customerPhoneHtml}</p></div>`;
                     
@@ -547,7 +576,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>`;
                     } else {
-                         actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-gray-600 p-2 bg-gray-100 rounded-md">Talep ${req.status}</div>`;
+                         const statusClass = req.status === 'rejected' ? 'text-red-700 bg-red-50' : 'text-gray-600 bg-gray-100';
+                         actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold p-2 rounded-md ${statusClass}">Talep Durumu: ${statusText[req.status] || req.status}</div>`;
                     }
 
                     requestCard = `
@@ -622,28 +652,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const statusBadge = `<span class="text-xs font-bold px-2 py-1 rounded-full ${statusColors[app.status] || 'bg-gray-100 text-gray-800'}">${statusText[app.status] || app.status}</span>`;
+                
+                let partsHtml = '';
+                if(app.selected_parts && Object.keys(app.selected_parts).length > 0) {
+                    for(const part in app.selected_parts) {
+                        partsHtml += `<li class="text-sm"><strong>${part}:</strong> ${app.selected_parts[part] || 'Marka Seçilmedi'}</li>`;
+                    }
+                } else {
+                    partsHtml = '<li class="text-sm">Parça seçimi yapılmamış.</li>';
+                }
 
                 let appointmentCard = '';
                 if (isOwner) {
+                    const phoneUrl = `tel:${app.shop_phone || ''}`;
+                    const phoneButtonClass = !app.shop_phone ? 'opacity-50 cursor-not-allowed' : '';
+                    const directionsUrl = app.google_place_url || (app.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${app.google_place_id}` : '#');
+                    const directionsButtonClass = (!app.google_place_url && !app.google_place_id) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600';
+
+
                     appointmentCard = `
                         <div class="border rounded-lg p-6 bg-white fade-in">
-                            <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
+                            <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4 gap-y-2">
                                 <div>
                                     <p class="text-sm text-gray-500">Servis</p>
                                     <p class="font-bold text-xl">${app.shop_name}</p>
+                                    <a href="${phoneUrl}" class="text-sm text-blue-600 hover:underline ${phoneButtonClass}"><i class="fas fa-phone mr-1"></i>${app.shop_phone || 'Telefon Yok'}</a>
                                 </div>
-                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                <div class="flex items-center gap-2">
                                     ${statusBadge}
-                                    <span class="text-sm text-gray-500">${new Date(app.created_at).toLocaleDateString('tr-TR')}</span>
+                                    <a href="${directionsUrl}" target="_blank" class="bg-blue-500 text-white text-xs font-bold py-1 px-3 rounded-lg ${directionsButtonClass}"><i class="fas fa-directions"></i> Yol Tarifi</a>
                                 </div>
                             </div>
                             <div>
                                 <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model}</h4>
-                                <p class="text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${app.appointment_date ? new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'Henüz Belirlenmedi'}</p>
+                                <p class="text-sm text-gray-600 mb-4"><strong>Randevu Tarihi:</strong> ${app.appointment_date ? new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'İşletmeden tarih bekleniyor'}</p>
+                                
+                                <button class="toggle-details-btn text-sm text-blue-600 font-semibold">Bakım Detaylarını Göster <i class="fas fa-chevron-down ml-1 transition-transform"></i></button>
+                                <div class="details-content mt-2 border-t pt-2">
+                                    <ul class="space-y-1">${partsHtml}</ul>
+                                </div>
                             </div>
                         </div>
                     `;
                 } else { // Business view
+                    const phoneUrl = `tel:${app.customer_phone || ''}`;
+                    const phoneButtonClass = !app.customer_phone ? 'opacity-50 cursor-not-allowed' : '';
+
                     let dateSection;
                     if (app.status === 'tarih_bekleniyor') {
                         dateSection = `
@@ -656,35 +710,41 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         `;
                     } else {
-                        dateSection = `<p class="mt-4 pt-4 border-t text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</p>`;
+                        dateSection = `<p class="mt-4 pt-4 border-t text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>`;
                     }
                     
                     let actionButtons = '';
                     if (app.status !== 'tamamlandi') {
                         actionButtons += `<button class="complete-appointment-btn bg-green-500 text-white font-bold py-2 px-4 rounded-lg mt-2" data-appointment-id="${app.id}">İşlemi Tamamla</button>`;
                     } else {
-                        actionButtons += `<button class="delete-appointment-btn bg-red-500 text-white font-bold py-2 px-4 rounded-lg mt-2" data-appointment-id="${app.id}">Sil</button>`;
+                         actionButtons += `<button class="delete-appointment-btn bg-red-500 text-white font-bold py-2 px-4 rounded-lg mt-2 ml-2" data-appointment-id="${app.id}">Sil</button>`;
                     }
 
-                    const customerPhoneHtml = app.customer_phone ? `<a href="tel:${app.customer_phone}" class="text-sm text-blue-600 hover:underline"><i class="fas fa-phone mr-1"></i>${app.customer_phone}</a>` : '<span class="text-sm text-gray-500">Telefon yok</span>';
-                    
                     appointmentCard = `
                          <div class="border rounded-lg p-6 bg-white fade-in">
-                            <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4">
+                            <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4 gap-y-2">
                                 <div>
+                                    <p class="text-sm text-gray-500">Müşteri</p>
                                     <p class="font-bold text-xl">${app.customer_name}</p>
-                                    <p>${customerPhoneHtml}</p>
+                                     <a href="${phoneUrl}" class="text-sm text-blue-600 hover:underline ${phoneButtonClass}"><i class="fas fa-phone mr-1"></i>${app.customer_phone || 'Telefon Yok'}</a>
                                 </div>
-                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                <div class="flex items-center gap-2">
                                      ${statusBadge}
                                 </div>
                             </div>
                             <div>
-                                <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model} (${app.vehicle_plate || 'Plaka Yok'})</h4>
-                                <p class="text-sm text-gray-500">Araç KM: ${app.vehicle_km ? app.vehicle_km.toLocaleString() + ' km' : 'Belirtilmemiş'}</p>
+                                <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model} (${app.vehicle_plate || 'Plaka Yok'}) - ${app.vehicle_km ? app.vehicle_km.toLocaleString() : 'N/A'} KM</h4>
                                 ${dateSection}
-                                <div class="mt-2">
-                                ${actionButtons}
+
+                                <div class="mt-4 border-t pt-4">
+                                     <button class="toggle-details-btn text-sm text-blue-600 font-semibold">Bakım Detaylarını Göster <i class="fas fa-chevron-down ml-1 transition-transform"></i></button>
+                                     <div class="details-content mt-2 border-t pt-2">
+                                         <ul class="space-y-1">${partsHtml}</ul>
+                                     </div>
+                                </div>
+
+                                <div class="text-right">
+                                    ${actionButtons}
                                 </div>
                             </div>
                         </div>
@@ -698,6 +758,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.complete-appointment-btn').forEach(btn => btn.addEventListener('click', handleCompleteAppointment));
                 document.querySelectorAll('.delete-appointment-btn').forEach(btn => btn.addEventListener('click', handleDeleteAppointment));
             }
+            
+            document.querySelectorAll('.toggle-details-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const content = button.nextElementSibling;
+                    const icon = button.querySelector('i');
+                    content.classList.toggle('show');
+                    icon.classList.toggle('rotate-180');
+                });
+            });
 
         } catch (error) {
             console.error("Randevu listesi hatası:", error);
@@ -764,11 +833,13 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleDeleteAppointment(e) {
         const button = e.currentTarget;
         const appointmentId = button.dataset.appointmentId;
-        if (confirm('Bu randevuyu kalıcı olarak silmek istediğinizden emin misiniz?')) {
+        if (confirm('Bu tamamlanmış randevuyu kalıcı olarak silmek istediğinizden emin misiniz?')) {
             try {
                 const response = await fetch(`/api/appointments/${appointmentId}`, { method: 'DELETE' });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.description);
+                if (!response.ok) {
+                     const result = await response.json();
+                     throw new Error(result.description);
+                }
                 showToast('Randevu başarıyla silindi!');
                 await populateAppointments(false);
             } catch (error) {
@@ -782,48 +853,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/account`);
             if (!response.ok) throw new Error('Hesap bilgileri alınamadı.');
             const data = await response.json();
-            
-            document.getElementById('account_name').value = data.name;
-            document.getElementById('account_email').value = data.email;
-            document.getElementById('account_user_type').value = data.user_type === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
-            document.getElementById('account_phone_number').value = data.phone_number || '';
-
-            if (!data.phone_number && data.user_type !== 'business_without_phone') { // Örnek bir kontrol
+            if (!data.phone_number) {
                 mainContent.classList.add('blur-sm', 'pointer-events-none');
                 phoneEntryOverlay.classList.remove('hidden');
                 document.body.style.overflow = 'hidden';
             } else {
-                 mainContent.classList.remove('blur-sm', 'pointer-events-none');
+                mainContent.classList.remove('blur-sm', 'pointer-events-none');
                 phoneEntryOverlay.classList.add('hidden');
                 document.body.style.overflow = '';
-            }
-
-            if (data.user_type === 'owner') {
-                ownerVehicleSection.classList.remove('hidden');
-                ownerSentRequestsSection.classList.remove('hidden');
-                appointmentsSection.classList.remove('hidden');
-                businessSection.classList.add('hidden');
-                businessRequestsSection.classList.add('hidden');
-
-                populateVehicleList(data.vehicles);
-                populateTaxReminders(data.vehicles);
-                populateInspectionReminders(data.vehicles);
-                await populateRequestsList(true);
-                await populateAppointments(true);
-            } else if (data.user_type === 'business') {
-                businessSection.classList.remove('hidden');
-                businessRequestsSection.classList.remove('hidden');
-                appointmentsSection.classList.remove('hidden');
-                ownerVehicleSection.classList.add('hidden');
-                ownerSentRequestsSection.classList.add('hidden');
-
-                if (data.city || data.phone || data.google_place_id) {
-                    displayShopInfo(data);
-                } else {
-                    showAddShopButton();
+                document.getElementById('account_name').value = data.name;
+                document.getElementById('account_email').value = data.email;
+                document.getElementById('account_user_type').value = data.user_type === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                document.getElementById('account_phone_number').value = data.phone_number || '';
+                if (data.user_type === 'owner') {
+                    ownerVehicleSection.classList.remove('hidden');
+                    ownerSentRequestsSection.classList.remove('hidden');
+                    appointmentsSection.classList.remove('hidden');
+                    populateVehicleList(data.vehicles);
+                    populateTaxReminders(data.vehicles);
+                    populateInspectionReminders(data.vehicles);
+                    await populateRequestsList(true);
+                    await populateAppointments(true);
+                } else if (data.user_type === 'business') {
+                    businessSection.classList.remove('hidden');
+                    businessRequestsSection.classList.remove('hidden');
+                    appointmentsSection.classList.remove('hidden');
+                    if (data.city || data.shop_phone || data.google_place_id) {
+                        displayShopInfo(data);
+                    } else {
+                        showAddShopButton();
+                    }
+                    await populateRequestsList(false);
+                    await populateAppointments(false);
                 }
-                await populateRequestsList(false);
-                await populateAppointments(false);
             }
         } catch (error) { displayMessage('accountMessageContainer', error.message, 'error'); }
     }
@@ -873,7 +935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleDeleteVehicle(e) {
         const vehicleId = e.target.dataset.id;
         const vehiclePlate = e.target.dataset.plate;
-        if (confirm(`'${vehiclePlate}' plakalı aracı silmek istediğinizden emin misiniz?`)) {
+        if (confirm(`'${vehiclePlate}' plakalı aracı silmek istediğinizden emin misiniz? Bu araca ait tüm veriler (yakıt girişleri vb.) kalıcı olarak silinecektir.`)) {
             try {
                 const response = await fetch(`/api/vehicles/${vehicleId}`, {
                     method: 'DELETE'
@@ -909,7 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleRejectQuote(e) {
         const button = e.currentTarget;
         const requestId = button.dataset.requestId;
-        if (confirm('Bu teklifi reddetmek istediğinizden emin misiniz? Talep, teklif bekliyor durumuna geri dönecektir.')) {
+        if (confirm('Bu teklifi reddetmek istediğinizden emin misiniz?')) {
             try {
                 const response = await fetch(`/api/requests/${requestId}/quote`, {
                     method: 'DELETE'
@@ -917,7 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
                 showToast('Teklif başarıyla reddedildi.');
-                await populateRequestsList(true); // Listeyi yenile
+                await populateRequestsList(true); 
             } catch (error) {
                 showToast(`Hata: ${error.message}`, 'error');
             }
@@ -1108,7 +1170,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 colorClass = "bg-green-100 text-green-800";
                 const years = Math.floor(daysRemaining / 365);
                 const months = Math.floor((daysRemaining % 365) / 30);
-                remainingText = `${years} yıl, ${months} ay kaldı`;
+                remainingText = `${years > 0 ? years + ' yıl, ' : ''}${months} ay kaldı`;
             }
             const reminderCard = `
                 <div class="border rounded-lg p-4">
@@ -1196,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     accountForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const phoneNumber = document.getElementById('account_phone_number').value;
-        if (phoneNumber && (!phoneNumber.startsWith('0') || phoneNumber.length !== 11)) {
+        if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
             displayMessage('accountMessageContainer', 'Kişisel telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
             return;
         }
@@ -1255,8 +1317,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const detailsEl = document.getElementById('shopDetails');
         detailsEl.innerHTML = `
             <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
-            <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.phone || 'Belirtilmemiş'}</p>
-            <p><strong class="font-semibold">Google Place ID:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">İşletme Lisansı:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Servis Verilen Markalar:</strong> ${shopData.serviced_brands ? shopData.serviced_brands.replace(/,/g, ', ') : 'Belirtilmemiş'}</p>
         `;
     }
@@ -1281,7 +1343,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedBrands.includes(option.value)) option.selected = true;
             }
         }
-        document.getElementById('account_shop_phone').value = shopData.phone || '';
+        document.getElementById('account_shop_phone').value = shopData.shop_phone || '';
         document.getElementById('account_id').value = shopData.google_place_id || '';
     }
     
@@ -1294,7 +1356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cancelShopEditBtn').addEventListener('click', populateAccountForm);
 
     document.getElementById('deleteShopBtn').addEventListener('click', async () => {
-        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz?')) {
             try {
                 const response = await fetch('/api/shops', {
                     method: 'DELETE',
@@ -1310,11 +1372,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     document.getElementById('saveShopBtn').addEventListener('click', async () => {
+        const servicedBrandsSelect = document.getElementById('account_serviced_brands');
+        const selectedBrands = Array.from(servicedBrandsSelect.selectedOptions).map(opt => opt.value);
+        if (selectedBrands.length > 6) {
+            showToast('En fazla 6 marka seçebilirsiniz.', 'error');
+            return;
+        }
         const payload = {
             city: document.getElementById('account_city').value,
-            phone: document.getElementById('account_shop_phone').value,
+            shop_phone: document.getElementById('account_shop_phone').value,
             google_place_id: document.getElementById('account_id').value,
-            serviced_brands: Array.from(document.getElementById('account_serviced_brands').selectedOptions).map(opt => opt.value)
+            serviced_brands: selectedBrands
         };
         const submitButton = document.getElementById('saveShopBtn');
         submitButton.disabled = true;
@@ -1443,6 +1511,24 @@ document.addEventListener('DOMContentLoaded', () => {
             saveVehicleChangesBtn.disabled = false;
         }
     });
+    
+    const editVehicleDropdowns = [document.getElementById('edit_brand'), document.getElementById('edit_series'), document.getElementById('edit_year'), document.getElementById('edit_fuel'), document.getElementById('edit_model')];
+    editVehicleDropdowns.forEach((currentSelect, currentIndex) => {
+        currentSelect.addEventListener('change', () => {
+            for (let i = currentIndex + 1; i < editVehicleDropdowns.length; i++) {
+                editVehicleDropdowns[i].disabled = true;
+                editVehicleDropdowns[i].innerHTML = '';
+            }
+            const brand = editVehicleDropdowns[0].value;
+            const series = editVehicleDropdowns[1].value;
+            const year = editVehicleDropdowns[2].value;
+            const fuel = editVehicleDropdowns[3].value;
+            if (currentSelect === editVehicleDropdowns[0] && brand) populateSelect(editVehicleDropdowns[1], `/api/series?brand=${encodeURIComponent(brand)}`, 'Seri Seçin');
+            else if (currentSelect === editVehicleDropdowns[1] && series) populateSelect(editVehicleDropdowns[2], `/api/years?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}`, 'Yıl Seçin');
+            else if (currentSelect === editVehicleDropdowns[2] && year) populateSelect(editVehicleDropdowns[3], `/api/fuels?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}`, 'Yakıt Seçin');
+            else if (currentSelect === editVehicleDropdowns[3] && fuel) populateSelect(editVehicleDropdowns[4], `/api/models?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}&fuel=${encodeURIComponent(fuel)}`, 'Model Seçin');
+        });
+    });
 
     document.getElementById('cancelEditRequestBtn').addEventListener('click', () => document.getElementById('editRequestModal').classList.add('hidden'));
     document.getElementById('closeRequestModal').addEventListener('click', () => document.getElementById('editRequestModal').classList.add('hidden'));
@@ -1534,6 +1620,24 @@ document.addEventListener('DOMContentLoaded', () => {
             
             getFuelReport();
         });
+    });
+
+    const servicedBrandsSelect = document.getElementById('account_serviced_brands');
+    let lastValidSelection = [];
+
+    servicedBrandsSelect.addEventListener('focus', () => {
+        lastValidSelection = Array.from(servicedBrandsSelect.selectedOptions).map(opt => opt.value);
+    });
+
+    servicedBrandsSelect.addEventListener('change', () => {
+        if (servicedBrandsSelect.selectedOptions.length > 6) {
+            showToast('En fazla 6 marka seçebilirsiniz.', 'error');
+            Array.from(servicedBrandsSelect.options).forEach(opt => {
+                opt.selected = lastValidSelection.includes(opt.value);
+            });
+        } else {
+            lastValidSelection = Array.from(servicedBrandsSelect.selectedOptions).map(opt => opt.value);
+        }
     });
 
     // --- Initial Call ---
