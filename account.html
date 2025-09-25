@@ -48,6 +48,30 @@
             padding-top: 1rem;
             padding-bottom: 1rem;
         }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 220px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -128,7 +152,13 @@
                             <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
                         </div>
                         <div>
-                            <label for="account_id" class="block text-sm font-medium text-gray-700">İşletme Lisansı (Opsiyonel)</label>
+                            <label for="account_id" class="block text-sm font-medium text-gray-700">
+                                Google Maps Lisansı
+                                <span class="tooltip">
+                                    <i class="fas fa-info-circle text-gray-400 ml-1"></i>
+                                    <span class="tooltiptext">Bu, Google Haritalar'daki işletmenizin benzersiz kimliğidir (Place ID). Talepleri görmek için gereklidir. Google Place ID Finder gibi araçlarla bulabilirsiniz.</span>
+                                </span>
+                            </label>
                             <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Lisans kodunuz (örn: ChIJ...)" maxlength="100">
                         </div>
                     </form>
@@ -385,6 +415,18 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => container.removeChild(toast), 500);
         }, 3000);
     }
+
+    /**
+     * Fiyatları yerel para birimi formatına dönüştürür (örn: 1.000,00).
+     * @param {number} number - Formatlanacak sayı.
+     * @returns {string} Formatlanmış para birimi dizesi.
+     */
+    function formatCurrency(number) {
+        if (typeof number !== 'number') {
+            return number;
+        }
+        return number.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     
     async function populateSelect(selectElement, url, placeholder, selectedValue = null) {
         selectElement.innerHTML = `<option value="">${placeholder}</option>`;
@@ -410,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        document.getElementById('fuelTrackerSection').classList.remove('hidden');
         fuelVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin</option>';
         vehicles.forEach(vehicle => {
             fuelVehicleSelect.add(new Option(`${vehicle.plate_number} - ${vehicle.brand} ${vehicle.model}`, vehicle.id));
@@ -454,47 +497,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 let requestCard = '';
                 if (isOwner) {
-                    const statusText = {
-                        'pending': 'Teklif Bekleniyor',
-                        'quoted': 'Teklif Alındı',
-                        'accepted': 'Teklif Onaylandı',
-                        'rejected': 'Teklif Reddedildi'
-                    };
-                     const statusColors = {
-                        'pending': 'bg-yellow-100 text-yellow-800',
-                        'quoted': 'bg-green-100 text-green-800',
-                        'accepted': 'bg-blue-100 text-blue-800',
-                        'rejected': 'bg-red-100 text-red-800'
-                    };
-                    const cardBorderClass = req.status === 'quoted' ? 'border-green-500 border-2' : (req.status === 'accepted' ? 'border-blue-500 border-2' : 'border');
-                    
+                    const statusText = { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Alındı', 'accepted': 'Teklif Onaylandı', 'rejected': 'Teklif Reddedildi', 'negotiating': 'Pazarlık Sürüyor' };
+                    const statusColors = { 'pending': 'bg-yellow-100 text-yellow-800', 'quoted': 'bg-green-100 text-green-800', 'accepted': 'bg-blue-100 text-blue-800', 'rejected': 'bg-red-100 text-red-800', 'negotiating': 'bg-purple-100 text-purple-800' };
+                    const cardBorderClass = req.status === 'quoted' || (req.status === 'negotiating' && req.quote?.last_offer_by === 'business') ? 'border-green-500 border-2' : (req.status === 'accepted' ? 'border-blue-500 border-2' : 'border');
                     const phoneUrl = `tel:${req.shop_phone || ''}`;
                     const phoneButtonClass = !req.shop_phone ? 'opacity-50 cursor-not-allowed' : '';
                     let statusHtml = `<span class="text-xs font-bold px-2 py-1 rounded-full ${statusColors[req.status] || ''}">${statusText[req.status] || req.status}</span>`;
                     
                     let actionSectionHtml = '';
-                    if (req.status === 'quoted' && req.quote) {
+                    if ((req.status === 'quoted' || req.status === 'negotiating') && req.quote) {
+                        const lastOfferByBusiness = req.quote.last_offer_by === 'business';
+                        const lastOfferByOwner = req.quote.last_offer_by === 'owner';
+                        
                         actionSectionHtml = `
                             <div class="mt-4 border-t border-dashed pt-4">
-                                <h4 class="font-semibold text-lg mb-3 flex items-center text-gray-800"><i class="fas fa-file-invoice-dollar text-green-600 mr-3"></i>İşletmenin Fiyat Teklifi</h4>
-                                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
+                                ${lastOfferByBusiness ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">İşletmenin Fiyat Teklifi</h4>` : ''}
+                                ${lastOfferByOwner ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">Sizin Karşı Teklifiniz</h4>` : ''}
+                                
+                                <div class="bg-gray-50 border-l-4 ${lastOfferByBusiness ? 'border-green-500' : 'border-purple-500'} p-4 rounded-r-lg">
                                     <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                        <span>Parça Maliyeti:</span><span class="font-medium text-right">${req.quote.parts_cost.toFixed(2)} TL</span>
-                                        <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${req.quote.labor_cost.toFixed(2)} TL</span>
-                                        <span class="font-bold text-xl border-t-2 border-green-200 pt-2 mt-2">TOPLAM:</span><span class="font-bold text-xl border-t-2 border-green-200 pt-2 mt-2 text-right text-green-700">${req.quote.total_cost.toFixed(2)} TL</span>
+                                        ${lastOfferByBusiness ? `<span>Parça Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.parts_cost)} TL</span>
+                                        <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.labor_cost)} TL</span>` : ''}
+                                        <span class="font-bold text-xl border-t-2 pt-2 mt-2">TOPLAM:</span><span class="font-bold text-xl border-t-2 pt-2 mt-2 text-right ${lastOfferByBusiness ? 'text-green-700' : 'text-purple-700'}">${formatCurrency(lastOfferByBusiness ? req.quote.total_cost : req.quote.owner_proposed_cost)} TL</span>
                                     </div>
-                                    ${req.quote.notes ? `<div class="mt-4 text-sm text-gray-700 bg-green-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
+                                    ${req.quote.notes && lastOfferByBusiness ? `<div class="mt-4 text-sm text-gray-700 bg-gray-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
                                 </div>
-                                <div class="flex gap-4 mt-4">
-                                    <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-green-700 transition-colors" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
-                                    <button class="reject-quote-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg w-full text-sm hover:bg-gray-300 transition-colors" data-request-id="${req.id}">Reddet</button>
+                                <div id="owner-action-area-${req.id}" class="mt-4">
+                                    ${lastOfferByBusiness ? `
+                                        <div class="flex gap-4">
+                                            <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
+                                            <button class="counter-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Karşı Teklif Yap</button>
+                                        </div>
+                                        <div id="counter-offer-form-${req.quote.id}" class="hidden mt-4 space-y-2">
+                                            <input type="number" placeholder="Yeni Teklifiniz (TL)" class="p-2 border rounded w-full" id="owner-proposed-cost-${req.quote.id}">
+                                            <button class="send-counter-offer-btn bg-purple-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}" data-request-id="${req.id}">Karşı Teklifi Gönder</button>
+                                        </div>
+                                    ` : `<div class="text-center text-sm text-gray-500 italic">İşletmenin yanıtı bekleniyor...</div>`}
                                 </div>
                             </div>
                         `;
                     } else if (req.status === 'accepted') {
                          actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-blue-700 p-3 bg-blue-50 rounded-md">Bu teklif onaylanarak randevuya dönüştürülmüştür. "Randevularım" bölümünden takip edebilirsiniz.</div>`;
                     } else if (req.status === 'rejected') {
-                         actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-red-700 p-3 bg-red-50 rounded-md">Bu teklifi reddettiniz.</div>`;
+                         actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-red-700 p-3 bg-red-50 rounded-md">Bu teklif reddedildi.</div>`;
                     } else {
                         actionSectionHtml = `<div class="mt-4 text-center text-sm text-gray-500 italic">İşletmeden teklif bekleniyor...</div>`;
                     }
@@ -510,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="flex items-center gap-2">
                                     ${statusHtml}
                                     <span class="text-sm text-gray-500">${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
-                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                                    ${req.status !== 'accepted' ? `<button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>`: ''}
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -531,28 +576,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>`;
 
                 } else { // Business View
-                    const statusText = {
-                        'pending': 'Teklif Bekleniyor',
-                        'quoted': 'Teklif Gönderildi',
-                        'accepted': 'Müşteri Onayladı',
-                        'rejected': 'Müşteri Reddetti'
-                    };
+                    const statusText = { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Gönderildi', 'accepted': 'Müşteri Onayladı', 'rejected': 'Müşteri Reddetti', 'negotiating': 'Pazarlık Sürüyor' };
                     const customerPhoneHtml = req.customer_phone ? `<a href="tel:${req.customer_phone}" class="text-sm text-blue-600 hover:underline"><i class="fas fa-phone mr-1"></i>${req.customer_phone}</a>` : '<span class="text-sm text-gray-500">Telefon yok</span>';
                     const requestCardHeader = `<div><p class="font-bold text-xl">${req.customer_name}</p><p>${customerPhoneHtml}</p></div>`;
                     
                     let actionSectionHtml = '';
-                    if (req.status === 'quoted' && req.quote) {
+                    if (req.status === 'quoted' || (req.status === 'negotiating' && req.quote)) {
+                        const lastOfferByOwner = req.quote.last_offer_by === 'owner';
                         actionSectionHtml = `
                             <div class="mt-4 border-t border-dashed pt-4">
-                                <h4 class="font-semibold text-lg mb-2 text-green-700">Gönderilen Teklif</h4>
-                                <div id="quote-display-${req.id}" class="bg-green-50 p-4 rounded-md">
+                                <h4 class="font-semibold text-lg mb-2 ${lastOfferByOwner ? 'text-purple-700' : 'text-green-700'}">${lastOfferByOwner ? 'Müşterinin Karşı Teklifi' : 'Gönderilen Teklif'}</h4>
+                                <div id="quote-display-${req.id}" class="${lastOfferByOwner ? 'bg-purple-50' : 'bg-green-50'} p-4 rounded-md">
                                     <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                        <span>Parça Maliyeti:</span><span class="font-medium text-right">${req.quote.parts_cost.toFixed(2)} TL</span>
-                                        <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${req.quote.labor_cost.toFixed(2)} TL</span>
-                                        <span class="font-bold text-base border-t pt-2 mt-1">Toplam:</span><span class="font-bold text-base border-t pt-2 mt-1 text-right">${req.quote.total_cost.toFixed(2)} TL</span>
+                                        ${!lastOfferByOwner ? `<span>Parça Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.parts_cost)} TL</span>
+                                        <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.labor_cost)} TL</span>` : ''}
+                                        <span class="font-bold text-base border-t pt-2 mt-1">Toplam:</span><span class="font-bold text-base border-t pt-2 mt-1 text-right">${formatCurrency(lastOfferByOwner ? req.quote.owner_proposed_cost : req.quote.total_cost)} TL</span>
                                     </div>
-                                    ${req.quote.notes ? `<div class="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md"><strong>Not:</strong> ${req.quote.notes}</div>` : ''}
-                                    <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-request-id="${req.id}">Teklifi Güncelle</button>
+                                    ${req.quote.notes && !lastOfferByOwner ? `<div class="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md"><strong>Not:</strong> ${req.quote.notes}</div>` : ''}
+                                    ${lastOfferByOwner ? `
+                                        <div class="flex gap-2 mt-4">
+                                             <button class="accept-owner-offer-btn bg-green-600 text-white font-bold py-2 px-3 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Onayla</button>
+                                             <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-3 rounded-lg w-full text-sm" data-request-id="${req.id}">Yeni Teklif Ver</button>
+                                        </div>
+                                    ` : `<button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm mt-4" data-request-id="${req.id}">Teklifi Güncelle</button>`}
                                 </div>
                                 <div id="quote-form-${req.id}" class="hidden mt-4 space-y-3">
                                     <input type="number" placeholder="Parça Maliyeti (TL)" class="p-2 border rounded w-full" id="parts-cost-${req.id}" value="${req.quote.parts_cost.toFixed(2)}">
@@ -586,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${requestCardHeader}
                                 <div class="flex items-center gap-2 mt-2 sm:mt-0">
                                     <span class="text-sm text-gray-500">Talep: ${new Date(req.created_at).toLocaleDateString('tr-TR')}</span>
-                                    <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                                    ${req.status !== 'accepted' ? `<button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>`:''}
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -614,9 +660,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.update-offer-btn').forEach(btn => btn.addEventListener('click', handleUpdateOfferClick));
                 document.querySelectorAll('.cancel-update-btn').forEach(btn => btn.addEventListener('click', handleCancelUpdateClick));
                 document.querySelectorAll('.send-quote-btn').forEach(btn => btn.addEventListener('click', handleSendQuote));
+                document.querySelectorAll('.accept-owner-offer-btn').forEach(btn => btn.addEventListener('click', handleAcceptQuote));
             } else {
                  document.querySelectorAll('.reject-quote-btn').forEach(btn => btn.addEventListener('click', handleRejectQuote));
                  document.querySelectorAll('.accept-quote-btn').forEach(btn => btn.addEventListener('click', handleAcceptQuote));
+                 document.querySelectorAll('.counter-offer-btn').forEach(btn => btn.addEventListener('click', handleCounterOfferClick));
+                 document.querySelectorAll('.send-counter-offer-btn').forEach(btn => btn.addEventListener('click', handleSendCounterOffer));
             }
             document.querySelectorAll('.delete-request-btn').forEach(btn => btn.addEventListener('click', handleDeleteRequest));
         } catch(error) {
@@ -640,17 +689,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             appointments.forEach(app => {
-                const statusColors = {
-                    'tarih_bekleniyor': 'bg-yellow-100 text-yellow-800',
-                    'tarih_belirlendi': 'bg-blue-100 text-blue-800',
-                    'tamamlandi': 'bg-green-100 text-green-800'
-                };
-                const statusText = {
-                    'tarih_bekleniyor': 'Tarih Bekleniyor',
-                    'tarih_belirlendi': 'Tarih Belirlendi',
-                    'tamamlandi': 'Tamamlandı'
-                };
-
+                const statusColors = { 'tarih_bekleniyor': 'bg-yellow-100 text-yellow-800', 'tarih_belirlendi': 'bg-blue-100 text-blue-800', 'tamamlandi': 'bg-green-100 text-green-800' };
+                const statusText = { 'tarih_bekleniyor': 'Tarih Bekleniyor', 'tarih_belirlendi': 'Tarih Belirlendi', 'tamamlandi': 'Tamamlandı' };
                 const statusBadge = `<span class="text-xs font-bold px-2 py-1 rounded-full ${statusColors[app.status] || 'bg-gray-100 text-gray-800'}">${statusText[app.status] || app.status}</span>`;
                 
                 let partsHtml = '';
@@ -668,8 +708,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const phoneButtonClass = !app.shop_phone ? 'opacity-50 cursor-not-allowed' : '';
                     const directionsUrl = app.google_place_url || (app.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${app.google_place_id}` : '#');
                     const directionsButtonClass = (!app.google_place_url && !app.google_place_id) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600';
-
-
                     appointmentCard = `
                         <div class="border rounded-lg p-6 bg-white fade-in">
                             <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4 gap-y-2">
@@ -686,14 +724,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div>
                                 <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model}</h4>
                                 <p class="text-sm text-gray-600 mb-4"><strong>Randevu Tarihi:</strong> ${app.appointment_date ? new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'İşletmeden tarih bekleniyor'}</p>
-                                
                                 <button class="toggle-details-btn text-sm text-blue-600 font-semibold">Bakım Detaylarını Göster <i class="fas fa-chevron-down ml-1 transition-transform"></i></button>
                                 <div class="details-content mt-2 border-t pt-2">
                                     <ul class="space-y-1">${partsHtml}</ul>
                                 </div>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 } else { // Business view
                     const phoneUrl = `tel:${app.customer_phone || ''}`;
                     const phoneButtonClass = !app.customer_phone ? 'opacity-50 cursor-not-allowed' : '';
@@ -707,8 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <input type="datetime-local" id="date-time-${app.id}" class="w-full p-2 border rounded-lg">
                                 </div>
                                 <button class="update-appointment-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg" data-appointment-id="${app.id}">Onayla</button>
-                            </div>
-                        `;
+                            </div>`;
                     } else {
                         dateSection = `<p class="mt-4 pt-4 border-t text-sm text-gray-600"><strong>Randevu Tarihi:</strong> ${new Date(app.appointment_date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>`;
                     }
@@ -735,20 +770,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div>
                                 <h4 class="font-semibold mb-2">Araç: ${app.vehicle_brand} ${app.vehicle_model} (${app.vehicle_plate || 'Plaka Yok'}) - ${app.vehicle_km ? app.vehicle_km.toLocaleString() : 'N/A'} KM</h4>
                                 ${dateSection}
-
                                 <div class="mt-4 border-t pt-4">
                                      <button class="toggle-details-btn text-sm text-blue-600 font-semibold">Bakım Detaylarını Göster <i class="fas fa-chevron-down ml-1 transition-transform"></i></button>
                                      <div class="details-content mt-2 border-t pt-2">
                                          <ul class="space-y-1">${partsHtml}</ul>
                                      </div>
                                 </div>
-
                                 <div class="text-right">
                                     ${actionButtons}
                                 </div>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 }
                 listElement.innerHTML += appointmentCard;
             });
@@ -777,7 +809,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleAcceptQuote(e) {
         const button = e.currentTarget;
         const quoteId = button.dataset.quoteId;
-        if (confirm('Bu teklifi onaylamak ve randevu oluşturmak istediğinizden emin misiniz?')) {
+        const confirmMessage = currentUser.userType === 'owner' 
+            ? 'Bu teklifi onaylamak ve randevu oluşturmak istediğinizden emin misiniz?'
+            : 'Müşterinin karşı teklifini onaylamak ve randevu oluşturmak istediğinizden emin misiniz?';
+        
+        if (confirm(confirmMessage)) {
             try {
                 const response = await fetch(`/api/quotes/${quoteId}/accept`, { method: 'POST' });
                 const result = await response.json();
@@ -790,6 +826,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    function handleCounterOfferClick(e) {
+        const quoteId = e.target.dataset.quoteId;
+        const form = document.getElementById(`counter-offer-form-${quoteId}`);
+        form.classList.toggle('hidden');
+    }
+
+    async function handleSendCounterOffer(e) {
+        const button = e.target;
+        const quoteId = button.dataset.quoteId;
+        const requestId = button.dataset.requestId;
+        const proposedCost = parseFloat(document.getElementById(`owner-proposed-cost-${quoteId}`).value);
+
+        if (isNaN(proposedCost) || proposedCost <= 0) {
+            showToast('Lütfen geçerli bir fiyat girin.', 'error');
+            return;
+        }
+        
+        button.disabled = true; button.textContent = 'Gönderiliyor...';
+        try {
+            const response = await fetch(`/api/requests/${requestId}/quote`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ owner_proposed_cost: proposedCost })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description);
+            showToast('Karşı teklifiniz başarıyla iletildi!');
+            await populateRequestsList(true);
+        } catch(error) {
+            showToast(`Hata: ${error.message}`, 'error');
+            button.disabled = false; button.textContent = 'Karşı Teklifi Gönder';
+        }
+    }
+
     async function handleUpdateAppointment(e) {
         const button = e.currentTarget;
         const appointmentId = button.dataset.appointmentId;
@@ -833,7 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleDeleteAppointment(e) {
         const button = e.currentTarget;
         const appointmentId = button.dataset.appointmentId;
-        if (confirm('Bu tamamlanmış randevuyu kalıcı olarak silmek istediğinizden emin misiniz?')) {
+        if (confirm('Bu tamamlanmış randevuyu kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
             try {
                 const response = await fetch(`/api/appointments/${appointmentId}`, { method: 'DELETE' });
                 if (!response.ok) {
@@ -869,6 +939,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     ownerVehicleSection.classList.remove('hidden');
                     ownerSentRequestsSection.classList.remove('hidden');
                     appointmentsSection.classList.remove('hidden');
+                    businessSection.classList.add('hidden');
+                    businessRequestsSection.classList.add('hidden');
                     populateVehicleList(data.vehicles);
                     populateTaxReminders(data.vehicles);
                     populateInspectionReminders(data.vehicles);
@@ -878,6 +950,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     businessSection.classList.remove('hidden');
                     businessRequestsSection.classList.remove('hidden');
                     appointmentsSection.classList.remove('hidden');
+                    ownerVehicleSection.classList.add('hidden');
+                    ownerSentRequestsSection.classList.add('hidden');
                     if (data.city || data.shop_phone || data.google_place_id) {
                         displayShopInfo(data);
                     } else {
@@ -970,11 +1044,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleRejectQuote(e) {
         const button = e.currentTarget;
-        const requestId = button.dataset.requestId;
+        const quoteId = button.dataset.quoteId;
         if (confirm('Bu teklifi reddetmek istediğinizden emin misiniz?')) {
             try {
-                const response = await fetch(`/api/requests/${requestId}/quote`, {
-                    method: 'DELETE'
+                const response = await fetch(`/api/quotes/${quoteId}/reject`, {
+                    method: 'POST'
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
@@ -1213,11 +1287,17 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Lütfen rapor için bir araç seçin.', 'error');
             return;
         }
-        const startDate = document.getElementById('startDate').value;
-        const endDate = document.getElementById('endDate').value;
+        let startDate = document.getElementById('startDate').value;
+        let endDate = document.getElementById('endDate').value;
+        
         if (!startDate || !endDate) {
-            showToast('Lütfen başlangıç ve bitiş tarihi seçin.', 'error');
-            return;
+            const end = new Date();
+            const start = new Date();
+            start.setDate(end.getDate() - 29);
+            endDate = end.toISOString().split('T')[0];
+            startDate = start.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate;
+            document.getElementById('startDate').value = startDate;
         }
 
         const summaryContainer = document.getElementById('fuelReportSummary');
@@ -1233,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryContainer.innerHTML = `
                 <div class="bg-blue-50 p-4 rounded-lg">
                     <p class="text-sm text-blue-700 font-semibold">Toplam Harcama</p>
-                    <p class="text-2xl font-bold text-blue-900">${summary.total_tl.toFixed(2)} TL</p>
+                    <p class="text-2xl font-bold text-blue-900">${formatCurrency(summary.total_tl)} TL</p>
                 </div>
                 <div class="bg-green-50 p-4 rounded-lg">
                     <p class="text-sm text-green-700 font-semibold">Toplam Yakıt</p>
@@ -1318,7 +1398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         detailsEl.innerHTML = `
             <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
-            <p><strong class="font-semibold">İşletme Lisansı:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">Google Maps Lisansı:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Servis Verilen Markalar:</strong> ${shopData.serviced_brands ? shopData.serviced_brands.replace(/,/g, ', ') : 'Belirtilmemiş'}</p>
         `;
     }
@@ -1356,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cancelShopEditBtn').addEventListener('click', populateAccountForm);
 
     document.getElementById('deleteShopBtn').addEventListener('click', async () => {
-        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz?')) {
+        if(confirm('İşletme profilinizi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
             try {
                 const response = await fetch('/api/shops', {
                     method: 'DELETE',
