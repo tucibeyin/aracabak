@@ -12,7 +12,7 @@ from flask_session import Session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import redis
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -40,7 +40,13 @@ all_vehicle_data = []
 
 # --- Flask Uygulaması ve Oturum Yapılandırması ---
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
+
+# --- Sabit ve Güvenli SECRET_KEY Kullanımı ---
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+if not FLASK_SECRET_KEY:
+    raise ValueError("FLASK_SECRET_KEY ortam değişkeni ayarlanmamış! Lütfen .env dosyanıza güvenli bir anahtar ekleyin.")
+app.config["SECRET_KEY"] = FLASK_SECRET_KEY
+
 app.config["SESSION_TYPE"] = "redis"
 app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
@@ -125,6 +131,10 @@ def init_db():
             )
         ''')
         add_column_if_not_exists(cursor, "shops", "serviced_brands", "TEXT")
+        add_column_if_not_exists(cursor, "shops", "google_place_name", "TEXT")
+        add_column_if_not_exists(cursor, "shops", "google_place_phone", "TEXT")
+        add_column_if_not_exists(cursor, "shops", "google_place_url", "TEXT")
+        add_column_if_not_exists(cursor, "shops", "google_place_last_updated", "TIMESTAMP WITH TIME ZONE")
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Requests (
@@ -186,6 +196,17 @@ def init_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS FuelPrices (
+                id SERIAL PRIMARY KEY,
+                city TEXT NOT NULL,
+                vmax_kursunsuz_95 REAL,
+                vmax_diesel REAL,
+                updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+            )
+        ''')
+
         conn.commit()
         logging.info("Veritabanı başarıyla kontrol edildi.")
     except Exception as e:
@@ -231,33 +252,106 @@ def format_plate_for_db(plate):
 def validate_phone_number(phone):
     return re.fullmatch(r'^0\d{10}$', phone) if phone else True
 
-def send_welcome_email(user_name, user_email):
+def send_welcome_email(user_name, user_email, user_type):
     if not BREVO_API_KEY:
         logging.error("Brevo API anahtarı bulunamadı. E-posta gönderilemiyor.")
         return
+
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key['api-key'] = BREVO_API_KEY
     api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
-    subject = f"Aramıza Hoş Geldin, {user_name}!"
-    html_content = f"""
-    Merhaba {user_name},<br>
-    aracabak.com'a başarıyla kaydoldunuz.<br>
-    aracabak, tüm iyi araç sahiplerinin ve iyi bakım merkezlerinin buluşma noktasıdır.<br>
-    Bu sitede yapabilecekleriniz:<br>
-    - Aracınızı kaydedebilir,<br>
-    - Periyodik bakım detaylarını öğrenebilir,<br>
-    - Anlaşmalı servislerden bakım teklifleri alabilirsiniz.<br>
-    <br>
-    Hoş geldiniz,<br>
-    aracabak Ekibi<br>
-    ®vovDigital.
+
+    subject = ""
+    html_content = ""
+    
+    base_template = """
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{subject}</title>
+        <style>
+            body {{ margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }}
+            .container {{ width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
+            .header {{ background-color: #111827; padding: 20px; text-align: center; }}
+            .header img {{ max-width: 150px; }}
+            .content {{ padding: 30px 40px; color: #333333; line-height: 1.6; }}
+            .content h1 {{ color: #111827; font-size: 24px; }}
+            .content ul {{ padding-left: 20px; }}
+            .button-container {{ text-align: center; margin: 30px 0; }}
+            .button {{ background-color: #2563eb; color: #ffffff; padding: 12px 25px; border-radius: 5px; text-decoration: none; font-weight: bold; display: inline-block; }}
+            .footer {{ background-color: #f8f9fa; text-align: center; padding: 20px; font-size: 12px; color: #6c757d; border-top: 1px solid #dee2e6; }}
+            .footer a {{ color: #2563eb; text-decoration: none; }}
+        </style>
+    </head>
+    <body>
+        <div style="padding: 20px;">
+            <div class="container">
+                <div class="header">
+                    <img src="https://aracabak.com/logolar/aracabak_menu_logo.png" alt="aracabak Logo">
+                </div>
+                <div class="content">
+                    <h1>Merhaba {user_name},</h1>
+                    <p>{welcome_message}</p>
+                    <p>{platform_intro}</p>
+                    <ul>{features_list}</ul>
+                    <div class="button-container">
+                        <a href="https://aracabak.com/account.html" class="button">{button_text}</a>
+                    </div>
+                    <p>Herhangi bir sorunuz olursa, bize her zaman <a href="mailto:info.aracabak@gmail.com">info.aracabak@gmail.com</a> adresinden ulaşabilirsiniz.</p>
+                    <p>İyi günler dileriz,<br><b>aracabak Ekibi</b></p>
+                </div>
+                <div class="footer">
+                    <p>© 2025 aracabak. Tüm hakları saklıdır.<br>®vovDigital</p>
+                    <p><a href="https://aracabak.com">Website</a> | <a href="mailto:info.aracabak@gmail.com">İletişim</a></p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
     """
-    sender = {"name": "aracabak", "email": "info@aracabak.com"}
+
+    if user_type == 'business':
+        subject = f"İşletmeniz aracabak'ta, {user_name}!"
+        email_vars = {
+            "subject": subject,
+            "user_name": user_name,
+            "welcome_message": "İşletme hesabınız başarıyla oluşturuldu! Sizi aramızda görmekten ve bölgenizdeki araç sahipleriyle buluşturacak olmaktan heyecan duyuyoruz.",
+            "platform_intro": "aracabak, hizmetlerinize ihtiyaç duyan potansiyel müşterilere kolayca ulaşmanız için tasarlandı. Platformumuzda işletmenizi bir adım öne taşıyabilirsiniz:",
+            "features_list": """
+                <li>Profesyonel bir işletme profili oluşturun.</li>
+                <li>Bölgenizdeki araç sahiplerinden bakım talepleri alın.</li>
+                <li>Hızlı ve kolay bir şekilde fiyat teklifleri sunun.</li>
+                <li>Onaylanan teklifleri randevulara dönüştürüp yönetin.</li>
+            """,
+            "button_text": "İşletme Profilinize Gidin"
+        }
+    else: # owner
+        subject = f"aracabak'a Hoş Geldin, {user_name}!"
+        email_vars = {
+            "subject": subject,
+            "user_name": user_name,
+            "welcome_message": "aracabak.com'a başarıyla kaydoldunuz! Sizi aramızda görmekten büyük mutluluk duyuyoruz.",
+            "platform_intro": "aracabak, aracınızın tüm ihtiyaçlarını kolayca yönetmeniz için tasarlandı. Platformumuzda şunları yapabilirsiniz:",
+            "features_list": """
+                <li>Aracınızın periyodik bakım detaylarını anında öğrenin.</li>
+                <li>Anlaşmalı servislerden hızlıca bakım teklifleri alın.</li>
+                <li>MTV ve muayene tarihlerini sizin yerinize biz takip edelim.</li>
+                <li>Yakıt harcamalarınızı kaydedip detaylı raporlar alın.</li>
+            """,
+            "button_text": "Hesabınıza Gidin"
+        }
+    
+    html_content = base_template.format(**email_vars)
+    
+    sender = {"name": "aracabak", "email": "info.aracabak@gmail.com"}
     to = [{"email": user_email, "name": user_name}]
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(to=to, html_content=html_content, sender=sender, subject=subject)
+    
     try:
         api_instance.send_transac_email(send_smtp_email)
-        logging.info(f"Hoş geldin e-postası başarıyla gönderildi: {user_email}")
+        logging.info(f"'{user_type}' tipi için hoş geldin e-postası başarıyla gönderildi: {user_email}")
     except ApiException as e:
         logging.error(f"Brevo API hatası: E-posta gönderilemedi ({user_email}). Hata Kodu: {e.status}, Hata Sebebi: {e.reason}")
         logging.error(f"Brevo API Hata Detayı: {e.body}")
@@ -269,12 +363,34 @@ with app.app_context():
 @app.route('/api/auth/status')
 def auth_status():
     if 'user_id' in session:
-        return jsonify({
-            "loggedIn": True,
-            "userName": session.get('name'),
-            "userType": session.get('user_type'),
-            "email": session.get('email')
-        })
+        conn = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            
+            user_id = session['user_id']
+            user_type = session.get('user_type')
+            
+            response_data = {
+                "loggedIn": True,
+                "userName": session.get('name'),
+                "userType": user_type,
+                "email": session.get('email')
+            }
+            
+            if user_type == 'owner':
+                cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel FROM Vehicles WHERE user_id = %s', (user_id,))
+                vehicles = [dict(row) for row in cursor.fetchall()]
+                response_data['vehicles'] = vehicles
+            
+            return jsonify(response_data)
+        except Exception as e:
+            logging.error(f"Oturum durumu kontrol edilirken veritabanı hatası: {e}")
+            return jsonify({"loggedIn": False, "error": "Internal server error"}), 500
+        finally:
+            if conn:
+                conn.close()
+    
     return jsonify({"loggedIn": False})
 
 @app.route('/api/auth/logout', methods=['POST'])
@@ -290,18 +406,72 @@ def get_config():
     })
 
 @app.route('/api/fuel_prices')
-@limiter.limit("10 per hour")
 def get_fuel_prices():
+    conn = None
     try:
-        response = requests.get("https://apisepeti.com/wp-json/petrol/v1/fiyatlar", timeout=10)
-        response.raise_for_status()
-        return jsonify(response.json())
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Harici yakıt API'sine ulaşılamadı: {e}")
-        return jsonify({"description": "Yakıt fiyatları servisine şu anda ulaşılamıyor."}), 503
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("SELECT MAX(updated_at) as last_update FROM FuelPrices")
+        result = cursor.fetchone()
+        last_update = result['last_update'] if result else None
+        
+        is_data_fresh = False
+        if last_update:
+            if (datetime.now(timezone.utc) - last_update) < timedelta(hours=1):
+                is_data_fresh = True
+        
+        if is_data_fresh:
+            logging.info("Yakıt fiyatları önbellekten (DB) sunuluyor.")
+            cursor.execute("SELECT city, vmax_kursunsuz_95, vmax_diesel FROM FuelPrices")
+            prices_from_db = cursor.fetchall()
+            formatted_prices = [
+                {"City": row['city'], "V/Max Kurşunsuz 95": row['vmax_kursunsuz_95'], "V/Max Diesel": row['vmax_diesel']}
+                for row in prices_from_db
+            ]
+            return jsonify(formatted_prices)
+            
+        logging.info("Önbellek boş veya eski, harici API'den yakıt fiyatları çekiliyor.")
+        try:
+            response = requests.get("https://apisepeti.com/wp-json/petrol/v1/fiyatlar", timeout=10)
+            response.raise_for_status()
+            prices = response.json()
+            
+            now_ts = datetime.now(timezone.utc)
+            cursor.execute("DELETE FROM FuelPrices")
+            for city_data in prices:
+                city = city_data.get("City")
+                benzin = city_data.get("V/Max Kurşunsuz 95")
+                motorin = city_data.get("V/Max Diesel")
+                if city and benzin is not None and motorin is not None:
+                    cursor.execute(
+                        "INSERT INTO FuelPrices (city, vmax_kursunsuz_95, vmax_diesel, updated_at) VALUES (%s, %s, %s, %s)",
+                        (city, benzin, motorin, now_ts)
+                    )
+            conn.commit()
+            logging.info("Yakıt fiyatları veritabanına başarıyla kaydedildi.")
+            return jsonify(prices)
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Harici yakıt API'sine ulaşılamadı: {e}")
+            if last_update:
+                logging.warning("API hatası, eski yakıt verileri sunuluyor.")
+                cursor.execute("SELECT city, vmax_kursunsuz_95, vmax_diesel FROM FuelPrices")
+                prices_from_db = cursor.fetchall()
+                formatted_prices = [
+                    {"City": row['city'], "V/Max Kurşunsuz 95": row['vmax_kursunsuz_95'], "V/Max Diesel": row['vmax_diesel']}
+                    for row in prices_from_db
+                ]
+                return jsonify(formatted_prices)
+            return jsonify({"description": "Yakıt fiyatları servisine şu anda ulaşılamıyor."}), 503
+
     except Exception as e:
+        if conn: conn.rollback()
         logging.error(f"Yakıt fiyatları alınırken beklenmedik bir hata oluştu: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/api/requests', methods=['GET'])
 @limiter.limit("30 per minute")
@@ -316,6 +486,7 @@ def get_requests():
         user_type = session['user_type']
 
         if user_type == 'business':
+            # İşletme için olan sorgu değişmedi
             query = """
                 SELECT r.*, u.name as customer_name, u.phone_number as customer_phone, q.total_cost, q.parts_cost, q.labor_cost, q.notes as quote_notes, q.id as quote_id
                 FROM Requests r JOIN Users u ON r.user_id = u.id
@@ -324,8 +495,12 @@ def get_requests():
             """
             cursor.execute(query, (user_id,))
         elif user_type == 'owner':
+            # Araç sahibi için sorgu, önbelleklenmiş veriyi önceliklendiriyor
             query = """
-                SELECT r.*, u.name as shop_name, s.phone as shop_phone, r.shop_google_place_id,
+                SELECT r.*, 
+                       COALESCE(s.google_place_name, u.name) as shop_name, 
+                       COALESCE(s.google_place_phone, s.phone) as shop_phone, 
+                       s.google_place_id, s.google_place_last_updated,
                        q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id
                 FROM Requests r JOIN Users u ON r.shop_user_id = u.id
                 LEFT JOIN Shops s ON r.shop_user_id = s.user_id
@@ -343,29 +518,44 @@ def get_requests():
                 req['selected_parts'] = json.loads(req['selected_parts'])
 
             if req.get('total_cost') is not None:
-                req['quote'] = {
-                    "id": req['quote_id'],
-                    "parts_cost": req['parts_cost'],
-                    "labor_cost": req['labor_cost'],
-                    "total_cost": req['total_cost'],
-                    "notes": req['quote_notes']
-                }
+                req['quote'] = { "id": req['quote_id'], "parts_cost": req['parts_cost'], "labor_cost": req['labor_cost'], "total_cost": req['total_cost'], "notes": req['quote_notes'] }
             
             for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes', 'quote_id']:
                 req.pop(key, None)
+            
+            # --- İHTİYAÇ ANINDA ÖNBELLEK GÜNCELLEME (ARAÇ SAHİBİ İÇİN) ---
+            if user_type == 'owner':
+                place_id = req.get('google_place_id')
+                last_updated = req.get('google_place_last_updated')
+                is_cache_stale = not last_updated or (datetime.now(timezone.utc) - last_updated) > timedelta(days=7)
 
-            if user_type == 'owner' and req.get('shop_google_place_id') and GOOGLE_PLACES_API_KEY:
-                try:
-                    place_id = req['shop_google_place_id']
-                    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_phone_number&key={GOOGLE_PLACES_API_KEY}&language=tr"
-                    response = requests.get(url, timeout=5)
-                    place_data = response.json()
-                    if place_data.get("status") == "OK" and "result" in place_data:
-                        result = place_data['result']
-                        req['shop_name'] = result.get('name', req.get('shop_name'))
-                        req['shop_phone'] = result.get('formatted_phone_number', req.get('shop_phone'))
-                except requests.exceptions.RequestException as e:
-                    logging.error(f"Google Places API isteği başarısız oldu: {e}")
+                if place_id and is_cache_stale:
+                    logging.info(f"[get_requests] '{req['shop_name']}' için eski/boş önbellek. Google API'den güncel veri çekiliyor.")
+                    try:
+                        url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_phone_number,url&key={GOOGLE_PLACES_API_KEY}&language=tr"
+                        response = requests.get(url, timeout=5)
+                        place_data = response.json()
+                        if place_data.get("status") == "OK" and "result" in place_data:
+                            result = place_data['result']
+                            new_name = result.get('name')
+                            new_phone = result.get('formatted_phone_number')
+                            new_url = result.get('url')
+                            
+                            req['shop_name'] = new_name or req['shop_name']
+                            req['shop_phone'] = new_phone or req['shop_phone']
+                            
+                            # DB'deki önbelleği güncelle
+                            with get_db_connection() as conn2:
+                                with conn2.cursor() as update_cursor:
+                                    update_cursor.execute(
+                                        "UPDATE Shops SET google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s WHERE google_place_id = %s",
+                                        (new_name, new_phone, new_url, datetime.now(timezone.utc), place_id)
+                                    )
+                                    conn2.commit()
+                                    logging.info(f"[get_requests] '{new_name}' için önbellek güncellendi.")
+                    except Exception as e:
+                        logging.error(f"[get_requests] İhtiyaç anında önbellek güncelleme başarısız: {e}")
+
             requests_list.append(req)
         return jsonify(requests_list)
     except Exception as e:
@@ -495,8 +685,7 @@ def manage_quote(request_id):
             request_owner = cursor.fetchone()
             if not request_owner or request_owner['user_id'] != user_id:
                 return jsonify({"description": "Bu talebi yönetme yetkiniz yok."}), 404
-            cursor.execute("DELETE FROM Quotes WHERE request_id = %s", (request_id,))
-            cursor.execute("UPDATE Requests SET status = 'pending' WHERE id = %s", (request_id,))
+            cursor.execute("UPDATE Requests SET status = 'rejected' WHERE id = %s", (request_id,))
             conn.commit()
             return jsonify({"status": "success", "description": "Teklif başarıyla reddedildi."})
 
@@ -567,16 +756,21 @@ def get_appointments():
 
         if user_type == 'owner':
             query = """
-                SELECT a.*, r.vehicle_brand, r.vehicle_model, u.name as shop_name
+                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.selected_parts, 
+                       COALESCE(s.google_place_name, u.name) as shop_name, 
+                       COALESCE(s.google_place_phone, s.phone) as shop_phone,
+                       s.google_place_id, s.google_place_last_updated,
+                       s.google_place_url
                 FROM Appointments a
                 JOIN Requests r ON a.request_id = r.id
                 JOIN Users u ON a.shop_user_id = u.id
+                JOIN Shops s ON a.shop_user_id = s.user_id
                 WHERE a.user_id = %s ORDER BY a.created_at DESC
             """
             cursor.execute(query, (user_id,))
         elif user_type == 'business':
             query = """
-                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.vehicle_km, v.plate_number as vehicle_plate, u.name as customer_name, u.phone_number as customer_phone
+                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.vehicle_km, r.selected_parts, v.plate_number as vehicle_plate, u.name as customer_name, u.phone_number as customer_phone
                 FROM Appointments a
                 JOIN Requests r ON a.request_id = r.id
                 JOIN Users u ON a.user_id = u.id
@@ -587,7 +781,46 @@ def get_appointments():
         else:
             return jsonify([])
         
-        appointments = [dict(row) for row in cursor.fetchall()]
+        appointments = []
+        for row in cursor.fetchall():
+            app_data = dict(row)
+            if app_data.get('selected_parts'):
+                app_data['selected_parts'] = json.loads(app_data['selected_parts'])
+            
+            if user_type == 'owner':
+                place_id = app_data.get('google_place_id')
+                last_updated = app_data.get('google_place_last_updated')
+                is_cache_stale = not last_updated or (datetime.now(timezone.utc) - last_updated) > timedelta(days=7)
+
+                if place_id and is_cache_stale:
+                    logging.info(f"[get_appointments] '{app_data['shop_name']}' için eski/boş önbellek. Google API'den güncel veri çekiliyor.")
+                    try:
+                        url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_phone_number,url&key={GOOGLE_PLACES_API_KEY}&language=tr"
+                        response = requests.get(url, timeout=5)
+                        place_data = response.json()
+                        if place_data.get("status") == "OK" and "result" in place_data:
+                            result = place_data['result']
+                            new_name = result.get('name')
+                            new_phone = result.get('formatted_phone_number')
+                            new_url = result.get('url')
+                            
+                            app_data['shop_name'] = new_name or app_data['shop_name']
+                            app_data['shop_phone'] = new_phone or app_data['shop_phone']
+                            app_data['google_place_url'] = new_url or app_data.get('google_place_url')
+                            
+                            with get_db_connection() as conn2:
+                                with conn2.cursor() as update_cursor:
+                                    update_cursor.execute(
+                                        "UPDATE Shops SET google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s WHERE google_place_id = %s",
+                                        (new_name, new_phone, new_url, datetime.now(timezone.utc), place_id)
+                                    )
+                                    conn2.commit()
+                                    logging.info(f"[get_appointments] '{new_name}' için önbellek güncellendi.")
+                    except Exception as e:
+                        logging.error(f"[get_appointments] İhtiyaç anında önbellek güncelleme başarısız: {e}")
+
+            appointments.append(app_data)
+        
         return jsonify(appointments)
 
     except Exception as e:
@@ -721,6 +954,7 @@ def manage_fuel_entries(vehicle_id):
 def find_shops():
     city = request.args.get('city')
     brand = request.args.get('brand')
+    logging.info(f"[/api/find_shops] Arama başlatıldı. Şehir: {city}, Marka: {brand}")
     if not all([city, brand]):
         return jsonify({"description": "Şehir ve marka bilgisi gereklidir."}), 400
     conn = None
@@ -728,24 +962,44 @@ def find_shops():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         query = """
-            SELECT u.id as shop_user_id, u.name as db_name, s.phone as db_phone, s.city, s.google_place_id
+            SELECT u.id as shop_user_id, u.name as db_name, s.phone as db_phone, s.city, s.google_place_id,
+                   s.google_place_name, s.google_place_phone, s.google_place_url, s.google_place_last_updated
             FROM Shops s JOIN Users u ON s.user_id = u.id
             WHERE s.city = %s AND s.serviced_brands LIKE %s
         """
         brand_search_term = f"%{brand}%"
         cursor.execute(query, (city, brand_search_term))
         shops = [dict(row) for row in cursor.fetchall()]
+        logging.info(f"[/api/find_shops] Veritabanından {len(shops)} adet işletme bulundu.")
+        
         for shop in shops:
-            shop['name'] = shop['db_name']
-            shop['phone'] = shop['db_phone']
-            if shop.get('google_place_id') and GOOGLE_PLACES_API_KEY:
+            place_id = shop.get('google_place_id')
+            last_updated = shop.get('google_place_last_updated')
+            api_key = GOOGLE_PLACES_API_KEY
+            is_cache_valid = False
+
+            if last_updated:
+                if (datetime.now(timezone.utc) - last_updated) < timedelta(days=7):
+                    is_cache_valid = True
+
+            if is_cache_valid:
+                logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için önbellekten veri kullanılıyor.")
+                shop['name'] = shop['google_place_name'] or shop['db_name']
+                shop['phone'] = shop['google_place_phone'] or shop['db_phone']
+                shop['url'] = shop['google_place_url']
+            
+            elif place_id and api_key:
+                logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Places API çağrısı yapılıyor (Önbellek geçersiz veya boş). Place ID: {place_id}")
                 try:
-                    place_id = shop['google_place_id']
-                    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,rating,user_ratings_total,reviews,formatted_phone_number,url&key={GOOGLE_PLACES_API_KEY}&language=tr"
+                    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,rating,user_ratings_total,reviews,formatted_phone_number,url&key={api_key}&language=tr"
                     response = requests.get(url, timeout=5)
                     place_data = response.json()
+                    logging.info(f"[/api/find_shops] Google Places API Ham Yanıtı: {json.dumps(place_data, ensure_ascii=False)}")
+                    
                     if place_data.get("status") == "OK" and "result" in place_data:
+                        logging.info(f"[/api/find_shops] API yanıt durumu 'OK'. Veriler işleniyor.")
                         result = place_data['result']
+                        
                         shop.update({
                             'name': result.get('name') or shop['db_name'],
                             'rating': result.get('rating', 0),
@@ -754,11 +1008,35 @@ def find_shops():
                             'phone': result.get('formatted_phone_number') or shop['db_phone'],
                             'url': result.get('url')
                         })
+                        
+                        with get_db_connection() as conn2:
+                            with conn2.cursor() as update_cursor:
+                                update_cursor.execute(
+                                    """
+                                    UPDATE Shops SET google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s
+                                    WHERE user_id = %s
+                                    """,
+                                    (result.get('name'), result.get('formatted_phone_number'), result.get('url'), datetime.now(timezone.utc), shop['shop_user_id'])
+                                )
+                                conn2.commit()
+                        logging.info(f"[/api/find_shops] İşletme '{shop['name']}' için önbellek güncellendi.")
+                    else:
+                        logging.warning(f"[/api/find_shops] Google Places API'den beklenen yanıt alınamadı. Durum: {place_data.get('status')}, Hata Mesajı: {place_data.get('error_message')}. DB verileri kullanılacak.")
+                        shop['name'] = shop['db_name']
+                        shop['phone'] = shop['db_phone']
+
                 except requests.exceptions.RequestException as e:
-                    logging.error(f"Google Places API isteği başarısız oldu (Place ID: {place_id}): {e}")
+                    logging.error(f"[/api/find_shops] API hatası. İşletme '{shop['db_name']}' için DB/eski önbellek verisi kullanılıyor: {e}")
+                    shop['name'] = shop['google_place_name'] or shop['db_name']
+                    shop['phone'] = shop['google_place_phone'] or shop['db_phone']
+            else:
+                 logging.warning(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Place ID veya API Key eksik. Sadece DB verileri kullanılacak.")
+                 shop['name'] = shop['db_name']
+                 shop['phone'] = shop['db_phone']
+                 
         return jsonify(shops)
     except Exception as e:
-        logging.error(f"İşletme arama sırasında hata: {e}")
+        logging.error(f"İşletme arama sırasında genel hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn:
@@ -801,8 +1079,8 @@ def manage_vehicles(vehicle_id=None):
         if session['user_type'] != 'owner':
             return jsonify({"description": "Yetkisiz işlem."}), 403
         
-        data = request.get_json()
         if request.method == 'POST':
+            data = request.get_json()
             if not all(data.get(f) for f in ['plate_number', 'brand', 'series', 'year', 'fuel', 'model', 'last_inspection_date']):
                 return jsonify({"description": "Tüm bilgiler zorunludur."}), 400
             if not validate_plate_number(data.get('plate_number')):
@@ -823,6 +1101,7 @@ def manage_vehicles(vehicle_id=None):
             return jsonify({"description": "Araç bulunamadı."}), 404
 
         if request.method == 'PUT':
+            data = request.get_json()
             if not validate_plate_number(data.get('plate_number')):
                 return jsonify({"description": "Geçersiz plaka formatı."}), 400
             new_plate = format_plate_for_db(data.get('plate_number'))
@@ -837,6 +1116,7 @@ def manage_vehicles(vehicle_id=None):
             return jsonify({"status": "success", "description": "Araç güncellendi."})
 
         if request.method == 'DELETE':
+            cursor.execute('DELETE FROM FuelEntries WHERE vehicle_id = %s', (vehicle_id,))
             cursor.execute('DELETE FROM Vehicles WHERE id = %s', (vehicle_id,))
             conn.commit()
             return jsonify({"status": "success", "description": "Araç silindi."})
@@ -868,7 +1148,7 @@ def account_details():
                 cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel, tax_paid_jan, tax_paid_jul, last_inspection_date FROM Vehicles WHERE user_id = %s', (user['id'],))
                 user_data['vehicles'] = [dict(row) for row in cursor.fetchall()]
             elif user_data['user_type'] == 'business':
-                cursor.execute('SELECT city, phone, google_place_id, serviced_brands FROM Shops WHERE user_id = %s', (user['id'],))
+                cursor.execute('SELECT city, phone as shop_phone, google_place_id, serviced_brands FROM Shops WHERE user_id = %s', (user['id'],))
                 shop = cursor.fetchone()
                 if shop:
                     user_data.update(dict(shop))
@@ -878,26 +1158,45 @@ def account_details():
 
         if request.method == 'POST':
             data = request.get_json()
-            phone_number = data.get('phone_number')
-            if phone_number and not validate_phone_number(phone_number):
-                return jsonify({"description": "Geçersiz telefon no."}), 400
             
-            if phone_number:
+            # Sadece kişisel telefon numarası güncelleniyorsa
+            if 'phone_number' in data and len(data) == 1:
+                phone_number = data.get('phone_number')
+                if phone_number and not validate_phone_number(phone_number):
+                    return jsonify({"description": "Geçersiz kişisel telefon no."}), 400
                 cursor.execute('UPDATE Users SET phone_number = %s WHERE id = %s', (phone_number, user['id']))
 
-            if user['user_type'] == 'business':
+            # İşletme bilgileri güncelleniyorsa
+            elif user['user_type'] == 'business' and ('city' in data or 'shop_phone' in data or 'serviced_brands' in data or 'google_place_id' in data):
                 serviced_brands_str = ",".join(data.get('serviced_brands', []))
-                cursor.execute('SELECT id FROM Shops WHERE user_id = %s', (user['id'],))
-                if cursor.fetchone():
-                    cursor.execute(
-                        'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s WHERE user_id = %s',
-                        (data.get('city'), data.get('phone'), data.get('google_place_id'), serviced_brands_str, user['id'])
-                    )
-                else:
+                shop_phone = data.get('shop_phone')
+                if shop_phone and not validate_phone_number(shop_phone):
+                     return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
+
+                cursor.execute('SELECT google_place_id FROM Shops WHERE user_id = %s', (user['id'],))
+                current_shop_data = cursor.fetchone()
+                
+                new_place_id = data.get('google_place_id')
+
+                if current_shop_data: # İşletme var, güncelle
+                    current_place_id = current_shop_data['google_place_id']
+                    if new_place_id != current_place_id:
+                        logging.info(f"Place ID değiştiği için '{user['name']}' işletmesinin önbelleği temizleniyor.")
+                        cursor.execute(
+                            'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s, google_place_name = NULL, google_place_phone = NULL, google_place_url = NULL, google_place_last_updated = NULL WHERE user_id = %s',
+                            (data.get('city'), shop_phone, new_place_id, serviced_brands_str, user['id'])
+                        )
+                    else:
+                        cursor.execute(
+                            'UPDATE Shops SET city = %s, phone = %s, serviced_brands = %s WHERE user_id = %s',
+                            (data.get('city'), shop_phone, serviced_brands_str, user['id'])
+                        )
+                else: # İşletme yok, yeni oluştur
                     cursor.execute(
                         'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands) VALUES (%s, %s, %s, %s, %s)',
-                        (user['id'], data.get('city'), data.get('phone'), data.get('google_place_id'), serviced_brands_str)
+                        (user['id'], data.get('city'), shop_phone, new_place_id, serviced_brands_str)
                     )
+            
             conn.commit()
             return jsonify({"status": "success", "description": "Hesap güncellendi."})
     except Exception as e:
@@ -1011,8 +1310,17 @@ def get_maintenance_options():
                 previous_km_point = km_point
             else:
                 break
+        
         question_km = base_km + previous_km_point
-        next_km_point_index = sorted_kms.index(previous_km_point) + 1
+        
+        if previous_km_point == 0:
+            next_km_point_index = 0
+        else:
+            try:
+                next_km_point_index = sorted_kms.index(previous_km_point) + 1
+            except ValueError:
+                next_km_point_index = 0
+            
         if next_km_point_index < len(sorted_kms):
             next_service_km = base_km + sorted_kms[next_km_point_index]
             next_details = schedule_data.get(sorted_kms[next_km_point_index])
@@ -1086,7 +1394,7 @@ def google_register_complete():
         session.clear()
         session.update({'user_id': new_user['id'], 'email': new_user['email'], 'name': new_user['name'], 'user_type': new_user['user_type']})
         try:
-            send_welcome_email(new_user['name'], new_user['email'])
+            send_welcome_email(new_user['name'], new_user['email'], new_user['user_type'])
         except Exception as email_error:
             logging.error(f"E-posta gönderme başarısız oldu, ancak kullanıcı kaydı başarılı: {email_error}")
         return jsonify({"status": "login_success", "userName": new_user['name'], "userType": new_user['user_type']}), 201
