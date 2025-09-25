@@ -156,7 +156,7 @@
                                 Google Maps Lisansı
                                 <span class="tooltip">
                                     <i class="fas fa-info-circle text-gray-400 ml-1"></i>
-                                    <span class="tooltiptext">Bu, Google Haritalar'daki işletmenizin benzersiz kimliğidir (Place ID). Talepleri görmek için gereklidir. Google Place ID Finder gibi araçlarla bulabilirsiniz.</span>
+                                    <span class="tooltiptext">Bu, aracabak sistemindeki lisans anahtarınızdır. Yenilemeler ve sorularınız için info.aracabak@gmail.com adresinden iletişime geçebilirsiniz.</span>
                                 </span>
                             </label>
                             <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Lisans kodunuz (örn: ChIJ...)" maxlength="100">
@@ -477,12 +477,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const listId = isOwner ? 'sentRequestList' : 'requestList';
         const listElement = document.getElementById(listId);
 
-        if (!isOwner && accountData && accountData.google_place_id && accountData.license_is_active === false) {
+        if (!isOwner && accountData && accountData.license_is_active === false) {
              listElement.innerHTML = `
                 <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg text-center" role="alert">
                     <h3 class="font-bold text-lg mb-2">Lisansınız Pasif Durumda</h3>
-                    <p>Google Maps lisansınız aktif olmadığı için yeni bakım taleplerini görüntüleyemezsiniz.</p>
-                    <p class="mt-1">Lütfen "İşletme Profilim" bölümünden lisans anahtarınızı kontrol edip güncelleyin.</p>
+                    <p>®aracabak lisansınız aktif olmadığı için yeni bakım taleplerini görüntüleyemezsiniz.</p>
+                    <p class="mt-1">Lütfen info.aracabak@gmail.com adresinden iletişime geçiniz.</p>
                 </div>
             `;
             return;
