@@ -170,6 +170,8 @@ def init_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        add_column_if_not_exists(cursor, "quotes", "owner_proposed_cost", "REAL")
+        add_column_if_not_exists(cursor, "quotes", "last_offer_by", "TEXT DEFAULT 'business'")
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS FuelEntries (
@@ -204,6 +206,16 @@ def init_db():
                 vmax_kursunsuz_95 REAL,
                 vmax_diesel REAL,
                 updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+            )
+        ''')
+
+        # --- GÜNCELLENMİŞ LİSANS TABLOSU ---
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Licenses (
+                id SERIAL PRIMARY KEY,
+                shop_id INTEGER NOT NULL UNIQUE REFERENCES Shops(id) ON DELETE CASCADE,
+                license_key TEXT NOT NULL UNIQUE,
+                is_active BOOLEAN NOT NULL DEFAULT true
             )
         ''')
 
@@ -486,22 +498,38 @@ def get_requests():
         user_type = session['user_type']
 
         if user_type == 'business':
-            # İşletme için olan sorgu değişmedi
+            cursor.execute("SELECT id, google_place_id FROM Shops WHERE user_id = %s", (user_id,))
+            shop_data = cursor.fetchone()
+            if not shop_data or not shop_data['google_place_id']:
+                logging.warning(f"İşletme (ID: {user_id}) lisans anahtarı girmediği için talepleri göremiyor.")
+                return jsonify([])
+
+            license_key = shop_data['google_place_id']
+            shop_id = shop_data['id']
+            cursor.execute("SELECT is_active FROM Licenses WHERE license_key = %s AND shop_id = %s", (license_key, shop_id))
+            license_status = cursor.fetchone()
+
+            if not license_status or not license_status['is_active']:
+                logging.warning(f"İşletme (ID: {user_id}) geçersiz veya pasif lisans ('{license_key}') nedeniyle talepleri göremiyor.")
+                return jsonify([])
+            
             query = """
-                SELECT r.*, u.name as customer_name, u.phone_number as customer_phone, q.total_cost, q.parts_cost, q.labor_cost, q.notes as quote_notes, q.id as quote_id
+                SELECT r.*, u.name as customer_name, u.phone_number as customer_phone, 
+                       q.total_cost, q.parts_cost, q.labor_cost, q.notes as quote_notes, q.id as quote_id,
+                       q.owner_proposed_cost, q.last_offer_by
                 FROM Requests r JOIN Users u ON r.user_id = u.id
                 LEFT JOIN Quotes q ON r.id = q.request_id
                 WHERE r.shop_user_id = %s ORDER BY r.created_at DESC
             """
             cursor.execute(query, (user_id,))
         elif user_type == 'owner':
-            # Araç sahibi için sorgu, önbelleklenmiş veriyi önceliklendiriyor
             query = """
                 SELECT r.*, 
                        COALESCE(s.google_place_name, u.name) as shop_name, 
                        COALESCE(s.google_place_phone, s.phone) as shop_phone, 
                        s.google_place_id, s.google_place_last_updated,
-                       q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id
+                       q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id,
+                       q.owner_proposed_cost, q.last_offer_by
                 FROM Requests r JOIN Users u ON r.shop_user_id = u.id
                 LEFT JOIN Shops s ON r.shop_user_id = s.user_id
                 LEFT JOIN Quotes q ON r.id = q.request_id
@@ -518,12 +546,15 @@ def get_requests():
                 req['selected_parts'] = json.loads(req['selected_parts'])
 
             if req.get('total_cost') is not None:
-                req['quote'] = { "id": req['quote_id'], "parts_cost": req['parts_cost'], "labor_cost": req['labor_cost'], "total_cost": req['total_cost'], "notes": req['quote_notes'] }
+                req['quote'] = { 
+                    "id": req['quote_id'], "parts_cost": req['parts_cost'], "labor_cost": req['labor_cost'], 
+                    "total_cost": req['total_cost'], "notes": req['quote_notes'],
+                    "owner_proposed_cost": req['owner_proposed_cost'], "last_offer_by": req['last_offer_by']
+                }
             
-            for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes', 'quote_id']:
+            for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes', 'quote_id', 'owner_proposed_cost', 'last_offer_by']:
                 req.pop(key, None)
             
-            # --- İHTİYAÇ ANINDA ÖNBELLEK GÜNCELLEME (ARAÇ SAHİBİ İÇİN) ---
             if user_type == 'owner':
                 place_id = req.get('google_place_id')
                 last_updated = req.get('google_place_last_updated')
@@ -544,7 +575,6 @@ def get_requests():
                             req['shop_name'] = new_name or req['shop_name']
                             req['shop_phone'] = new_phone or req['shop_phone']
                             
-                            # DB'deki önbelleği güncelle
                             with get_db_connection() as conn2:
                                 with conn2.cursor() as update_cursor:
                                     update_cursor.execute(
@@ -636,7 +666,7 @@ def delete_request(request_id):
         if conn:
             conn.close()
 
-@app.route('/api/requests/<int:request_id>/quote', methods=['POST', 'PUT', 'DELETE'])
+@app.route('/api/requests/<int:request_id>/quote', methods=['POST', 'PUT'])
 @limiter.limit("30 per minute")
 def manage_quote(request_id):
     if 'user_id' not in session:
@@ -647,100 +677,134 @@ def manage_quote(request_id):
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         user_id = session['user_id']
         user_type = session['user_type']
+        data = request.get_json()
 
-        if request.method in ['POST', 'PUT']:
-            if user_type != 'business':
-                return jsonify({"description": "Bu işlemi yapmaya yetkiniz yok."}), 403
-            data = request.get_json()
+        if user_type == 'business':
             parts_cost = data.get('parts_cost')
             labor_cost = data.get('labor_cost')
             notes = data.get('notes', '')
             if not isinstance(parts_cost, (int, float)) or not isinstance(labor_cost, (int, float)):
-                return jsonify({"description": "Parça ve işçilik maliyetleri sayı olmalıdır."}), 400
+                return jsonify({"description": "Maliyetler sayı olmalıdır."}), 400
             total_cost = parts_cost + labor_cost
-            cursor.execute("SELECT id FROM Requests WHERE id = %s AND shop_user_id = %s", (request_id, user_id))
-            if not cursor.fetchone():
-                return jsonify({"description": "Talep bulunamadı veya bu talebe teklif verme yetkiniz yok."}), 404
             
+            cursor.execute("SELECT status FROM Requests WHERE id = %s AND shop_user_id = %s", (request_id, user_id))
+            req = cursor.fetchone()
+            if not req: return jsonify({"description": "Yetkisiz işlem."}), 404
+            
+            new_status = 'negotiating' if req['status'] != 'pending' else 'quoted'
+
             if request.method == 'POST':
                 cursor.execute(
-                    "INSERT INTO Quotes (request_id, shop_user_id, parts_cost, labor_cost, total_cost, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                    "INSERT INTO Quotes (request_id, shop_user_id, parts_cost, labor_cost, total_cost, notes, last_offer_by) VALUES (%s, %s, %s, %s, %s, %s, 'business')",
                     (request_id, user_id, parts_cost, labor_cost, total_cost, notes)
                 )
-                cursor.execute("UPDATE Requests SET status = 'quoted' WHERE id = %s", (request_id,))
-                conn.commit()
-                return jsonify({"status": "success", "description": "Teklif başarıyla gönderildi."}), 201
             elif request.method == 'PUT':
                 cursor.execute(
-                    "UPDATE Quotes SET parts_cost = %s, labor_cost = %s, total_cost = %s, notes = %s WHERE request_id = %s AND shop_user_id = %s",
-                    (parts_cost, labor_cost, total_cost, notes, request_id, user_id)
+                    "UPDATE Quotes SET parts_cost = %s, labor_cost = %s, total_cost = %s, notes = %s, last_offer_by = 'business', owner_proposed_cost = NULL WHERE request_id = %s",
+                    (parts_cost, labor_cost, total_cost, notes, request_id)
                 )
-                conn.commit()
-                return jsonify({"status": "success", "description": "Teklif başarıyla güncellendi."})
-
-        if request.method == 'DELETE':
-            if user_type != 'owner':
-                return jsonify({"description": "Bu işlemi yapmaya yetkiniz yok."}), 403
-            cursor.execute("SELECT user_id FROM Requests WHERE id = %s", (request_id,))
-            request_owner = cursor.fetchone()
-            if not request_owner or request_owner['user_id'] != user_id:
-                return jsonify({"description": "Bu talebi yönetme yetkiniz yok."}), 404
-            cursor.execute("UPDATE Requests SET status = 'rejected' WHERE id = %s", (request_id,))
+            
+            cursor.execute("UPDATE Requests SET status = %s WHERE id = %s", (new_status, request_id))
             conn.commit()
-            return jsonify({"status": "success", "description": "Teklif başarıyla reddedildi."})
+            return jsonify({"status": "success", "description": "Teklif gönderildi."}), 201
+        
+        elif user_type == 'owner':
+            if request.method != 'PUT': return jsonify({"description": "Geçersiz metod."}), 405
+            proposed_cost = data.get('owner_proposed_cost')
+            if not isinstance(proposed_cost, (int, float)) or proposed_cost <= 0:
+                return jsonify({"description": "Geçerli bir karşı teklif girin."}), 400
+
+            cursor.execute("SELECT user_id FROM Requests WHERE id = %s", (request_id,))
+            req_owner = cursor.fetchone()
+            if not req_owner or req_owner['user_id'] != user_id: return jsonify({"description": "Yetkisiz işlem."}), 403
+
+            cursor.execute("UPDATE Quotes SET owner_proposed_cost = %s, last_offer_by = 'owner' WHERE request_id = %s", (proposed_cost, request_id))
+            cursor.execute("UPDATE Requests SET status = 'negotiating' WHERE id = %s", (request_id,))
+            conn.commit()
+            return jsonify({"status": "success", "description": "Karşı teklif iletildi."})
 
     except psycopg2_errors.UniqueViolation:
-        if conn:
-            conn.rollback()
+        if conn: conn.rollback()
         return jsonify({"description": "Bu talep için daha önce bir teklif oluşturulmuş."}), 409
     except Exception as e:
-        if conn:
-            conn.rollback()
+        if conn: conn.rollback()
         logging.error(f"Teklif yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
-        if conn:
-            conn.close()
-
-@app.route('/api/quotes/<int:quote_id>/accept', methods=['POST'])
-@limiter.limit("20 per hour")
-def accept_quote(quote_id):
-    if 'user_id' not in session or session.get('user_type') != 'owner':
-        return jsonify({"description": "Bu işlemi yapmaya yetkiniz yok."}), 403
+        if conn: conn.close()
+        
+@app.route('/api/quotes/<int:quote_id>/reject', methods=['POST'])
+@limiter.limit("30 per minute")
+def reject_quote(quote_id):
+    if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 401
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         user_id = session['user_id']
-        quote_query = """
-            SELECT q.id, q.request_id, q.shop_user_id, r.user_id as request_owner_id
-            FROM Quotes q JOIN Requests r ON q.request_id = r.id
-            WHERE q.id = %s
-        """
-        cursor.execute(quote_query, (quote_id,))
-        quote_data = cursor.fetchone()
-        if not quote_data:
-            return jsonify({"description": "Teklif bulunamadı."}), 404
-        if quote_data['request_owner_id'] != user_id:
-            return jsonify({"description": "Bu teklifi onaylama yetkiniz yok."}), 403
+        user_type = session['user_type']
+
+        cursor.execute("SELECT q.request_id, r.user_id, r.shop_user_id FROM Quotes q JOIN Requests r ON q.request_id = r.id WHERE q.id = %s", (quote_id,))
+        data = cursor.fetchone()
+        if not data: return jsonify({"description": "Teklif bulunamadı."}), 404
+
+        if (user_type == 'owner' and user_id == data['user_id']) or (user_type == 'business' and user_id == data['shop_user_id']):
+            cursor.execute("UPDATE Requests SET status = 'rejected' WHERE id = %s", (data['request_id'],))
+            cursor.execute("UPDATE Quotes SET status = 'rejected' WHERE id = %s", (quote_id,))
+            conn.commit()
+            return jsonify({"status": "success", "description": "Teklif reddedildi."})
+        else:
+            return jsonify({"description": "Yetkisiz işlem."}), 403
+    except Exception as e:
+        if conn: conn.rollback()
+        logging.error(f"Teklif reddetme hatası: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/quotes/<int:quote_id>/accept', methods=['POST'])
+@limiter.limit("20 per hour")
+def accept_quote(quote_id):
+    if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 403
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        user_id = session['user_id']
+        user_type = session['user_type']
+
+        query = "SELECT q.*, r.user_id as owner_user_id FROM Quotes q JOIN Requests r ON q.request_id = r.id WHERE q.id = %s"
+        cursor.execute(query, (quote_id,))
+        quote = cursor.fetchone()
+        if not quote: return jsonify({"description": "Teklif bulunamadı."}), 404
+
+        final_cost = 0
         
+        if user_type == 'owner' and user_id == quote['owner_user_id']:
+            if quote['last_offer_by'] != 'business': return jsonify({"description": "İşletmenin teklifini bekleyin."}), 400
+            final_cost = quote['total_cost']
+        elif user_type == 'business' and user_id == quote['shop_user_id']:
+            if quote['last_offer_by'] != 'owner' or not quote['owner_proposed_cost']: return jsonify({"description": "Müşterinin karşı teklifi bekleniyor."}), 400
+            final_cost = quote['owner_proposed_cost']
+            # İşletme müşterinin fiyatını kabul ettiği için ana maliyeti güncelle
+            cursor.execute("UPDATE Quotes SET total_cost = %s WHERE id = %s", (final_cost, quote_id))
+        else:
+            return jsonify({"description": "Yetkisiz işlem."}), 403
+
         cursor.execute("UPDATE Quotes SET status = 'accepted' WHERE id = %s", (quote_id,))
-        cursor.execute("UPDATE Requests SET status = 'accepted' WHERE id = %s", (quote_data['request_id'],))
+        cursor.execute("UPDATE Requests SET status = 'accepted' WHERE id = %s", (quote['request_id'],))
         cursor.execute(
-            "INSERT INTO Appointments (request_id, quote_id, user_id, shop_user_id, status) VALUES (%s, %s, %s, %s, %s)",
-            (quote_data['request_id'], quote_id, user_id, quote_data['shop_user_id'], 'tarih_bekleniyor')
+            "INSERT INTO Appointments (request_id, quote_id, user_id, shop_user_id, status) VALUES (%s, %s, %s, %s, 'tarih_bekleniyor')",
+            (quote['request_id'], quote_id, quote['owner_user_id'], quote['shop_user_id'])
         )
         conn.commit()
-        logging.info(f"Kullanıcı {user_id}, teklif {quote_id} için randevu oluşturdu.")
         return jsonify({"status": "success", "description": "Teklif kabul edildi ve randevu oluşturuldu."}), 201
     except Exception as e:
-        if conn:
-            conn.rollback()
+        if conn: conn.rollback()
         logging.error(f"Teklif kabul etme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
 @app.route('/api/appointments', methods=['GET'])
 @limiter.limit("60 per minute")
@@ -1159,45 +1223,56 @@ def account_details():
         if request.method == 'POST':
             data = request.get_json()
             
-            # Sadece kişisel telefon numarası güncelleniyorsa
             if 'phone_number' in data and len(data) == 1:
                 phone_number = data.get('phone_number')
                 if phone_number and not validate_phone_number(phone_number):
                     return jsonify({"description": "Geçersiz kişisel telefon no."}), 400
                 cursor.execute('UPDATE Users SET phone_number = %s WHERE id = %s', (phone_number, user['id']))
-
-            # İşletme bilgileri güncelleniyorsa
-            elif user['user_type'] == 'business' and ('city' in data or 'shop_phone' in data or 'serviced_brands' in data or 'google_place_id' in data):
+                conn.commit()
+            
+            elif user['user_type'] == 'business':
                 serviced_brands_str = ",".join(data.get('serviced_brands', []))
                 shop_phone = data.get('shop_phone')
+                new_license_key = data.get('google_place_id')
+
                 if shop_phone and not validate_phone_number(shop_phone):
                      return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
 
-                cursor.execute('SELECT google_place_id FROM Shops WHERE user_id = %s', (user['id'],))
-                current_shop_data = cursor.fetchone()
+                cursor.execute('SELECT id, google_place_id FROM Shops WHERE user_id = %s', (user['id'],))
+                shop_data = cursor.fetchone()
                 
-                new_place_id = data.get('google_place_id')
-
-                if current_shop_data: # İşletme var, güncelle
-                    current_place_id = current_shop_data['google_place_id']
-                    if new_place_id != current_place_id:
-                        logging.info(f"Place ID değiştiği için '{user['name']}' işletmesinin önbelleği temizleniyor.")
-                        cursor.execute(
-                            'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s, google_place_name = NULL, google_place_phone = NULL, google_place_url = NULL, google_place_last_updated = NULL WHERE user_id = %s',
-                            (data.get('city'), shop_phone, new_place_id, serviced_brands_str, user['id'])
-                        )
-                    else:
-                        cursor.execute(
-                            'UPDATE Shops SET city = %s, phone = %s, serviced_brands = %s WHERE user_id = %s',
-                            (data.get('city'), shop_phone, serviced_brands_str, user['id'])
-                        )
+                if shop_data: # İşletme var, güncelle
+                    cursor.execute(
+                        'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s WHERE user_id = %s',
+                        (data.get('city'), shop_phone, new_license_key, serviced_brands_str, user['id'])
+                    )
                 else: # İşletme yok, yeni oluştur
                     cursor.execute(
                         'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands) VALUES (%s, %s, %s, %s, %s)',
-                        (user['id'], data.get('city'), shop_phone, new_place_id, serviced_brands_str)
+                        (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str)
                     )
-            
-            conn.commit()
+                conn.commit() # Shops tablosunu kaydet
+                
+                # --- LİSANS TABLOSUNU GÜNCELLE ---
+                if new_license_key:
+                    cursor.execute("SELECT id FROM Shops WHERE user_id = %s", (user['id'],))
+                    shop_id = cursor.fetchone()['id']
+                    
+                    try:
+                        cursor.execute(
+                            """
+                            INSERT INTO Licenses (shop_id, license_key, is_active) 
+                            VALUES (%s, %s, true)
+                            ON CONFLICT (shop_id) DO UPDATE SET license_key = EXCLUDED.license_key;
+                            """, (shop_id, new_license_key)
+                        )
+                        conn.commit()
+                        logging.info(f"İşletme (Shop ID: {shop_id}) için lisans kaydı başarıyla oluşturuldu/güncellendi.")
+                    except psycopg2_errors.UniqueViolation as e:
+                        conn.rollback()
+                        logging.error(f"Lisans anahtarı çakışması: {new_license_key} zaten kullanılıyor. {e}")
+                        return jsonify({"description": f"Bu lisans anahtarı başka bir işletme tarafından kullanılıyor."}), 409
+
             return jsonify({"status": "success", "description": "Hesap güncellendi."})
     except Exception as e:
         if conn:
@@ -1414,3 +1489,4 @@ def google_register_complete():
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, load_dotenv=False)
+
