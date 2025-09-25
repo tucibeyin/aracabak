@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Araca Bak - Premium Bakım Servisi</title>
+    <title>aracabak - Premium Bakım Servisi</title>
     <!-- Google Sign-In Kütüphanesi -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -67,12 +67,12 @@
     <header class="bg-white shadow-md sticky top-0 z-40">
         <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
             <a href="/">
-                <img src="/logolar/aracabak_menu_logo.png" alt="Araca Bak Logo" class="h-8 sm:h-10 w-auto">
+                <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
             </a>
             <div id="auth-container">
                 <div id="guest-menu" class="flex items-center space-x-2 sm:space-x-4">
-                    <button id="loginBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Login</button>
-                    <button id="signupBtn" class="bg-gray-900 text-white font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-700">Sign Up</button>
+                    <button id="loginBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Giriş Yap</button>
+                    <button id="signupBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Kayıt Ol</button>
                 </div>
                 <div id="user-menu" class="items-center space-x-2 sm:space-x-4">
                     <div id="welcomeContainer" class="text-right">
@@ -91,8 +91,13 @@
         <div class="w-full max-w-6xl mt-4 sm:mt-8">
             <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
                 <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-2">Periyodik Bakım Sihirbazı</h1>
-                <p class="text-center text-gray-600 mb-8 px-2">Aracınızın bilgilerini seçerek bakım detaylarını öğrenin.</p>
+                <p class="text-center text-gray-600 mb-6 px-2">Aracınızın bilgilerini seçerek bakım detaylarını öğrenin.</p>
                 
+                <div id="registeredVehicleSelector" class="mb-6 hidden text-center">
+                    <label for="vehicleSelector" class="mb-2 font-semibold text-md block">veya kayıtlı bir aracınızı seçin:</label>
+                    <select id="vehicleSelector" class="p-3 border rounded-lg bg-white shadow-sm w-full max-w-sm mx-auto"></select>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4 items-end">
                     <div class="flex flex-col"><label for="brand" class="mb-1 font-semibold text-sm">Marka</label><select id="brand" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
                     <div class="flex flex-col"><label for="series" class="mb-1 font-semibold text-sm">Seri</label><select id="series" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
@@ -156,7 +161,7 @@
     
     <footer class="text-center py-8 mt-auto pb-20">
         <p class="text-xs text-gray-500">®vovDigital, bu sayfa bilgilendirme amaçlıdır.</p>
-        <p class="text-xs text-gray-500 mt-1">Sorularınız için info@aracabak.com</p>
+        <p class="text-xs text-gray-500 mt-1">Sorularınız için info.aracabak@gmail.com</p>
     </footer>
 
     <div id="fuel-ticker-container" class="ticker-wrap">
@@ -224,6 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const googleCompleteProfileForm = document.getElementById('googleCompleteProfileForm');
     const userTypeSelector = document.getElementById('userTypeSelector');
     const phoneNumberInput = document.getElementById('google_phone_number');
+    const registeredVehicleSelector = document.getElementById('registeredVehicleSelector');
+    const vehicleSelector = document.getElementById('vehicleSelector');
     let maintenanceOptions = null; 
     let googleUserData = null;
     let googleMapsApiKey = null;
@@ -264,8 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
             authContainer.classList.add('logged-in');
             welcomeMessage.textContent = `Hoşgeldin, ${userData.userName}!`;
             userTypeMessage.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+            if (userData.userType === 'owner' && userData.vehicles && userData.vehicles.length > 0) {
+                registeredVehicleSelector.classList.remove('hidden');
+                vehicleSelector.innerHTML = '<option value="">Kayıtlı bir araç seç...</option>';
+                userData.vehicles.forEach(v => {
+                    const option = new Option(`${v.plate_number} - ${v.brand} ${v.model}`, JSON.stringify(v));
+                    vehicleSelector.add(option);
+                });
+            } else {
+                registeredVehicleSelector.classList.add('hidden');
+            }
         } else {
             authContainer.classList.remove('logged-in');
+            registeredVehicleSelector.classList.add('hidden');
         }
     }
 
@@ -293,9 +311,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function populateSelect(selectElement, url, placeholder) {
+    async function populateSelect(selectElement, url, placeholder, selectedValue = null, shouldDisable = true) {
         selectElement.innerHTML = `<option value="">${placeholder}</option>`;
-        selectElement.disabled = true;
+        if(shouldDisable) selectElement.disabled = true;
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -305,6 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectElement.add(option);
             });
             if (data.length > 0) selectElement.disabled = false;
+            if (selectedValue) selectElement.value = selectedValue;
+
         } catch (error) {
             console.error(`Error populating '${placeholder}':`, error);
             selectElement.innerHTML = `<option>Veri Yüklenemedi</option>`;
@@ -349,6 +369,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         reviewsHtml += '</div>';
                     }
                     let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
+                    
+                    let requestButtonHtml = '';
+                    let buttonGridClass = 'sm:grid-cols-2'; 
+                    
+                    if (!currentUser || currentUser.userType !== 'business') {
+                        buttonGridClass = 'sm:grid-cols-3';
+                        requestButtonHtml = `<button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>`;
+                    }
+
                     const shopCard = `
                         <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
                             <div>
@@ -357,9 +386,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${reviewsHtml}
                                 ${mapContent}
                             </div>
-                            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 border-t pt-4">
+                            <div class="mt-4 grid grid-cols-1 ${buttonGridClass} gap-2 border-t pt-4">
                                 <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
-                                <button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>
+                                ${requestButtonHtml}
                                 <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
                             </div>
                         </div>`;
@@ -535,8 +564,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let tickerHtml = '';
             prices.forEach(cityData => {
-                const benzin = cityData["V\/Max Kur\u015funsuz 95"];
-                const motorin = cityData["V\/Max Diesel"];
+                const benzin = cityData["V/Max Kurşunsuz 95"];
+                const motorin = cityData["V/Max Diesel"];
                 tickerHtml += `<span class="mx-4"><strong class="font-semibold text-gray-900">${cityData.City}:</strong> Benzin ${benzin} TL - Motorin ${motorin} TL</span> | `;
             });
             tickerContent.innerHTML = tickerHtml + tickerHtml;
@@ -574,6 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (currentSelect === seriesSelect && series) populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}`, 'Yıl Seçin');
             else if (currentSelect === yearSelect && year) populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}`, 'Yakıt Seçin');
             else if (currentSelect === fuelSelect && fuel) populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}&fuel=${encodeURIComponent(fuel)}`, 'Model Seçin');
+            vehicleSelector.value = "";
         });
     });
 
@@ -582,7 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
         citySelect.disabled = !isModelSelected;
         kmInput.disabled = !isModelSelected;
         if (isModelSelected) {
-            populateSelect(citySelect, '/api/cities', 'Şehir Seçin');
+            populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
         } else {
             citySelect.innerHTML = '';
             kmInput.value = '';
@@ -591,6 +621,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     [citySelect, kmInput].forEach(el => el.addEventListener('input', checkFormCompletion));
+
+    vehicleSelector.addEventListener('change', async (e) => {
+        if (!e.target.value) return;
+        const vehicle = JSON.parse(e.target.value);
+        
+        await populateSelect(brandSelect, '/api/brands', 'Marka Seçin', vehicle.brand, false);
+        await populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(vehicle.brand)}`, 'Seri Seçin', vehicle.series);
+        await populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}`, 'Yıl Seçin', vehicle.year);
+        await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}`, 'Yakıt Seçin', vehicle.fuel);
+        await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}&fuel=${encodeURIComponent(vehicle.fuel)}`, 'Model Seçin', vehicle.model);
+
+        populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
+        kmInput.disabled = false;
+        checkFormCompletion();
+    });
 
     findMaintenanceBtn.addEventListener('click', async () => {
         const brand = brandSelect.value;
@@ -602,13 +647,13 @@ document.addEventListener('DOMContentLoaded', () => {
         findMaintenanceBtn.disabled = true;
         findMaintenanceBtn.textContent = "Aranıyor...";
         try {
-            const response = await fetch(`/api/maintenance_options?brand=${encodeURIComponent(brand)}&fuel=${encodeURIComponent(fuel)}&km=${km}`);
+            const response = await fetch(`/api/maintenance_options?fuel=${encodeURIComponent(fuel)}&km=${km}`);
             if (!response.ok) throw new Error("Bakım seçenekleri alınamadı.");
             maintenanceOptions = await response.json();
             if (!maintenanceOptions.missed_service.details) {
                 displayMaintenanceDetails(maintenanceOptions.next_service);
             } else {
-                document.getElementById('confirmationQuestion').textContent = `${maintenanceOptions.question_km} KM bakımı yapıldı mı?`;
+                document.getElementById('confirmationQuestion').textContent = `${maintenanceOptions.question_km.toLocaleString()} KM bakımı yapıldı mı?`;
                 confirmationSection.classList.remove('hidden');
             }
         } catch (error) {
@@ -666,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial Call ---
     checkAuthStatus();
-    populateSelect(brandSelect, '/api/brands', 'Marka Seçin');
+    populateSelect(brandSelect, '/api/brands', 'Marka Seçin', null, false);
     fetchAndDisplayFuelPrices();
 
     // --- Window Onload for Google SSO ---
