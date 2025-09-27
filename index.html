@@ -204,7 +204,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     let currentUser = null;
-
+    let activeUserRequests = [];
+    let currentMaintenanceKm = null;
+    
     // --- Selectors ---
     const brandSelect = document.getElementById('brand');
     const seriesSelect = document.getElementById('series');
@@ -255,9 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.loggedIn) {
                 currentUser = data;
+                if (data.active_requests) {
+                    activeUserRequests = data.active_requests;
+                }
                 updateLoginState(data);
             } else {
                 currentUser = null;
+                activeUserRequests = [];
                 updateLoginState(null);
             }
         } catch (error) {
@@ -345,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const brand = brandSelect.value;
+        const model = modelSelect.value;
         const city = citySelect.value;
         const shopContainer = document.getElementById('shopResultsContainer');
         const shopList = document.getElementById('shopList');
@@ -370,12 +377,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
                     
+                    let isRequestActive = false;
+                    if (currentUser && currentUser.userType === 'owner') {
+                        isRequestActive = activeUserRequests.some(req =>
+                            req.shop_user_id == shop.shop_user_id &&
+                            req.vehicle_brand === brand &&
+                            req.vehicle_model === model &&
+                            req.maintenance_km == currentMaintenanceKm
+                        );
+                    }
+                    
                     let requestButtonHtml = '';
                     let buttonGridClass = 'sm:grid-cols-2'; 
                     
                     if (!currentUser || currentUser.userType !== 'business') {
                         buttonGridClass = 'sm:grid-cols-3';
-                        requestButtonHtml = `<button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>`;
+                        if(isRequestActive) {
+                            requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>Talep Mevcut</button>`;
+                        } else {
+                            requestButtonHtml = `<button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>`;
+                        }
                     }
 
                     const shopCard = `
@@ -530,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     km: parseInt(kmInput.value)
                 },
                 city: citySelect.value,
-                maintenance_km: maintenanceOptions.next_service ? maintenanceOptions.next_service.km : maintenanceOptions.missed_service.km,
+                maintenance_km: currentMaintenanceKm,
                 selected_parts: selectedParts
             };
             const response = await fetch('/api/requests', {
@@ -543,9 +564,17 @@ document.addEventListener('DOMContentLoaded', () => {
             button.textContent = 'Talep İletildi!';
             button.classList.replace('bg-green-600', 'bg-gray-400');
             button.classList.replace('hover:bg-green-700', 'cursor-not-allowed');
+
+            activeUserRequests.push({
+                shop_user_id: parseInt(button.dataset.shopId),
+                vehicle_brand: brandSelect.value,
+                vehicle_model: modelSelect.value,
+                maintenance_km: currentMaintenanceKm
+            });
+            
             showToast('Teklif talebiniz başarıyla iletildi!');
         } catch(error) {
-            alert(`Hata: ${error.message}`);
+            showToast(`Hata: ${error.message}`, 'error');
             button.disabled = false;
             button.textContent = 'Teklif İste';
         }
@@ -651,6 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error("Bakım seçenekleri alınamadı.");
             maintenanceOptions = await response.json();
             if (!maintenanceOptions.missed_service.details) {
+                currentMaintenanceKm = maintenanceOptions.next_service.km;
                 displayMaintenanceDetails(maintenanceOptions.next_service);
             } else {
                 document.getElementById('confirmationQuestion').textContent = `${maintenanceOptions.question_km.toLocaleString()} KM bakımı yapıldı mı?`;
@@ -658,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Bakım seçenekleri alınırken hata:", error);
-            alert("Bakım bilgisi bulunamadı veya bir sunucu hatası oluştu.");
+            showToast("Bakım bilgisi bulunamadı veya bir sunucu hatası oluştu.", "error");
         } finally {
             findMaintenanceBtn.disabled = false;
             findMaintenanceBtn.textContent = "Bakımı Bul";
@@ -666,8 +696,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('confirmYesBtn').addEventListener('click', () => { if (maintenanceOptions) displayMaintenanceDetails(maintenanceOptions.next_service); });
-    document.getElementById('confirmNoBtn').addEventListener('click', () => { if (maintenanceOptions) displayMaintenanceDetails(maintenanceOptions.missed_service); });
+    document.getElementById('confirmYesBtn').addEventListener('click', () => { 
+        if (maintenanceOptions) {
+            currentMaintenanceKm = maintenanceOptions.next_service.km;
+            displayMaintenanceDetails(maintenanceOptions.next_service); 
+        }
+    });
+    document.getElementById('confirmNoBtn').addEventListener('click', () => { 
+        if (maintenanceOptions) {
+            currentMaintenanceKm = maintenanceOptions.missed_service.km;
+            displayMaintenanceDetails(maintenanceOptions.missed_service); 
+        }
+    });
     
     phoneNumberInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
     
