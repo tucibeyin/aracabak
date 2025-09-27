@@ -394,7 +394,11 @@ def auth_status():
                 cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel FROM Vehicles WHERE user_id = %s', (user_id,))
                 vehicles = [dict(row) for row in cursor.fetchall()]
                 response_data['vehicles'] = vehicles
-            
+
+                cursor.execute("SELECT shop_user_id, vehicle_brand, vehicle_model, maintenance_km FROM Requests WHERE user_id = %s AND status IN ('pending', 'quoted', 'negotiating', 'accepted')", (user_id,))
+                active_requests = [dict(row) for row in cursor.fetchall()]
+                response_data['active_requests'] = active_requests
+
             return jsonify(response_data)
         except Exception as e:
             logging.error(f"Oturum durumu kontrol edilirken veritabanı hatası: {e}")
@@ -608,7 +612,23 @@ def create_request():
         data = request.get_json()
         if not all(field in data for field in ['shop_user_id', 'shop_google_place_id', 'vehicle', 'maintenance_km', 'selected_parts', 'city']):
             return jsonify({"description": "Eksik bilgi."}), 400
+        
         vehicle = data['vehicle']
+        
+        # --- Yinelenen Talep Kontrolü ---
+        cursor.execute(
+            """
+            SELECT id FROM Requests 
+            WHERE user_id = %s AND shop_user_id = %s 
+            AND vehicle_brand = %s AND vehicle_model = %s AND maintenance_km = %s
+            AND status IN ('pending', 'quoted', 'negotiating', 'accepted')
+            """,
+            (user_id, data['shop_user_id'], vehicle['brand'], vehicle['model'], data['maintenance_km'])
+        )
+        existing_request = cursor.fetchone()
+        if existing_request:
+            return jsonify({"description": "Bu araç ve servis için zaten aktif bir talebiniz bulunmaktadır."}), 409
+        
         selected_parts_json = json.dumps(data['selected_parts'])
         cursor.execute(
             """
@@ -644,31 +664,26 @@ def delete_request(request_id):
         user_id = session['user_id']
         user_type = session['user_type']
         
-        cursor.execute('SELECT user_id, shop_user_id, status FROM Requests WHERE id = %s', (request_id,))
+        cursor.execute('SELECT id, user_id, shop_user_id, status FROM Requests WHERE id = %s', (request_id,))
         req_to_delete = cursor.fetchone()
-        
+
         if not req_to_delete:
             return jsonify({"description": "Talep bulunamadı."}), 404
 
-        is_owner = user_type == 'owner' and user_id == req_to_delete['user_id']
-        is_shop = user_type == 'business' and user_id == req_to_delete['shop_user_id']
+        is_owner = (user_type == 'owner' and req_to_delete['user_id'] == user_id)
+        is_business = (user_type == 'business' and req_to_delete['shop_user_id'] == user_id)
 
-        if not (is_owner or is_shop):
+        if not (is_owner or is_business):
             return jsonify({"description": "Bu talebi silme yetkiniz yok."}), 403
+        
+        if is_business and req_to_delete['status'] not in ['pending', 'negotiating', 'accepted']:
+            return jsonify({"description": "İşletmeler sadece beklemedeki, pazarlıktaki veya onaylanmış talepleri silebilir."}), 403
 
-        # Hem araç sahibi hem de işletme, tamamlanmış veya reddedilmiş olanlar da dahil olmak üzere
-        # kendi taleplerini silebilir.
-        allowed_statuses = ['pending', 'quoted', 'negotiating', 'rejected', 'accepted']
-        
-        if req_to_delete['status'] not in allowed_statuses:
-            return jsonify({"description": "Bu durumdaki bir talep silinemez."}), 403
-        
         cursor.execute('DELETE FROM Appointments WHERE request_id = %s', (request_id,))
         cursor.execute('DELETE FROM Quotes WHERE request_id = %s', (request_id,))
         cursor.execute('DELETE FROM Requests WHERE id = %s', (request_id,))
         conn.commit()
         return jsonify({"status": "success", "description": "Talep silindi."})
-
     except Exception as e:
         if conn:
             conn.rollback()
@@ -910,7 +925,7 @@ def get_appointments():
 @limiter.limit("30 per minute")
 def manage_appointment(appointment_id):
     if 'user_id' not in session:
-        return jsonify({"description": "Yetkilendirme gerekli."}), 401
+        return jsonify({"description": "Yetkilendirme gerekli."}), 403
     
     conn = None
     try:
@@ -918,34 +933,32 @@ def manage_appointment(appointment_id):
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         user_id = session['user_id']
         user_type = session['user_type']
+
+        cursor.execute("SELECT * FROM Appointments WHERE id = %s", (appointment_id,))
+        appointment = cursor.fetchone()
+
+        if not appointment:
+            return jsonify({"description": "Randevu bulunamadı."}), 404
         
+        is_owner = user_type == 'owner' and appointment['user_id'] == user_id
+        is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
+        
+        if not (is_owner or is_business):
+             return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
+
         if request.method == 'PUT':
-            if user_type != 'business':
-                return jsonify({"description": "Yetkisiz işlem."}), 403
+            if not is_business:
+                return jsonify({"description": "Sadece işletmeler randevu güncelleyebilir."}), 403
             data = request.get_json()
             appointment_date = data.get('appointment_date')
             if not appointment_date:
                 return jsonify({"description": "Randevu tarihi gereklidir."}), 400
             
-            cursor.execute("UPDATE Appointments SET appointment_date = %s, status = 'tarih_belirlendi' WHERE id = %s AND shop_user_id = %s",
-                           (appointment_date, appointment_id, user_id))
+            cursor.execute("UPDATE Appointments SET appointment_date = %s, status = 'tarih_belirlendi' WHERE id = %s", (appointment_date, appointment_id))
             conn.commit()
-            if cursor.rowcount == 0:
-                return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
             return jsonify({"status": "success", "description": "Randevu tarihi güncellendi."})
 
         elif request.method == 'DELETE':
-            cursor.execute("SELECT user_id, shop_user_id, status FROM Appointments WHERE id = %s", (appointment_id,))
-            appointment = cursor.fetchone()
-            if not appointment:
-                return jsonify({"description": "Randevu bulunamadı."}), 404
-
-            is_owner = user_type == 'owner' and user_id == appointment['user_id']
-            is_shop = user_type == 'business' and user_id == appointment['shop_user_id']
-            
-            if not (is_owner or is_shop):
-                 return jsonify({"description": "Bu randevuyu silme yetkiniz yok."}), 403
-
             if appointment['status'] != 'tamamlandi':
                 return jsonify({"description": "Sadece tamamlanmış randevular silinebilir."}), 403
 
@@ -955,7 +968,7 @@ def manage_appointment(appointment_id):
 
     except Exception as e:
         if conn: conn.rollback()
-        logging.error(f"Randevu yönetimi hatası: {e}\n{traceback.format_exc()}")
+        logging.error(f"Randevu yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn: conn.close()
