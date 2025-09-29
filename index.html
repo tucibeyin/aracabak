@@ -4,15 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>aracabak - Premium Bakım Servisi</title>
-    <!-- Google Sign-In Kütüphanesi -->
+    <!-- Google'ın kimlik doğrulama script'i -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome Ikon Kütüphanesi -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- Site Ikonları (Favicon) -->
     <link rel="icon" href="/logolar/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="/logolar/favicon.ico" type="image/x-icon">
-    <!-- Google AdSense Kodu -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2403555634390058"
      crossorigin="anonymous"></script>
     <style>
@@ -207,7 +204,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeUserRequests = [];
     let currentMaintenanceKm = null;
     
-    // --- Selectors ---
+    window.googleMapsApiKey = null;
+    window.googleClientId = null;
+    
     const brandSelect = document.getElementById('brand');
     const seriesSelect = document.getElementById('series');
     const yearSelect = document.getElementById('year');
@@ -235,9 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const vehicleSelector = document.getElementById('vehicleSelector');
     let maintenanceOptions = null; 
     let googleUserData = null;
-    let googleMapsApiKey = null;
-
-    // --- Functions ---
+    
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
@@ -293,27 +290,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handleGoogleCredentialResponse(response) {
+    // Bu fonksiyon sadece "Profili Tamamla" senaryosunda backend'den gelen JSON yanıtını işlemek için kullanılıyor.
+    async function handleGoogleProfileCompletion(response) {
         try {
-            const apiResponse = await fetch('/api/auth/google', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: response.credential })
-            });
-            const result = await apiResponse.json();
-            if (!apiResponse.ok) throw new Error(result.description || "Giriş başarısız.");
-            if (result.status === 'login_success') {
-                await checkAuthStatus();
-                authModal.classList.add('hidden');
-            } else if (result.status === 'complete_profile') {
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description || "Giriş başarısız.");
+
+            if (result.status === 'complete_profile') {
                 googleUserData = result;
                 document.getElementById('googleWelcome').textContent = `Hoşgeldin, ${result.name}! Kaydı tamamlamak için son bir adım kaldı.`;
                 standardAuthForms.classList.add('hidden');
                 googleCompleteProfileForm.classList.remove('hidden');
             }
         } catch (error) {
-            console.error("Google auth hatası:", error);
-            displayAuthMessage(document.querySelector('#standardAuthForms'), error.message, 'error');
+            console.error("Google auth yanıtı işlenirken hata:", error);
+            displayAuthMessage(document.querySelector('#standardAuthForms'), "Giriş sırasında bir hata oluştu.", 'error');
         }
     }
 
@@ -345,8 +336,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function findAndDisplayShops() {
-        if (!googleMapsApiKey) {
-            console.error("Google Maps API key not loaded.");
+        if (!window.googleMapsApiKey) {
+            console.error("Google Maps API key not loaded. Shops cannot be displayed.");
             document.getElementById('shopResultsContainer').classList.add('hidden');
             return;
         }
@@ -375,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         reviewsHtml += '</div>';
                     }
-                    let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
+                    let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${window.googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
                     
                     let isRequestActive = false;
                     if (currentUser && currentUser.userType === 'owner') {
@@ -604,7 +595,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // --- Event Listeners ---
     loginBtn.addEventListener('click', () => authModal.classList.remove('hidden'));
     signupBtn.addEventListener('click', () => authModal.classList.remove('hidden'));
     closeModal.addEventListener('click', () => authModal.classList.add('hidden'));
@@ -658,8 +648,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await populateSelect(brandSelect, '/api/brands', 'Marka Seçin', vehicle.brand, false);
         await populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(vehicle.brand)}`, 'Seri Seçin', vehicle.series);
         await populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}`, 'Yıl Seçin', vehicle.year);
-        await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}`, 'Yakıt Seçin', vehicle.fuel);
-        await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}&fuel=${encodeURIComponent(vehicle.fuel)}`, 'Model Seçin', vehicle.model);
+        await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(year)}`, 'Yakıt Seçin', vehicle.fuel);
+        await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}&fuel=${encodeURIComponent(fuel)}`, 'Model Seçin', vehicle.model);
 
         populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
         kmInput.disabled = false;
@@ -749,27 +739,69 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Initial Call ---
-    checkAuthStatus();
-    populateSelect(brandSelect, '/api/brands', 'Marka Seçin', null, false);
-    fetchAndDisplayFuelPrices();
-
-    // --- Window Onload for Google SSO ---
-    window.onload = async function () {
+    // --- Google SSO Başlatma Mantığı ---
+    async function initializeGoogleSignIn() {
         try {
-            const response = await fetch('/api/config');
-            if (!response.ok) throw new Error('Yapılandırma alınamadı.');
-            const config = await response.json();
-            googleMapsApiKey = config.googleMapsApiKey;
-            const GOOGLE_CLIENT_ID = config.googleClientId;
-            if (!GOOGLE_CLIENT_ID) throw new Error("Client ID gelmedi.");
-            google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredentialResponse });
-            google.accounts.id.renderButton( document.getElementById("googleSignInButton"), { theme: "outline", size: "large", text: "signin_with", shape: "rectangular" });
+            const GOOGLE_CLIENT_ID = window.googleClientId;
+            if (!GOOGLE_CLIENT_ID) {
+                throw new Error("Google Client ID bulunamadı.");
+            }
+            
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleGoogleCredentialResponse, // Yönlendirme sonrası bu callback artık direkt çağrılmaz, ama "profili tamamla" için bir fallback olabilir.
+                ux_mode: "redirect",
+                login_uri: "https://aracabak.com/api/auth/google" // Google'ın token'ı POST edeceği yer.
+            });
+
+            google.accounts.id.renderButton(
+                document.getElementById("googleSignInButton"),
+                { theme: "outline", size: "large", text: "signin_with", shape: "rectangular" }
+            );
+
         } catch (error) {
             console.error("Google SSO başlatma hatası:", error);
             document.getElementById("googleSignInButton").innerHTML = `<p class="text-red-600 text-center text-sm">Google ile giriş geçici olarak devre dışı.</p>`;
         }
-    };
+    }
+    
+    function checkGoogleReady() {
+        if (window.google && window.google.accounts && window.googleClientId) {
+            initializeGoogleSignIn();
+        } else {
+            setTimeout(checkGoogleReady, 100);
+        }
+    }
+
+    async function fetchAndSetConfig() {
+       try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientType = urlParams.get('client_type');
+            let apiUrl = '/api/config';
+            if (clientType === 'android') {
+                apiUrl = '/api/config?client_type=android';
+            }
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error('Yapılandırma alınamadı.');
+            const config = await response.json();
+            
+            window.googleMapsApiKey = config.googleMapsApiKey;
+            window.googleClientId = config.googleClientId;
+        } catch(error) {
+            console.error("Config yüklenirken hata:", error);
+            document.getElementById("googleSignInButton").innerHTML = `<p class="text-red-600 text-center text-sm">Giriş yapılandırması yüklenemedi.</p>`;
+        }
+    }
+
+    // --- Sayfa Yüklendiğinde Başlatılan İşlemler ---
+    checkAuthStatus();
+    populateSelect(brandSelect, '/api/brands', 'Marka Seçin', null, false);
+    fetchAndDisplayFuelPrices();
+    
+    fetchAndSetConfig().then(() => {
+        checkGoogleReady();
+    });
+    
 });
 </script>
 </body>
