@@ -10,10 +10,14 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
+import android.content.Intent
+import android.net.Uri
+import android.webkit.WebResourceRequest
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private val MAIN_DOMAIN = "aracabak.com" // Uygulamanın yüklendiği ana domain
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,8 +46,54 @@ class MainActivity : AppCompatActivity() {
         webSettings.userAgentString = newUserAgent
         // --- GÜNCELLEME SONU ---
 
+        // --- GÜNCELLEME BAŞLANGICI: Özel WebViewClient (tel: ve harici linkler için) ---
+        webView.webViewClient = object : WebViewClient() {
 
-        webView.webViewClient = WebViewClient()
+            // Yeni API'lar için (Android 5.0 ve sonrası)
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString()
+                return handleUri(view, url)
+            }
+
+            // Eski API'lar için (Geriye dönük uyumluluk)
+            @Suppress("DEPRECATION")
+            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                return handleUri(view, url)
+            }
+
+            private fun handleUri(view: WebView?, url: String?): Boolean {
+                if (url == null) return false
+
+                // TELEFON, E-POSTA ve HARİTA şemalarını yerel uygulamaya yönlendir
+                if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("geo:")) {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        startActivity(intent)
+                        return true // WebView'ın bu URL'i yüklemesini engelle
+                    } catch (e: Exception) {
+                        Log.e("WebViewClient", "Yerel Intent başlatılamadı: $e")
+                        return true
+                    }
+                }
+
+                // Harici linkleri (Google Maps yol tarifi gibi) harici tarayıcıda aç
+                if (url.startsWith("http") && !url.contains(MAIN_DOMAIN)) {
+                    try {
+                        // Harici bağlantıyı varsayılan tarayıcıda aç
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        startActivity(intent)
+                        return true
+                    } catch (e: Exception) {
+                        Log.e("WebViewClient", "Harici URL açılamadı: $e")
+                        return true
+                    }
+                }
+
+                // Ana domaine ait veya özel bir şema değilse, WebView'ın yüklemesine izin ver
+                return false
+            }
+        }
+        // --- GÜNCELLEME SONU: Özel WebViewClient ---
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
