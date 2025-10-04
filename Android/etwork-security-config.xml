@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        [AÇIKLAMA] Varsayılan kuralımız hala aynı: Güvenlik için normalde
+        sadece şifreli HTTPS trafiğine izin verilir.
+    -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!--
+        Canlı sitenin (aracabak.com) her zaman HTTPS kullanmasını sağlayan kural.
+        Bu, uygulamanın ana alan adının güvenliğini sağlar.
+    -->
+    <domain-config>
+        <domain includeSubdomains="true">aracabak.com</domain>
+    </domain-config>
+
+    <!--
+        [YENİ GÜNCELLEME] Bu, karşılaştığımız hatayı çözmek için eklenen özel kuraldır.
+        Sadece "console" adlı alan adına şifresiz (HTTP) trafik göndermesine
+        izin veriyoruz. Bu, diğer tüm alan adlarının güvende kalmasını sağlarken
+        soruna neden olan özel durumu ele alır.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">console</domain>
+    </domain-config>
+</network-security-config>
+
