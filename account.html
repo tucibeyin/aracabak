@@ -45,6 +45,8 @@
         }
         .details-content.show {
             max-height: 1000px; /* Adjust if content is taller */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
         }
         .tooltip {
             position: relative;
@@ -77,8 +79,35 @@
             transform: rotate(180deg);
         }
         .table-scroll-container {
-            max-height: 20rem; /* Approx 5 rows */
+            /* max-height: 20rem; Yorum satırı haline getirildi, overflow-x-auto yeterli */
             overflow-y: auto;
+        }
+
+        /* Mobil Kart Görünümü için özel stil */
+        @media (max-width: 640px) {
+            .mobile-card-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 4px 0;
+                border-bottom: 1px solid #eee;
+            }
+            .mobile-card-item:last-child {
+                border-bottom: none;
+            }
+            .mobile-label {
+                font-weight: 600;
+                color: #6b7280;
+                flex-basis: 40%;
+                text-align: left;
+                font-size: 0.8rem;
+            }
+            .mobile-value {
+                color: #1f2937;
+                flex-basis: 60%;
+                text-align: right;
+                font-weight: 500;
+                font-size: 0.8rem;
+            }
         }
     </style>
 </head>
@@ -86,25 +115,83 @@
 
     <!-- Header -->
     <header class="bg-white shadow-md sticky top-0 z-40">
-        <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+        <!-- MASAÜSTÜ NAV BAR (LOGOYU VE BUTONLARI YANYANA TUTAR) -->
+        <nav class="container mx-auto px-4 sm:px-6 py-3 hidden sm:flex justify-between items-center">
             <a href="/">
                 <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
             </a>
-            <div id="auth-container">
-                 <div id="user-menu" class="hidden items-center space-x-2 sm:space-x-4">
-                    <div id="welcomeContainer" class="text-right">
-                        <span id="welcomeMessage" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
-                        <span id="userTypeMessage" class="text-xs text-gray-500 block capitalize"></span>
+            <div id="auth-container-desktop">
+                 <div id="user-menu" class="hidden flex items-center space-x-2 sm:space-x-4">
+                    <!-- MASAÜSTÜ HOŞGELDİN MESAJI -->
+                    <div id="welcomeContainerDesktop" class="text-right"> 
+                        <span id="welcomeMessageDesktop" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
+                        <span id="userTypeMessageDesktop" class="text-xs text-gray-500 block capitalize"></span>
                     </div>
+                    <a href="https://aracabak.com?client_type=android" id="homeBtn" class="bg-blue-600 text-white font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-blue-700">Anasayfa</a>
                     <a href="/account.html" id="accountBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
                     <button id="logoutBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
         </nav>
+
+        <!-- MOBİL NAV BAR (TÜMÜ DİKEY HİZALAMA) -->
+        <div class="container mx-auto px-4 sm:hidden">
+            <!-- 1. Satır: Logo (Ortalanmış) -->
+            <div class="py-3 flex justify-center items-center">
+                 <a href="/">
+                    <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 w-auto">
+                </a>
+            </div>
+            
+            <!-- 2. Satır: Butonlar (Yan Yana, Ortalanmış) -->
+            <div id="auth-container-mobile" class="py-2 border-t border-gray-200">
+                <div id="user-menu-mobile" class="hidden flex justify-center items-center space-x-2">
+                    <a href="https://aracabak.com?client_type=android" id="homeBtnMobile" class="bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg hover:bg-blue-700">Anasayfa</a>
+                    <a href="/account.html" id="accountBtnMobile" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <button id="logoutBtnMobile" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+
+            <!-- 3. Satır: Hoş Geldiniz Mesajı -->
+            <div id="welcomeContainerMobileWrapper" class="pb-3 hidden">
+                <div id="welcomeContainerMobile" class="text-center pt-2 border-t border-gray-200">
+                    <span id="welcomeMessage" class="font-semibold block text-gray-800 text-sm"></span>
+                    <span id="userTypeMessage" class="text-xs text-gray-500 block capitalize"></span>
+                </div>
+            </div>
+        </div>
     </header>
 
     <!-- Main Content -->
     <main id="mainContent" class="container mx-auto p-4 md:p-8 flex flex-col items-center gap-12">
+        
+        <!-- Randevularım Section (En Üstte) -->
+        <div id="appointmentsSection" class="w-full max-w-4xl hidden">
+             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Randevularım</h2>
+                <div id="appointmentList"></div>
+             </div>
+             <div id="appointmentDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
+        </div>
+        
+        <!-- Talep Yönetimi Sections (Owner/Business) (Üstte) -->
+        <div id="businessRequestsSection" class="w-full max-w-4xl hidden">
+             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gelen Bakım Talepleri</h2>
+                <div id="requestList"></div>
+             </div>
+             <div id="requestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
+        </div>
+        
+        <div id="ownerSentRequestsSection" class="w-full max-w-4xl hidden">
+             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gönderdiğim Bakım Talepleri</h2>
+                <div id="sentRequestList"></div>
+             </div>
+             <div id="sentRequestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
+        </div>
+        
+        <!-- Kişisel Bilgiler Section -->
         <div class="w-full max-w-lg">
              <div class="bg-white rounded-2xl shadow-lg">
                 <button id="personalInfoToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
@@ -138,6 +225,7 @@
             </div>
         </div>
 
+        <!-- İşletme Profili Section -->
         <div id="businessSection" class="w-full max-w-4xl hidden">
             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
                 <div id="shopInfoDisplay" class="hidden">
@@ -191,7 +279,9 @@
             </div>
         </div>
         
+        <!-- Araç Sahibi İçerik Bölümü -->
         <div id="ownerVehicleSection" class="w-full max-w-4xl hidden">
+            <!-- MTV / Muayene Takip Kartları -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
                 <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
                     <h2 class="text-2xl sm:text-3xl font-bold mb-6">MTV Ödeme Takibi</h2>
@@ -268,6 +358,7 @@
                 </div>
             </div>
 
+            <!-- Araç Listesi -->
             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
                     <h2 class="text-2xl sm:text-3xl font-bold">Araçlarım</h2>
@@ -276,6 +367,8 @@
                     </button>
                 </div>
                 <div id="vehicleList" class="space-y-4"></div>
+                
+                <!-- Yeni Araç Ekleme Formu -->
                 <div id="addVehicleFormContainer" class="hidden mt-8 pt-6 border-t">
                     <h3 class="text-xl font-bold mb-4">Yeni Araç Bilgileri</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
@@ -296,34 +389,9 @@
             </div>
         </div>
         
-        <!-- Appointments Section -->
-        <div id="appointmentsSection" class="w-full max-w-4xl hidden">
-             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Randevularım</h2>
-                <div id="appointmentList"></div>
-             </div>
-             <div id="appointmentDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
-        </div>
-        
-        <!-- Business Requests Section -->
-        <div id="businessRequestsSection" class="w-full max-w-4xl hidden">
-             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gelen Bakım Talepleri</h2>
-                <div id="requestList"></div>
-             </div>
-             <div id="requestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
-        </div>
-        
-        <!-- Owner Sent Requests Section -->
-        <div id="ownerSentRequestsSection" class="w-full max-w-4xl hidden">
-             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gönderdiğim Bakım Talepleri</h2>
-                <div id="sentRequestList"></div>
-             </div>
-             <div id="sentRequestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
-        </div>
     </main>
 
+    <!-- Telefon Numarası Giriş Modalı (İlk Girişte Zorunlu) -->
     <div id="phoneEntryOverlay" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
             <h2 class="text-2xl font-bold mb-4">Hoş Geldiniz!</h2>
@@ -337,6 +405,7 @@
         </div>
     </div>
 
+    <!-- Araç Düzenleme Modalı -->
     <div id="editVehicleModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-8 relative">
             <button id="closeEditModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -358,6 +427,7 @@
         </div>
     </div>
 
+    <!-- Talep Düzenleme Modalı -->
     <div id="editRequestModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative">
             <button id="closeRequestModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -392,9 +462,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Selectors ---
     const userMenu = document.getElementById('user-menu');
+    const userMenuMobile = document.getElementById('user-menu-mobile'); // Yeni mobil menü konteyneri
+    
+    // MASAÜSTÜ SELECTOR'LAR
+    const welcomeContainerDesktop = document.getElementById('welcomeContainerDesktop');
+    const welcomeMessageDesktop = document.getElementById('welcomeMessageDesktop');
+    const userTypeMessageDesktop = document.getElementById('userTypeMessageDesktop');
+    
+    // MOBİL SELECTOR'LAR
+    const welcomeContainerMobileWrapper = document.getElementById('welcomeContainerMobileWrapper');
     const welcomeMessage = document.getElementById('welcomeMessage');
     const userTypeMessage = document.getElementById('userTypeMessage');
+
     const logoutBtn = document.getElementById('logoutBtn');
+    const logoutBtnMobile = document.getElementById('logoutBtnMobile'); // Yeni mobil logout butonu
+
     const accountForm = document.getElementById('accountForm');
     const businessSection = document.getElementById('businessSection');
     const ownerVehicleSection = document.getElementById('ownerVehicleSection');
@@ -433,9 +515,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.loggedIn) {
                 currentUser = data;
-                userMenu.classList.remove('hidden');
-                welcomeMessage.textContent = `Hoşgeldin, ${data.userName}!`;
-                userTypeMessage.textContent = data.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                
+                // MASAÜSTÜ GÖRÜNÜM
+                document.getElementById('user-menu').classList.remove('hidden');
+                if(welcomeMessageDesktop && userTypeMessageDesktop) {
+                    welcomeMessageDesktop.textContent = `Hoşgeldin, ${data.userName}!`;
+                    userTypeMessageDesktop.textContent = data.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                }
+
+                // MOBİL GÖRÜNÜM
+                userMenuMobile.classList.remove('hidden');
+                if(welcomeMessage && userTypeMessage && welcomeContainerMobileWrapper) {
+                     welcomeMessage.textContent = `Hoşgeldin, ${data.userName}!`;
+                     userTypeMessage.textContent = data.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                     welcomeContainerMobileWrapper.classList.remove('hidden'); 
+                }
+
                 await populateAccountForm();
             } else {
                 window.location.href = '/';
@@ -446,10 +541,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    logoutBtn.addEventListener('click', async () => {
+    async function handleLogout() {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/';
-    });
+    }
+
+    // Hem masaüstü hem de mobil çıkış butonlarına event ekleniyor
+    logoutBtn.addEventListener('click', handleLogout);
+    logoutBtnMobile.addEventListener('click', handleLogout);
+
 
     // --- Functions ---
     function showToast(message, type = 'success') {
@@ -517,6 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.delete-vehicle-btn').forEach(btn => btn.addEventListener('click', handleDeleteVehicle));
     }
     
+    // --- GÜNCELLENMİŞ displayRequestDetails FONKSİYONU (Mobil Kartlara Uyumlu) ---
     function displayRequestDetails(requestId, isOwner) {
         const req = pageData.requests.find(r => r.id == requestId);
         if (!req) return;
@@ -555,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div id="owner-action-area-${req.id}" class="mt-4">
                             ${lastOfferByBusiness ? `
-                                <div class="flex gap-4">
+                                <div class="flex gap-4 flex-col sm:flex-row">
                                     <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
                                     <button class="counter-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Karşı Teklif Yap</button>
                                 </div>
@@ -596,7 +697,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div>
                         <h4 class="font-semibold mb-2">${req.maintenance_km.toLocaleString()} KM Bakımı İçin Seçilen Parçalar</h4>
-                        <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                        <button class="toggle-details-btn text-sm text-blue-600 font-semibold">Detayları Göster <i class="fas fa-chevron-down ml-1 transition-transform"></i></button>
+                        <div class="details-content mt-2 border-t pt-2">
+                            <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                        </div>
                     </div>
                 </div>
                 ${actionSectionHtml}
@@ -619,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             ${req.quote.notes && !lastOfferByOwner ? `<div class="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded-md"><strong>Not:</strong> ${req.quote.notes}</div>` : ''}
                             ${lastOfferByOwner ? `
-                                <div class="flex gap-2 mt-4">
+                                <div class="flex gap-2 mt-4 flex-col sm:flex-row">
                                      <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-3 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Onayla</button>
                                      <button class="update-offer-btn bg-yellow-500 text-white font-bold py-2 px-3 rounded-lg w-full text-sm" data-request-id="${req.id}">Yeni Teklif Ver</button>
                                 </div>
@@ -672,7 +776,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div>
                         <h4 class="font-semibold mb-2">${req.maintenance_km.toLocaleString()} KM Bakımı İçin Seçilen Parçalar</h4>
-                        <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                        <button class="toggle-details-btn text-sm text-blue-600 font-semibold">Detayları Göster <i class="fas fa-chevron-down ml-1 transition-transform"></i></button>
+                        <div class="details-content mt-2 border-t pt-2">
+                             <ul class="text-sm space-y-1 list-disc list-inside">${partsHtml}</ul>
+                        </div>
                     </div>
                 </div>
                 ${actionSectionHtml}
@@ -695,9 +802,20 @@ document.addEventListener('DOMContentLoaded', () => {
              detailContainer.querySelectorAll('.send-counter-offer-btn').forEach(btn => btn.addEventListener('click', handleSendCounterOffer));
         }
         detailContainer.querySelectorAll('.delete-request-btn').forEach(btn => btn.addEventListener('click', handleDeleteRequest));
+        
+        detailContainer.querySelectorAll('.toggle-details-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = button.nextElementSibling;
+                const icon = button.querySelector('i');
+                content.classList.toggle('show');
+                if(icon) {
+                    icon.classList.toggle('rotate-180');
+                }
+            });
+        });
     }
 
-
+    // --- GÜNCELLENMİŞ populateRequestsList FONKSİYONU (Mobil Kart ve Tablo) ---
     async function populateRequestsList(isOwner, accountData = null) {
         const listContainerId = isOwner ? 'sentRequestList' : 'requestList';
         const listElement = document.getElementById(listContainerId);
@@ -726,38 +844,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // --- MOBİL GÖRÜNÜM (Kart Görünümü) İÇİN KONTEYNER ---
-            let cardHtml = '<div class="sm:hidden space-y-4">';
-            // --- MASAÜSTÜ GÖRÜNÜM (Tablo Görünümü) İÇİN KONTEYNER ---
-            let tableWrapperHtml = '<div class="hidden sm:block overflow-x-auto">';
-
             const statusText = isOwner 
                 ? { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Alındı', 'accepted': 'Onaylandı', 'rejected': 'Reddedildi', 'negotiating': 'Pazarlıkta' }
                 : { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Gönderildi', 'accepted': 'Onaylandı', 'rejected': 'Reddedildi', 'negotiating': 'Pazarlıkta' };
             const statusColors = { 'pending': 'bg-yellow-100 text-yellow-800', 'quoted': 'bg-green-100 text-green-800', 'accepted': 'bg-blue-100 text-blue-800', 'rejected': 'bg-red-100 text-red-800', 'negotiating': 'bg-purple-100 text-purple-800' };
             const quotedOrNegotiating = (req) => (req.status === 'quoted' || (req.status === 'negotiating' && req.quote?.last_offer_by === 'business'));
 
+            // --- MOBİL GÖRÜNÜM (Kart Görünümü) İÇİN KONTEYNER ---
+            let cardHtml = '<div class="sm:hidden space-y-4">';
+            // --- MASAÜSTÜ GÖRÜNÜM (Tablo Görünümü) İÇİN KONTEYNER ---
+            let tableWrapperHtml = '<div class="hidden sm:block overflow-x-auto">';
+
             // Tablo Başlıkları
-            let tableHtml = `<table class="w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">${isOwner ? 'İşletme' : 'Müşteri'}</th>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Araç</th>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Tarih</th>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Durum</th>
+            let tableHtml = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${isOwner ? 'İşletme' : 'Müşteri'}</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Araç</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
             </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
 
             requests.forEach(req => {
                 const name = isOwner ? req.shop_name : req.customer_name;
                 const vehicleModel = `${req.vehicle_brand} ${req.vehicle_model}`;
                 const date = new Date(req.created_at).toLocaleDateString('tr-TR');
-                const statusSpan = `<span class="px-1 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[req.status] || ''}">${statusText[req.status] || req.status}</span>`;
+                const statusSpan = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[req.status] || ''}">${statusText[req.status] || req.status}</span>`;
                 const rowClass = isOwner && quotedOrNegotiating(req) ? 'font-bold' : '';
                 
                 // 1. Tablo Satırı (Masaüstü/Tablet Görünümü)
                 tableHtml += `<tr class="cursor-pointer hover:bg-gray-50 ${rowClass}" data-request-id="${req.id}">
-                    <td class="px-2 sm:px-4 py-3 text-xs"><div class="text-xs truncate ${isOwner && quotedOrNegotiating(req) ? 'text-green-700' : 'text-gray-900'}">${name}</div></td>
-                    <td class="px-2 sm:px-4 py-3 text-xs"><div class="text-xs text-gray-700 truncate">${req.vehicle_brand} ${req.vehicle_model}</div></td>
-                    <td class="px-2 sm:px-4 py-3 text-xs"><div class="text-xs text-gray-700">${date}</div></td>
-                    <td class="px-2 sm:px-4 py-3 text-xs">${statusSpan}</td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm ${isOwner && quotedOrNegotiating(req) ? 'text-green-700' : 'text-gray-900'}">${name}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${vehicleModel}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${date}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap">${statusSpan}</td>
                 </tr>`;
 
                 // 2. Kart Görünümü (Mobil Görünümü) - 2 Satırlı Yapı
@@ -769,9 +887,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             </p>
                             ${statusSpan}
                         </div>
-                        <div class="flex justify-between items-center text-xs text-gray-600">
-                            <p class="truncate mr-2"><strong>Araç:</strong> ${vehicleModel}</p>
-                            <p><strong>Tarih:</strong> ${date}</p>
+                        <div class="mobile-card-item">
+                            <span class="mobile-label">Araç:</span>
+                            <span class="mobile-value">${vehicleModel}</span>
+                        </div>
+                        <div class="mobile-card-item">
+                            <span class="mobile-label">KM:</span>
+                            <span class="mobile-value">${req.maintenance_km.toLocaleString()}</span>
+                        </div>
+                        <div class="mobile-card-item">
+                            <span class="mobile-label">Tarih:</span>
+                            <span class="mobile-value">${date}</span>
                         </div>
                     </div>`;
             });
@@ -801,6 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // --- GÜNCELLENMİŞ displayAppointmentDetails FONKSİYONU (Mobil Kartlara Uyumlu) ---
     function displayAppointmentDetails(appointmentId, isOwner) {
         const app = pageData.appointments.find(a => a.id == appointmentId);
         if (!app) return;
@@ -910,6 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- GÜNCELLENMİŞ populateAppointments FONKSİYONU (Mobil Kart ve Tablo) ---
     async function populateAppointments(isOwner) {
         const listElement = document.getElementById('appointmentList');
         const detailContainer = document.getElementById('appointmentDetail');
@@ -931,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 listElement.innerHTML = `<p class="text-center text-gray-500">Henüz bir randevunuz bulunmuyor.</p>`;
                 return;
             }
-
+            
             const statusColors = { 'tarih_bekleniyor': 'bg-yellow-100 text-yellow-800', 'tarih_belirlendi': 'bg-blue-100 text-blue-800', 'tamamlandi': 'bg-green-100 text-green-800' };
             const statusText = { 'tarih_bekleniyor': 'Tarih Bekleniyor', 'tarih_belirlendi': 'Tarih Belirlendi', 'tamamlandi': 'Tamamlandı' };
 
@@ -941,28 +1069,28 @@ document.addEventListener('DOMContentLoaded', () => {
             let tableWrapperHtml = '<div class="hidden sm:block overflow-x-auto">';
 
             // Tablo Başlıkları
-            let tableHtml = `<table class="w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">${isOwner ? 'Servis' : 'Müşteri'}</th>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Araç</th>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Randevu Tarihi</th>
-                <th scope="col" class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Durum</th>
+            let tableHtml = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${isOwner ? 'Servis' : 'Müşteri'}</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Araç</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Randevu Tarihi</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
             </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
             
             appointments.forEach(app => {
                 const name = isOwner ? app.shop_name : app.customer_name;
-                const vehicleModel = `${app.vehicle_brand} ${app.vehicle_model}`;
+                const vehicle = `${app.vehicle_brand} ${app.vehicle_model}`;
                 const date = app.appointment_date ? new Date(app.appointment_date).toLocaleDateString('tr-TR') : 'Belirlenmedi';
-                const statusSpan = `<span class="px-1 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[app.status] || ''}">${statusText[app.status] || app.status}</span>`;
+                const statusSpan = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[app.status] || ''}">${statusText[app.status] || app.status}</span>`;
 
                 // 1. Tablo Satırı (Masaüstü/Tablet Görünümü)
                 tableHtml += `<tr class="cursor-pointer hover:bg-gray-50" data-appointment-id="${app.id}">
-                    <td class="px-2 sm:px-4 py-3 text-xs"><div class="text-xs font-medium text-gray-900 truncate">${name}</div></td>
-                    <td class="px-2 sm:px-4 py-3 text-xs"><div class="text-xs text-gray-700 truncate">${app.vehicle_brand} ${app.vehicle_model}</div></td>
-                    <td class="px-2 sm:px-4 py-3 text-xs"><div class="text-xs text-gray-700">${date}</div></td>
-                    <td class="px-2 sm:px-4 py-3 text-xs">${statusSpan}</td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-gray-900">${name}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${vehicle}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${date}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap">${statusSpan}</td>
                 </tr>`;
 
-                // 2. Kart Görünümü (Mobil Görünümü) - 2 Satırlı Yapı
+                // 2. Kart Görünümü (Mobil Görünümü)
                 cardHtml += `
                     <div class="block p-3 border border-gray-200 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50" data-appointment-id="${app.id}">
                         <div class="flex justify-between items-center mb-1">
@@ -971,9 +1099,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             </p>
                             ${statusSpan}
                         </div>
-                        <div class="flex justify-between items-center text-xs text-gray-600">
-                            <p class="truncate mr-2"><strong>Araç:</strong> ${vehicleModel}</p>
-                            <p><strong>Tarih:</strong> ${date}</p>
+                        <div class="mobile-card-item">
+                            <span class="mobile-label">Araç:</span>
+                            <span class="mobile-value">${vehicle}</span>
+                        </div>
+                        <div class="mobile-card-item">
+                            <span class="mobile-label">Randevu:</span>
+                            <span class="mobile-value">${date}</span>
                         </div>
                     </div>`;
             });
@@ -1918,7 +2050,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
             document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
             
-            getReportBtn.click();
+            getFuelReport();
         });
     });
 
