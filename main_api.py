@@ -135,6 +135,11 @@ def init_db():
         add_column_if_not_exists(cursor, "shops", "google_place_phone", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_url", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_last_updated", "TIMESTAMP WITH TIME ZONE")
+        
+        # --- YENİ EKLENEN SÜTUNLAR (Puanlama ve Yorum Cache) ---
+        add_column_if_not_exists(cursor, "shops", "rating", "REAL")
+        add_column_if_not_exists(cursor, "shops", "user_ratings_total", "INTEGER")
+        add_column_if_not_exists(cursor, "shops", "reviews_json", "TEXT")
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Requests (
@@ -532,6 +537,7 @@ def get_requests():
                        COALESCE(s.google_place_name, u.name) as shop_name, 
                        COALESCE(s.google_place_phone, s.phone) as shop_phone, 
                        s.google_place_id, s.google_place_last_updated,
+                       s.rating, s.user_ratings_total, s.reviews_json, -- YENİ CACHE ALANLARI
                        q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id,
                        q.owner_proposed_cost, q.last_offer_by
                 FROM Requests r JOIN Users u ON r.shop_user_id = u.id
@@ -560,14 +566,23 @@ def get_requests():
                 req.pop(key, None)
             
             if user_type == 'owner':
+                # Puanlama ve yorum cache'i ekle
+                req['rating'] = req.pop('rating', None)
+                req['user_ratings_total'] = req.pop('user_ratings_total', None)
+                reviews_json = req.pop('reviews_json', None)
+                req['reviews'] = json.loads(reviews_json) if reviews_json else []
+
                 place_id = req.get('google_place_id')
                 last_updated = req.get('google_place_last_updated')
                 is_cache_stale = not last_updated or (datetime.now(timezone.utc) - last_updated) > timedelta(days=7)
 
+                # Not: Bu blok, account.html'deki request listesini doldurmak için kullanılıyor.
+                # index.html'deki shop listesini dolduran find_shops API'sinin mantığı farklıdır.
+                # Ancak burada da shop bilgilerini güncel tutmak faydalı olabilir.
                 if place_id and is_cache_stale:
                     logging.info(f"[get_requests] '{req['shop_name']}' için eski/boş önbellek. Google API'den güncel veri çekiliyor.")
                     try:
-                        url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_phone_number,url&key={GOOGLE_PLACES_API_KEY}&language=tr"
+                        url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_phone_number,url,rating,user_ratings_total,reviews&key={GOOGLE_PLACES_API_KEY}&language=tr"
                         response = requests.get(url, timeout=5)
                         place_data = response.json()
                         if place_data.get("status") == "OK" and "result" in place_data:
@@ -575,15 +590,27 @@ def get_requests():
                             new_name = result.get('name')
                             new_phone = result.get('formatted_phone_number')
                             new_url = result.get('url')
+                            new_rating = result.get('rating')
+                            new_total_ratings = result.get('user_ratings_total')
+                            new_reviews = result.get('reviews', [])[:2]
+                            new_reviews_json = json.dumps(new_reviews, ensure_ascii=False)
                             
                             req['shop_name'] = new_name or req['shop_name']
                             req['shop_phone'] = new_phone or req['shop_phone']
+                            req['rating'] = new_rating
+                            req['user_ratings_total'] = new_total_ratings
+                            req['reviews'] = new_reviews
                             
                             with get_db_connection() as conn2:
                                 with conn2.cursor() as update_cursor:
                                     update_cursor.execute(
-                                        "UPDATE Shops SET google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s WHERE google_place_id = %s",
-                                        (new_name, new_phone, new_url, datetime.now(timezone.utc), place_id)
+                                        """
+                                        UPDATE Shops SET 
+                                            google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s,
+                                            rating = %s, user_ratings_total = %s, reviews_json = %s
+                                        WHERE google_place_id = %s
+                                        """,
+                                        (new_name, new_phone, new_url, datetime.now(timezone.utc), new_rating, new_total_ratings, new_reviews_json, place_id)
                                     )
                                     conn2.commit()
                                     logging.info(f"[get_requests] '{new_name}' için önbellek güncellendi.")
@@ -787,7 +814,7 @@ def reject_quote(quote_id):
         logging.error(f"Teklif reddetme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
-        if conn: conn.close()
+        if conn: return conn.close()
 
 @app.route('/api/quotes/<int:quote_id>/accept', methods=['POST'])
 @limiter.limit("20 per hour")
@@ -902,7 +929,12 @@ def get_appointments():
                             with get_db_connection() as conn2:
                                 with conn2.cursor() as update_cursor:
                                     update_cursor.execute(
-                                        "UPDATE Shops SET google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s WHERE google_place_id = %s",
+                                        """
+                                        UPDATE Shops SET 
+                                            google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s
+                                            -- Puanlama ve yorum bilgisi appointment çağrısında güncellenmiyor. Bu kasıtlı olabilir.
+                                        WHERE google_place_id = %s
+                                        """,
                                         (new_name, new_phone, new_url, datetime.now(timezone.utc), place_id)
                                     )
                                     conn2.commit()
@@ -962,7 +994,7 @@ def manage_appointment(appointment_id):
             if appointment['status'] != 'tamamlandi':
                 return jsonify({"description": "Sadece tamamlanmış randevular silinebilir."}), 403
 
-            cursor.execute("DELETE FROM Appointments WHERE id = %s", (appointment_id,))
+            cursor.execute('DELETE FROM Appointments WHERE id = %s', (appointment_id,))
             conn.commit()
             return jsonify({"status": "success", "description": "Randevu başarıyla silindi."})
 
@@ -971,7 +1003,8 @@ def manage_appointment(appointment_id):
         logging.error(f"Randevu yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
 
 @app.route('/api/appointments/<int:appointment_id>/complete', methods=['POST'])
 @limiter.limit("30 per minute")
@@ -1063,7 +1096,8 @@ def find_shops():
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         query = """
             SELECT u.id as shop_user_id, u.name as db_name, s.phone as db_phone, s.city, s.google_place_id,
-                   s.google_place_name, s.google_place_phone, s.google_place_url, s.google_place_last_updated
+                   s.google_place_name, s.google_place_phone, s.google_place_url, s.google_place_last_updated,
+                   s.rating, s.user_ratings_total, s.reviews_json -- YENİ CACHE ALANLARI
             FROM Shops s JOIN Users u ON s.user_id = u.id
             WHERE s.city = %s AND s.serviced_brands LIKE %s
         """
@@ -1078,19 +1112,33 @@ def find_shops():
             api_key = GOOGLE_PLACES_API_KEY
             is_cache_valid = False
 
+            # Önbellek geçerliliğini kontrol et (7 gün)
             if last_updated:
                 if (datetime.now(timezone.utc) - last_updated) < timedelta(days=7):
                     is_cache_valid = True
 
+            # --- DÜZELTME BAŞLANGICI: Önbellek geçerli olsa bile, derecelendirme eksikse API'yi zorla çağır ---
+            # Önbellekteki rating değeri kontrol ediliyor (NULL veya 0 olup olmadığı)
+            rating_from_db = shop.get('rating')
             if is_cache_valid:
-                logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için önbellekten veri kullanılıyor.")
                 shop['name'] = shop['google_place_name'] or shop['db_name']
                 shop['phone'] = shop['google_place_phone'] or shop['db_phone']
                 shop['url'] = shop['google_place_url']
+                
+                # Önbellekten puanlama ve yorumları yükle
+                shop['rating'] = rating_from_db
+                shop['user_ratings_total'] = shop.get('user_ratings_total')
+                reviews_json = shop.get('reviews_json')
+                shop['reviews'] = json.loads(reviews_json) if reviews_json else []
             
-            elif place_id and api_key:
-                logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Places API çağrısı yapılıyor (Önbellek geçersiz veya boş). Place ID: {place_id}")
+            # API çağrısı, ya önbellek eski olduğu için (is_cache_valid == False) ya da cache'te rating olmadığı için (rating_from_db is None) zorlanır.
+            force_api_call = place_id and api_key and (not is_cache_valid or rating_from_db is None)
+
+            if force_api_call:
+                log_reason = "Önbellek süresi dolmuş veya Derecelendirme verisi eksik (NULL)" if rating_from_db is None else "Önbellek süresi dolmuş"
+                logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Places API çağrısı yapılıyor. Sebep: {log_reason}. Place ID: {place_id}")
                 try:
+                    # Rating ve reviews alanları da isteniyor
                     url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,rating,user_ratings_total,reviews,formatted_phone_number,url&key={api_key}&language=tr"
                     response = requests.get(url, timeout=5)
                     place_data = response.json()
@@ -1100,40 +1148,71 @@ def find_shops():
                         logging.info(f"[/api/find_shops] API yanıt durumu 'OK'. Veriler işleniyor.")
                         result = place_data['result']
                         
+                        new_name = result.get('name')
+                        new_phone = result.get('formatted_phone_number')
+                        new_url = result.get('url')
+                        new_rating = result.get('rating')
+                        new_total_ratings = result.get('user_ratings_total')
+                        new_reviews = result.get('reviews', [])[:2] # Sadece ilk 2 yorumu al
+                        new_reviews_json = json.dumps(new_reviews, ensure_ascii=False)
+
                         shop.update({
-                            'name': result.get('name') or shop['db_name'],
-                            'rating': result.get('rating', 0),
-                            'user_ratings_total': result.get('user_ratings_total', 0),
-                            'reviews': result.get('reviews', [])[:2],
-                            'phone': result.get('formatted_phone_number') or shop['db_phone'],
-                            'url': result.get('url')
+                            'name': new_name or shop['db_name'],
+                            'rating': new_rating,
+                            'user_ratings_total': new_total_ratings,
+                            'reviews': new_reviews,
+                            'phone': new_phone or shop['db_phone'],
+                            'url': new_url
                         })
                         
                         with get_db_connection() as conn2:
                             with conn2.cursor() as update_cursor:
                                 update_cursor.execute(
                                     """
-                                    UPDATE Shops SET google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s
+                                    UPDATE Shops SET 
+                                        google_place_name = %s, 
+                                        google_place_phone = %s, 
+                                        google_place_url = %s, 
+                                        google_place_last_updated = %s,
+                                        rating = %s, 
+                                        user_ratings_total = %s, 
+                                        reviews_json = %s
                                     WHERE user_id = %s
                                     """,
-                                    (result.get('name'), result.get('formatted_phone_number'), result.get('url'), datetime.now(timezone.utc), shop['shop_user_id'])
+                                    (new_name, new_phone, new_url, datetime.now(timezone.utc), new_rating, new_total_ratings, new_reviews_json, shop['shop_user_id'])
                                 )
                                 conn2.commit()
                         logging.info(f"[/api/find_shops] İşletme '{shop['name']}' için önbellek güncellendi.")
                     else:
                         logging.warning(f"[/api/find_shops] Google Places API'den beklenen yanıt alınamadı. Durum: {place_data.get('status')}, Hata Mesajı: {place_data.get('error_message')}. DB verileri kullanılacak.")
-                        shop['name'] = shop['db_name']
-                        shop['phone'] = shop['db_phone']
+                        shop['name'] = shop['google_place_name'] or shop['db_name']
+                        shop['phone'] = shop['google_place_phone'] or shop['db_phone']
 
                 except requests.exceptions.RequestException as e:
                     logging.error(f"[/api/find_shops] API hatası. İşletme '{shop['db_name']}' için DB/eski önbellek verisi kullanılıyor: {e}")
                     shop['name'] = shop['google_place_name'] or shop['db_name']
                     shop['phone'] = shop['google_place_phone'] or shop['db_phone']
             else:
-                 logging.warning(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Place ID veya API Key eksik. Sadece DB verileri kullanılacak.")
-                 shop['name'] = shop['db_name']
-                 shop['phone'] = shop['db_phone']
-                 
+                 # API çağrısı yapılmadıysa (veya başarısız olduysa) eski/DB verilerini kullan
+                 if not is_cache_valid and not place_id: # Place ID yoksa veya hiç önbellek yoksa
+                    logging.warning(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Place ID veya API Key eksik. Sadece DB verileri kullanılacak.")
+                    shop['name'] = shop['db_name']
+                    shop['phone'] = shop['db_phone']
+                    shop['rating'] = 0
+                    shop['user_ratings_total'] = 0
+                    shop['reviews'] = []
+                 elif is_cache_valid:
+                    logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için önbellekten tam veri kullanılıyor.")
+
+            # Pop DB fields before sending to client
+            shop.pop('db_name', None)
+            shop.pop('db_phone', None)
+            shop.pop('google_place_name', None)
+            shop.pop('google_place_phone', None)
+            shop.pop('google_place_url', None)
+            shop.pop('google_place_last_updated', None)
+            shop.pop('reviews_json', None)
+            
         return jsonify(shops)
     except Exception as e:
         logging.error(f"İşletme arama sırasında genel hata: {e}")
@@ -1530,4 +1609,3 @@ def google_register_complete():
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, load_dotenv=False)
-
