@@ -17,9 +17,14 @@
         .card-light { background-color: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(200, 200, 200, 0.2); }
         .modal-overlay { background-color: rgba(0, 0, 0, 0.7); }
         .modal { max-width: 90%; width: 400px; }
-        #auth-container.logged-in #user-menu { display: flex; }
+        /* MASAÜSTÜ: Giriş Yap/Kayıt Ol gösterilir, Mobil menü gizlenir */
+        #auth-container.logged-in #user-menu-desktop { display: flex; }
         #auth-container.logged-in #guest-menu { display: none; }
-        #auth-container #user-menu { display: none; }
+        #auth-container #user-menu-desktop { display: none; }
+        /* MOBİL: Logolu menü gösterilir, masaüstü menü gizlenir (sm:hidden ile kontrol ediliyor) */
+        #auth-container-mobile.logged-in #user-menu-mobile-group { display: flex; }
+        #auth-container-mobile.logged-in #welcomeContainerMobileWrapper { display: block; }
+        
         .message-box { padding: 12px; margin-bottom: 16px; border-radius: 8px; font-weight: 500; }
         .message-success { background-color: #d1fae5; color: #065f46; }
         .message-error { background-color: #fee2e2; color: #991b1b; }
@@ -62,25 +67,60 @@
 
     <!-- Header -->
     <header class="bg-white shadow-md sticky top-0 z-40">
-        <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+        <!-- MASAÜSTÜ NAV BAR (sm: ekranlar ve üzeri) -->
+        <nav class="container mx-auto px-4 sm:px-6 py-3 hidden sm:flex justify-between items-center">
             <a href="/">
                 <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
             </a>
-            <div id="auth-container">
+            <div id="auth-container" class="flex items-center space-x-4">
                 <div id="guest-menu" class="flex items-center space-x-2 sm:space-x-4">
                     <button id="loginBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Giriş Yap</button>
                     <button id="signupBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Kayıt Ol</button>
                 </div>
-                <div id="user-menu" class="items-center space-x-2 sm:space-x-4">
-                    <div id="welcomeContainer" class="text-right">
-                        <span id="welcomeMessage" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
-                        <span id="userTypeMessage" class="text-xs text-gray-500 block capitalize"></span>
+                <!-- MASAÜSTÜ GİRİŞ YAPILMIŞ MENÜSÜ -->
+                <div id="user-menu-desktop" class="items-center space-x-2 sm:space-x-4">
+                    <div id="welcomeContainerDesktop" class="text-right">
+                        <span id="welcomeMessageDesktop" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
+                        <span id="userTypeMessageDesktop" class="text-xs text-gray-500 block capitalize"></span>
                     </div>
-                    <a href="/account.html" id="accountBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
-                    <button id="logoutBtn" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                    <a href="/account.html" id="accountBtnDesktop" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <button id="logoutBtnDesktop" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
         </nav>
+        
+        <!-- MOBİL NAV BAR (sm: altındaki ekranlar - Dikey Hizalama) -->
+        <div id="auth-container-mobile" class="container mx-auto px-4 sm:hidden">
+            <!-- 1. Satır: Logo -->
+            <div class="py-3 flex justify-center items-center">
+                 <a href="/">
+                    <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 w-auto">
+                </a>
+            </div>
+            
+            <!-- 2. Satır: Butonlar (Misafir veya Giriş Yapılmış Durumda) -->
+            <div id="user-menu-mobile-group" class="py-2 border-t border-gray-200 flex justify-center items-center space-x-2">
+                <!-- Mobil Misafir Menüsü -->
+                <div id="guest-menu-mobile" class="flex items-center space-x-2">
+                    <button id="loginBtnMobile" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Giriş Yap</button>
+                    <button id="signupBtnMobile" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Kayıt Ol</button>
+                </div>
+                <!-- Mobil Kullanıcı Menüsü -->
+                <div id="user-menu-mobile" class="hidden flex items-center space-x-2">
+                    <a href="https://aracabak.com?client_type=android" id="homeBtnMobile" class="bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg hover:bg-blue-700">Anasayfa</a>
+                    <a href="/account.html" id="accountBtnMobile" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <button id="logoutBtnMobile" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+
+            <!-- 3. Satır: Hoş Geldiniz Mesajı (Sadece Giriş Yapılmışsa Gösterilir) -->
+            <div id="welcomeContainerMobileWrapper" class="pb-3 hidden">
+                <div id="welcomeContainerMobile" class="text-center pt-2 border-t border-gray-200">
+                    <span id="welcomeMessageMobile" class="font-semibold block text-gray-800 text-sm"></span>
+                    <span id="userTypeMessageMobile" class="text-xs text-gray-500 block capitalize"></span>
+                </div>
+            </div>
+        </div>
     </header>
 
     <!-- Main Content -->
@@ -223,9 +263,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const signupBtn = document.getElementById('signupBtn');
     const closeModal = document.getElementById('closeModal');
     const authContainer = document.getElementById('auth-container');
-    const welcomeMessage = document.getElementById('welcomeMessage');
-    const userTypeMessage = document.getElementById('userTypeMessage');
-    const logoutBtn = document.getElementById('logoutBtn');
+    const welcomeMessageDesktop = document.getElementById('welcomeMessageDesktop');
+    const userTypeMessageDesktop = document.getElementById('userTypeMessageDesktop');
+    const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
+    
+    const guestMenuMobile = document.getElementById('guest-menu-mobile');
+    const userMenuMobileGroup = document.getElementById('user-menu-mobile-group');
+    const userMenuMobile = document.getElementById('user-menu-mobile');
+    const welcomeContainerMobileWrapper = document.getElementById('welcomeContainerMobileWrapper');
+    const welcomeMessageMobile = document.getElementById('welcomeMessageMobile');
+    const userTypeMessageMobile = document.getElementById('userTypeMessageMobile');
+    const loginBtnMobile = document.getElementById('loginBtnMobile');
+    const signupBtnMobile = document.getElementById('signupBtnMobile');
+    const logoutBtnMobile = document.getElementById('logoutBtnMobile');
+    
     const standardAuthForms = document.getElementById('standardAuthForms');
     const googleCompleteProfileForm = document.getElementById('googleCompleteProfileForm');
     const userTypeSelector = document.getElementById('userTypeSelector');
@@ -271,9 +322,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateLoginState(userData) {
         if (userData) {
+            // MASAÜSTÜ
             authContainer.classList.add('logged-in');
-            welcomeMessage.textContent = `Hoşgeldin, ${userData.userName}!`;
-            userTypeMessage.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+            welcomeMessageDesktop.textContent = `Hoşgeldin, ${userData.userName}!`;
+            userTypeMessageDesktop.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+            
+            // MOBİL
+            document.getElementById('guest-menu-mobile').classList.add('hidden');
+            document.getElementById('user-menu-mobile').classList.remove('hidden');
+            welcomeMessageMobile.textContent = `Hoşgeldin, ${userData.userName}!`;
+            userTypeMessageMobile.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+            welcomeContainerMobileWrapper.classList.remove('hidden');
+            
             if (userData.userType === 'owner' && userData.vehicles && userData.vehicles.length > 0) {
                 registeredVehicleSelector.classList.remove('hidden');
                 vehicleSelector.innerHTML = '<option value="">Kayıtlı bir araç seç...</option>';
@@ -285,26 +345,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 registeredVehicleSelector.classList.add('hidden');
             }
         } else {
+            // MASAÜSTÜ
             authContainer.classList.remove('logged-in');
+            
+            // MOBİL
+            document.getElementById('guest-menu-mobile').classList.remove('hidden');
+            document.getElementById('user-menu-mobile').classList.add('hidden');
+            welcomeContainerMobileWrapper.classList.add('hidden');
+            
             registeredVehicleSelector.classList.add('hidden');
-        }
-    }
-
-    // Bu fonksiyon sadece "Profili Tamamla" senaryosunda backend'den gelen JSON yanıtını işlemek için kullanılıyor.
-    async function handleGoogleProfileCompletion(response) {
-        try {
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.description || "Giriş başarısız.");
-
-            if (result.status === 'complete_profile') {
-                googleUserData = result;
-                document.getElementById('googleWelcome').textContent = `Hoşgeldin, ${result.name}! Kaydı tamamlamak için son bir adım kaldı.`;
-                standardAuthForms.classList.add('hidden');
-                googleCompleteProfileForm.classList.remove('hidden');
-            }
-        } catch (error) {
-            console.error("Google auth yanıtı işlenirken hata:", error);
-            displayAuthMessage(document.querySelector('#standardAuthForms'), "Giriş sırasında bir hata oluştu.", 'error');
         }
     }
 
@@ -328,9 +377,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // KAYITLI ARAÇ SEÇİM MANTIĞI BURADA GÜNCELLENDİ
+    // KAYITLI ARAÇ SEÇİM MANTIĞI BURADA GÜNCELLENDİ (ASENKRON SIRALAMA DÜZELTİLDİ)
     async function handleVehicleSelect(e) {
-        if (!e.target.value) return;
+        if (!e.target.value) {
+            // Kayıtlı araç seçimi sıfırlandıysa, tüm dropdownları sıfırla
+            const dropdownsToReset = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
+            dropdownsToReset.forEach(el => {
+                el.selectedIndex = 0;
+                if (el !== brandSelect) el.disabled = true;
+            });
+            citySelect.disabled = true;
+            kmInput.disabled = true;
+            kmInput.value = '';
+            checkFormCompletion();
+            return;
+        }
+
         const vehicle = JSON.parse(e.target.value);
         
         // 1. Marka
@@ -360,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkFormCompletion() {
         const isModelSelected = modelSelect.value && !modelSelect.disabled && modelSelect.selectedIndex > 0;
         const isCitySelected = citySelect.value && !citySelect.disabled && citySelect.selectedIndex > 0;
-        const isKmEntered = kmInput.value && parseInt(kmInput.value) >= 0;
+        const isKmEntered = kmInput.value && parseInt(kmInput.value) > 0; // KM 0'dan büyük olmalı
         findMaintenanceBtn.disabled = !(isModelSelected && isCitySelected && isKmEntered);
     }
 
@@ -386,7 +448,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 shops.forEach(shop => {
                     const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
                     const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
-                    const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
+                    // Puanlama ve yorum bilgisi artık eksiksiz gelmelidir
+                    const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
                     let reviewsHtml = '';
                     if (shop.reviews && shop.reviews.length > 0) {
                         reviewsHtml += '<div class="mt-4 border-t pt-4 space-y-3">';
@@ -624,10 +687,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // MASAÜSTÜ Giriş/Kayıt
     loginBtn.addEventListener('click', () => authModal.classList.remove('hidden'));
     signupBtn.addEventListener('click', () => authModal.classList.remove('hidden'));
+    // MOBİL Giriş/Kayıt
+    loginBtnMobile.addEventListener('click', () => authModal.classList.remove('hidden'));
+    signupBtnMobile.addEventListener('click', () => authModal.classList.remove('hidden'));
+    
     closeModal.addEventListener('click', () => authModal.classList.add('hidden'));
-    logoutBtn.addEventListener('click', async () => {
+    
+    // MASAÜSTÜ Çıkış
+    logoutBtnDesktop.addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        currentUser = null;
+        updateLoginState(null);
+        window.location.reload();
+    });
+    // MOBİL Çıkış
+    logoutBtnMobile.addEventListener('click', async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         currentUser = null;
         updateLoginState(null);
