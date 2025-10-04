@@ -327,6 +327,35 @@ document.addEventListener('DOMContentLoaded', () => {
             selectElement.innerHTML = `<option>Veri Yüklenemedi</option>`;
         }
     }
+    
+    // KAYITLI ARAÇ SEÇİM MANTIĞI BURADA GÜNCELLENDİ
+    async function handleVehicleSelect(e) {
+        if (!e.target.value) return;
+        const vehicle = JSON.parse(e.target.value);
+        
+        // 1. Marka
+        await populateSelect(brandSelect, '/api/brands', 'Marka Seçin', vehicle.brand, false);
+        
+        // 2. Seri (Markaya bağımlı)
+        await populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(vehicle.brand)}`, 'Seri Seçin', vehicle.series);
+        
+        // 3. Yıl (Marka ve Seriye bağımlı)
+        await populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}`, 'Yıl Seçin', vehicle.year);
+        
+        // 4. Yakıt (Marka, Seri ve Yıla bağımlı)
+        await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}`, 'Yakıt Seçin', vehicle.fuel);
+        
+        // 5. Model (Tümüne bağımlı)
+        await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}&fuel=${encodeURIComponent(vehicle.fuel)}`, 'Model Seçin', vehicle.model);
+
+        // 6. Şehir ve KM
+        await populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false); // Şehir seçimi kayıtlı araç verisinde yok, boş olarak yüklenmeli.
+        kmInput.disabled = false;
+        kmInput.value = ''; // KM bilgisi her zaman manuel girilmeli
+
+        checkFormCompletion();
+    }
+
 
     function checkFormCompletion() {
         const isModelSelected = modelSelect.value && !modelSelect.disabled && modelSelect.selectedIndex > 0;
@@ -641,20 +670,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     [citySelect, kmInput].forEach(el => el.addEventListener('input', checkFormCompletion));
 
-    vehicleSelector.addEventListener('change', async (e) => {
-        if (!e.target.value) return;
-        const vehicle = JSON.parse(e.target.value);
-        
-        await populateSelect(brandSelect, '/api/brands', 'Marka Seçin', vehicle.brand, false);
-        await populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(vehicle.brand)}`, 'Seri Seçin', vehicle.series);
-        await populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}`, 'Yıl Seçin', vehicle.year);
-        await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(year)}`, 'Yakıt Seçin', vehicle.fuel);
-        await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}&fuel=${encodeURIComponent(fuel)}`, 'Model Seçin', vehicle.model);
-
-        populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
-        kmInput.disabled = false;
-        checkFormCompletion();
-    });
+    // Kayıtlı araç seçimi event'i güncellendi
+    vehicleSelector.addEventListener('change', handleVehicleSelect);
 
     findMaintenanceBtn.addEventListener('click', async () => {
         const brand = brandSelect.value;
