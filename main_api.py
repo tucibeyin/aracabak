@@ -7,7 +7,8 @@ import re
 import json
 import math
 import traceback
-from flask import Flask, jsonify, request, session
+# redirect ve url_for eklendi
+from flask import Flask, jsonify, request, session, redirect, url_for 
 from flask_session import Session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -396,7 +397,7 @@ def auth_status():
             }
             
             if user_type == 'owner':
-                cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel FROM Vehicles WHERE user_id = %s', (user_id,))
+                cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel, last_inspection_date, tax_paid_jan, tax_paid_jul FROM Vehicles WHERE user_id = %s', (user_id,))
                 vehicles = [dict(row) for row in cursor.fetchall()]
                 response_data['vehicles'] = vehicles
 
@@ -827,7 +828,7 @@ def accept_quote(quote_id):
         user_id = session['user_id']
         user_type = session['user_type']
 
-        query = "SELECT q.*, r.user_id as owner_user_id FROM Quotes q JOIN Requests r ON q.request_id = r.id WHERE q.id = %s"
+        query = "SELECT q.*, r.user_id as owner_user_id, r.shop_user_id FROM Quotes q JOIN Requests r ON q.request_id = r.id WHERE q.id = %s"
         cursor.execute(query, (quote_id,))
         quote = cursor.fetchone()
         if not quote: return jsonify({"description": "Teklif bulunamadı."}), 404
@@ -1534,7 +1535,7 @@ def get_maintenance_options():
             }
         })
     except FileNotFoundError:
-        return jsonify({"description": f"Bakım dosyası bulunamadı."}), 404
+        return jsonify({"description": "Bakım dosyası bulunamadı."}), 404
     except Exception as e:
         logging.error(f"{file_path} okunurken hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
@@ -1542,7 +1543,22 @@ def get_maintenance_options():
 @app.route('/api/auth/google', methods=['POST'])
 @limiter.limit("10 per minute")
 def google_auth():
-    token = request.json.get('token')
+    # Google SSO redirect akışı (ux_mode: "redirect") token'ı 'credential' adıyla form verisi olarak gönderir.
+    token = request.form.get('credential')
+    
+    if token is None:
+        # Alternatif olarak, bazı tarayıcı/istemci ayarları JSON olarak göndermiş olabilir.
+        try:
+            data = request.get_json(silent=True) 
+            if data and isinstance(data, dict):
+                token = data.get('token')
+        except Exception:
+            pass # Geçersiz JSON yükü varsa yoksay
+            
+    if token is None:
+        logging.error("Google kimlik doğrulama isteği gerekli jeton/kimlik bilgisi olmadan alındı.")
+        return jsonify({"description": "Token bilgisi eksik."}), 400
+        
     conn = None
     try:
         idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
@@ -1550,18 +1566,35 @@ def google_auth():
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute('SELECT * FROM Users WHERE email = %s', (idinfo['email'],))
         user = cursor.fetchone()
+        
         if user:
             session.clear()
             session.update({'user_id': user['id'], 'email': user['email'], 'name': user['name'], 'user_type': user['user_type']})
-            return jsonify({"status": "login_success", "userName": user['name'], "userType": user['user_type']})
+            
+            # --- BAŞARILI GİRİŞTE YÖNLENDİRME (302 REDIRECT) ---
+            # Anasayfaya, başarılı olduğunu belirten bir query parametresi eklenir.
+            # Bu, Apache yapılandırmasına ihtiyaç duymadan doğrudan anasayfaya yönlendirir ve mobil uyumluluğu artırır.
+            logging.info(f"Kullanıcı {user['email']} başarıyla giriş yaptı, anasayfaya yönlendiriliyor.")
+            return redirect('/?auth_success=true', code=302) 
+            
         else:
+            # Kullanıcı yoksa, profil tamamlama bilgisi ile JSON döndürmeye devam et
             return jsonify({"status": "complete_profile", "email": idinfo['email'], "name": idinfo['name'], "google_id": idinfo['sub']})
+            
     except Exception as e:
         logging.error(f"Google auth sırasında hata: {e}")
         return jsonify({"description": "Sunucu hatası veya geçersiz token."}), 500
     finally:
         if conn:
             conn.close()
+            
+@app.route('/web_sso_success')
+def web_sso_success():
+    """
+    Bu rotayı, Apache/Gunicorn yapılandırma sorununu önlemek için kaldırdık ve doğrudan ana sayfaya yönlendiriyoruz.
+    Bu rotaya ulaşılırsa, yine ana sayfaya yönlendirme yapılır.
+    """
+    return redirect('/', code=302)
 
 @app.route('/api/auth/register', methods=['POST'])
 @limiter.limit("5 per minute")
