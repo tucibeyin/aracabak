@@ -818,13 +818,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (!response.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.');
             if (result.status === 'login_success') {
-                await checkAuthStatus();
+                showToast('Kaydınız başarıyla tamamlandı, yönlendiriliyorsunuz...');
+                // BAŞARILI GİRİŞ/KAYIT SONRASI YENİDEN YÜKLEME VEYA YÖNLENDİRME
                 authModal.classList.add('hidden');
-                showToast('Kaydınız başarıyla tamamlandı!');
-                googleCompleteProfileForm.reset();
-                standardAuthForms.classList.remove('hidden');
-                googleCompleteProfileForm.classList.add('hidden');
-                googleUserData = null;
+                setTimeout(() => {
+                    // Sayfa yeniden yüklenecek ve checkAuthStatus() başarılı session'ı algılayacak.
+                    window.location.href = '/'; 
+                }, 1000); 
             }
         } catch (error) {
             displayAuthMessage(messageContainer, error.message, 'error');
@@ -843,9 +843,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             google.accounts.id.initialize({
                 client_id: GOOGLE_CLIENT_ID,
-                callback: handleGoogleCredentialResponse, // Yönlendirme sonrası bu callback artık direkt çağrılmaz, ama "profili tamamla" için bir fallback olabilir.
+                // Başarılı girişten sonra API'ye yönlendirmeyi ve oradan 200 JSON yanıtı almayı bekleriz.
+                // Bu yüzden callback'i doğrudan kullanmak yerine redirect modunu kullanmaya devam ediyoruz.
+                callback: handleGoogleCredentialResponse, 
                 ux_mode: "redirect",
-                login_uri: "https://aracabak.com/api/auth/google" // Google'ın token'ı POST edeceği yer.
+                login_uri: "https://aracabak.com/api/auth/google" 
             });
 
             google.accounts.id.renderButton(
@@ -856,6 +858,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Google SSO başlatma hatası:", error);
             document.getElementById("googleSignInButton").innerHTML = `<p class="text-red-600 text-center text-sm">Google ile giriş geçici olarak devre dışı.</p>`;
+        }
+    }
+    
+    // API 200 JSON döndürdüğünde bu fonksiyon çağrılmayacaktır.
+    function handleGoogleCredentialResponse(response) {
+        // Bu, redirect akışında (Flask API'ye POST yapıldığında) kullanılmaz.
+        // Bu akışta, API'den JSON yanıtı alındıktan sonra istemcinin sayfayı yenilemesi gerekir.
+    }
+
+    // Başarılı login sonrası yönlendirme için bu fonksiyonu ekliyoruz
+    function checkGoogleRedirectSuccess() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const loginStatus = urlParams.get('login_status');
+
+        if (loginStatus === 'success') {
+            // Başarılı login/register sonrası API'den gelen JSON yanıtı alınamadığı için, 
+            // sunucudan yönlendirme yapamıyoruz. Bu yüzden, istemci tarafında session'ı 
+            // kontrol edip yönlendirme yapmalıyız.
+            checkAuthStatus().then(() => {
+                if (currentUser) {
+                    showToast('Giriş başarılı, anasayfaya yönlendiriliyorsunuz...');
+                    setTimeout(() => {
+                        window.location.href = '/'; 
+                    }, 500); 
+                }
+            });
+            // URL'den login_status parametresini kaldır
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
         }
     }
     
@@ -894,6 +925,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     fetchAndSetConfig().then(() => {
         checkGoogleReady();
+        // Login/Register işlemi sonrası bu sayfaya geri gelindiyse kontrol et
+        // NOTE: API'yi değiştiremediğimiz için, bu kontrolü API tarafında yapmak yerine 
+        // istemci tarafında session kontrolü ile çözüyoruz.
+        // checkGoogleRedirectSuccess(); 
     });
     
 });
