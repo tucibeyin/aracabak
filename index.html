@@ -819,7 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.');
             if (result.status === 'login_success') {
                 showToast('Kaydınız başarıyla tamamlandı, yönlendiriliyorsunuz...');
-                // BAŞARILI GİRİŞ/KAYIT SONRASI YENİDEN YÜKLEME VEYA YÖNLENDİRME
                 authModal.classList.add('hidden');
                 setTimeout(() => {
                     // Sayfa yeniden yüklenecek ve checkAuthStatus() başarılı session'ı algılayacak.
@@ -843,8 +842,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             google.accounts.id.initialize({
                 client_id: GOOGLE_CLIENT_ID,
-                // Başarılı girişten sonra API'ye yönlendirmeyi ve oradan 200 JSON yanıtı almayı bekleriz.
-                // Bu yüzden callback'i doğrudan kullanmak yerine redirect modunu kullanmaya devam ediyoruz.
                 callback: handleGoogleCredentialResponse, 
                 ux_mode: "redirect",
                 login_uri: "https://aracabak.com/api/auth/google" 
@@ -861,34 +858,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // API 200 JSON döndürdüğünde bu fonksiyon çağrılmayacaktır.
+    // Bu fonksiyon "redirect" akışında doğrudan kullanılmaz, ancak API'den gelen veriyi işlemek için bir callback olarak ayarlanmıştır.
     function handleGoogleCredentialResponse(response) {
-        // Bu, redirect akışında (Flask API'ye POST yapıldığında) kullanılmaz.
-        // Bu akışta, API'den JSON yanıtı alındıktan sonra istemcinin sayfayı yenilemesi gerekir.
+       // 'redirect' modunda, bu callback yerine sunucudaki /api/auth/google endpoint'i tetiklenir.
+       // Bu fonksiyonun içeriği, eğer 'popup' modu kullanılacak olursa doldurulmalıdır.
     }
 
-    // Başarılı login sonrası yönlendirme için bu fonksiyonu ekliyoruz
-    function checkGoogleRedirectSuccess() {
+    // --- DÜZELTME BAŞLANGICI: Başarılı yönlendirmeyi kontrol et ve işlemi tamamla ---
+    function checkGoogleRedirect() {
         const urlParams = new URLSearchParams(window.location.search);
-        const loginStatus = urlParams.get('login_status');
-
-        if (loginStatus === 'success') {
-            // Başarılı login/register sonrası API'den gelen JSON yanıtı alınamadığı için, 
-            // sunucudan yönlendirme yapamıyoruz. Bu yüzden, istemci tarafında session'ı 
-            // kontrol edip yönlendirme yapmalıyız.
-            checkAuthStatus().then(() => {
-                if (currentUser) {
-                    showToast('Giriş başarılı, anasayfaya yönlendiriliyorsunuz...');
-                    setTimeout(() => {
-                        window.location.href = '/'; 
-                    }, 500); 
-                }
-            });
-            // URL'den login_status parametresini kaldır
+        // Doğru parametreyi kontrol et: 'auth_success'
+        if (urlParams.has('auth_success')) {
+            showToast('Giriş başarılı!');
+            // Sunucu session'ı zaten oluşturduğu için, durumu güncellemek yeterlidir.
+            checkAuthStatus(); 
+            // URL'den parametreyi temizle
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+        } else if (urlParams.has('auth_error')) {
+            showToast('Giriş sırasında bir hata oluştu.', 'error');
             const newUrl = window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
         }
     }
+    // --- DÜZELTME SONU ---
     
     function checkGoogleReady() {
         if (window.google && window.google.accounts && window.googleClientId) {
@@ -925,10 +918,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     fetchAndSetConfig().then(() => {
         checkGoogleReady();
-        // Login/Register işlemi sonrası bu sayfaya geri gelindiyse kontrol et
-        // NOTE: API'yi değiştiremediğimiz için, bu kontrolü API tarafında yapmak yerine 
-        // istemci tarafında session kontrolü ile çözüyoruz.
-        // checkGoogleRedirectSuccess(); 
+        // --- DÜZELTME: Google yönlendirmesini kontrol eden fonksiyonu burada çağır ---
+        checkGoogleRedirect(); 
     });
     
 });
