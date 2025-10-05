@@ -88,7 +88,7 @@ def init_db():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Users (
                 id SERIAL PRIMARY KEY,
@@ -136,7 +136,7 @@ def init_db():
         add_column_if_not_exists(cursor, "shops", "google_place_phone", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_url", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_last_updated", "TIMESTAMP WITH TIME ZONE")
-        
+
         # --- YENİ EKLENEN SÜTUNLAR (Puanlama ve Yorum Cache) ---
         add_column_if_not_exists(cursor, "shops", "rating", "REAL")
         add_column_if_not_exists(cursor, "shops", "user_ratings_total", "INTEGER")
@@ -281,7 +281,7 @@ def send_welcome_email(user_name, user_email, user_type):
 
     subject = ""
     html_content = ""
-    
+
     base_template = """
     <!DOCTYPE html>
     <html lang="tr">
@@ -360,13 +360,13 @@ def send_welcome_email(user_name, user_email, user_type):
             """,
             "button_text": "Hesabınıza Gidin"
         }
-    
+
     html_content = base_template.format(**email_vars)
-    
+
     sender = {"name": "aracabak", "email": "info.aracabak@gmail.com"}
     to = [{"email": user_email, "name": user_name}]
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(to=to, html_content=html_content, sender=sender, subject=subject)
-    
+
     try:
         api_instance.send_transac_email(send_smtp_email)
         logging.info(f"'{user_type}' tipi için hoş geldin e-postası başarıyla gönderildi: {user_email}")
@@ -385,17 +385,17 @@ def auth_status():
         try:
             conn = get_db_connection()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            
+
             user_id = session['user_id']
             user_type = session.get('user_type')
-            
+
             response_data = {
                 "loggedIn": True,
                 "userName": session.get('name'),
                 "userType": user_type,
                 "email": session.get('email')
             }
-            
+
             if user_type == 'owner':
                 cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel, last_inspection_date, tax_paid_jan, tax_paid_jul FROM Vehicles WHERE user_id = %s', (user_id,))
                 vehicles = [dict(row) for row in cursor.fetchall()]
@@ -412,13 +412,110 @@ def auth_status():
         finally:
             if conn:
                 conn.close()
-    
+
     return jsonify({"loggedIn": False})
 
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     session.clear()
     return jsonify({"status": "success"})
+
+# YENİ EKLENDİ: MANUEL GİRİŞ ENDPOINT'İ
+@app.route('/api/auth/login', methods=['POST'])
+@limiter.limit("10 per minute")
+def manual_login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"description": "E-posta ve şifre gereklidir."}), 400
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute('SELECT * FROM Users WHERE email = %s', (email,))
+        user = cursor.fetchone()
+
+        if user and user['password_hash'] and check_password_hash(user['password_hash'], password):
+            session.clear()
+            session.update({
+                'user_id': user['id'],
+                'email': user['email'],
+                'name': user['name'],
+                'user_type': user['user_type']
+            })
+            logging.info(f"Kullanıcı {user['email']} manuel olarak başarıyla giriş yaptı.")
+            return jsonify({
+                "status": "login_success",
+                "userName": user['name'],
+                "userType": user['user_type']
+            })
+        else:
+            logging.warning(f"Başarısız manuel giriş denemesi: {email}")
+            return jsonify({"description": "Geçersiz e-posta veya şifre."}), 401
+
+    except Exception as e:
+        logging.error(f"Manuel giriş sırasında hata: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+# YENİ EKLENDİ: MANUEL KAYIT ENDPOINT'İ
+@app.route('/api/auth/manual_register', methods=['POST'])
+@limiter.limit("5 per minute")
+def manual_register():
+    data = request.get_json()
+    email, name, password, user_type, phone_number = data.get('email'), data.get('name'), data.get('password'), data.get('user_type'), data.get('phone_number')
+
+    if not all([email, name, password, user_type, phone_number]):
+        return jsonify({"description": "Tüm alanlar zorunludur."}), 400
+    if not validate_phone_number(phone_number):
+        return jsonify({"description": "Geçersiz telefon numarası formatı."}), 400
+    if len(password) < 6:
+        return jsonify({"description": "Şifre en az 6 karakter olmalıdır."}), 400
+
+    password_hash = generate_password_hash(password)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute(
+            'INSERT INTO Users (email, name, password_hash, user_type, phone_number) VALUES (%s, %s, %s, %s, %s) RETURNING id',
+            (email, name, password_hash, user_type, phone_number)
+        )
+        user_id = cursor.fetchone()['id']
+        if user_type == 'business':
+            cursor.execute('INSERT INTO Shops (user_id, phone) VALUES (%s, %s)', (user_id, phone_number))
+        conn.commit()
+
+        cursor.execute('SELECT * FROM Users WHERE id = %s', (user_id,))
+        new_user = cursor.fetchone()
+        session.clear()
+        session.update({'user_id': new_user['id'], 'email': new_user['email'], 'name': new_user['name'], 'user_type': new_user['user_type']})
+
+        try:
+            send_welcome_email(new_user['name'], new_user['email'], new_user['user_type'])
+        except Exception as email_error:
+            logging.error(f"E-posta gönderme başarısız oldu, ancak kullanıcı kaydı başarılı: {email_error}")
+
+        logging.info(f"Yeni kullanıcı {email} manuel olarak başarıyla kaydedildi.")
+        return jsonify({"status": "login_success", "userName": new_user['name'], "userType": new_user['user_type']}), 201
+    except psycopg2_errors.UniqueViolation:
+        if conn:
+            conn.rollback()
+        return jsonify({"description": "Bu e-posta adresi zaten kullanımda."}), 409
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logging.error(f"Manuel kayıt sırasında kritik hata: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/api/config')
 def get_config():
@@ -433,16 +530,16 @@ def get_fuel_prices():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
+
         cursor.execute("SELECT MAX(updated_at) as last_update FROM FuelPrices")
         result = cursor.fetchone()
         last_update = result['last_update'] if result else None
-        
+
         is_data_fresh = False
         if last_update:
             if (datetime.now(timezone.utc) - last_update) < timedelta(hours=1):
                 is_data_fresh = True
-        
+
         if is_data_fresh:
             logging.info("Yakıt fiyatları önbellekten (DB) sunuluyor.")
             cursor.execute("SELECT city, vmax_kursunsuz_95, vmax_diesel FROM FuelPrices")
@@ -452,13 +549,13 @@ def get_fuel_prices():
                 for row in prices_from_db
             ]
             return jsonify(formatted_prices)
-            
+
         logging.info("Önbellek boş veya eski, harici API'den yakıt fiyatları çekiliyor.")
         try:
             response = requests.get("https://apisepeti.com/wp-json/petrol/v1/fiyatlar", timeout=10)
             response.raise_for_status()
             prices = response.json()
-            
+
             now_ts = datetime.now(timezone.utc)
             cursor.execute("DELETE FROM FuelPrices")
             for city_data in prices:
@@ -522,9 +619,9 @@ def get_requests():
             if not license_status or not license_status['is_active']:
                 logging.warning(f"İşletme (ID: {user_id}) geçersiz veya pasif lisans ('{license_key}') nedeniyle talepleri göremiyor.")
                 return jsonify([])
-            
+
             query = """
-                SELECT r.*, u.name as customer_name, u.phone_number as customer_phone, 
+                SELECT r.*, u.name as customer_name, u.phone_number as customer_phone,
                        q.total_cost, q.parts_cost, q.labor_cost, q.notes as quote_notes, q.id as quote_id,
                        q.owner_proposed_cost, q.last_offer_by
                 FROM Requests r JOIN Users u ON r.user_id = u.id
@@ -534,9 +631,9 @@ def get_requests():
             cursor.execute(query, (user_id,))
         elif user_type == 'owner':
             query = """
-                SELECT r.*, 
-                       COALESCE(s.google_place_name, u.name) as shop_name, 
-                       COALESCE(s.google_place_phone, s.phone) as shop_phone, 
+                SELECT r.*,
+                       COALESCE(s.google_place_name, u.name) as shop_name,
+                       COALESCE(s.google_place_phone, s.phone) as shop_phone,
                        s.google_place_id, s.google_place_last_updated,
                        s.rating, s.user_ratings_total, s.reviews_json, -- YENİ CACHE ALANLARI
                        q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id,
@@ -557,15 +654,15 @@ def get_requests():
                 req['selected_parts'] = json.loads(req['selected_parts'])
 
             if req.get('total_cost') is not None:
-                req['quote'] = { 
-                    "id": req['quote_id'], "parts_cost": req['parts_cost'], "labor_cost": req['labor_cost'], 
+                req['quote'] = {
+                    "id": req['quote_id'], "parts_cost": req['parts_cost'], "labor_cost": req['labor_cost'],
                     "total_cost": req['total_cost'], "notes": req['quote_notes'],
                     "owner_proposed_cost": req['owner_proposed_cost'], "last_offer_by": req['last_offer_by']
                 }
-            
+
             for key in ['parts_cost', 'labor_cost', 'total_cost', 'quote_notes', 'quote_id', 'owner_proposed_cost', 'last_offer_by']:
                 req.pop(key, None)
-            
+
             if user_type == 'owner':
                 # Puanlama ve yorum cache'i ekle
                 req['rating'] = req.pop('rating', None)
@@ -595,18 +692,18 @@ def get_requests():
                             new_total_ratings = result.get('user_ratings_total')
                             new_reviews = result.get('reviews', [])[:2]
                             new_reviews_json = json.dumps(new_reviews, ensure_ascii=False)
-                            
+
                             req['shop_name'] = new_name or req['shop_name']
                             req['shop_phone'] = new_phone or req['shop_phone']
                             req['rating'] = new_rating
                             req['user_ratings_total'] = new_total_ratings
                             req['reviews'] = new_reviews
-                            
+
                             with get_db_connection() as conn2:
                                 with conn2.cursor() as update_cursor:
                                     update_cursor.execute(
                                         """
-                                        UPDATE Shops SET 
+                                        UPDATE Shops SET
                                             google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s,
                                             rating = %s, user_ratings_total = %s, reviews_json = %s
                                         WHERE google_place_id = %s
@@ -640,14 +737,14 @@ def create_request():
         data = request.get_json()
         if not all(field in data for field in ['shop_user_id', 'shop_google_place_id', 'vehicle', 'maintenance_km', 'selected_parts', 'city']):
             return jsonify({"description": "Eksik bilgi."}), 400
-        
+
         vehicle = data['vehicle']
-        
+
         # --- Yinelenen Talep Kontrolü ---
         cursor.execute(
             """
-            SELECT id FROM Requests 
-            WHERE user_id = %s AND shop_user_id = %s 
+            SELECT id FROM Requests
+            WHERE user_id = %s AND shop_user_id = %s
             AND vehicle_brand = %s AND vehicle_model = %s AND maintenance_km = %s
             AND status IN ('pending', 'quoted', 'negotiating', 'accepted')
             """,
@@ -656,7 +753,7 @@ def create_request():
         existing_request = cursor.fetchone()
         if existing_request:
             return jsonify({"description": "Bu araç ve servis için zaten aktif bir talebiniz bulunmaktadır."}), 409
-        
+
         selected_parts_json = json.dumps(data['selected_parts'])
         cursor.execute(
             """
@@ -691,7 +788,7 @@ def delete_request(request_id):
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         user_id = session['user_id']
         user_type = session['user_type']
-        
+
         cursor.execute('SELECT id, user_id, shop_user_id, status FROM Requests WHERE id = %s', (request_id,))
         req_to_delete = cursor.fetchone()
 
@@ -703,7 +800,7 @@ def delete_request(request_id):
 
         if not (is_owner or is_business):
             return jsonify({"description": "Bu talebi silme yetkiniz yok."}), 403
-        
+
         if is_business and req_to_delete['status'] not in ['pending', 'negotiating', 'accepted']:
             return jsonify({"description": "İşletmeler sadece beklemedeki, pazarlıktaki veya onaylanmış talepleri silebilir."}), 403
 
@@ -741,11 +838,11 @@ def manage_quote(request_id):
             if not isinstance(parts_cost, (int, float)) or not isinstance(labor_cost, (int, float)):
                 return jsonify({"description": "Maliyetler sayı olmalıdır."}), 400
             total_cost = parts_cost + labor_cost
-            
+
             cursor.execute("SELECT status FROM Requests WHERE id = %s AND shop_user_id = %s", (request_id, user_id))
             req = cursor.fetchone()
             if not req: return jsonify({"description": "Yetkisiz işlem."}), 404
-            
+
             new_status = 'negotiating' if req['status'] != 'pending' else 'quoted'
 
             if request.method == 'POST':
@@ -758,11 +855,11 @@ def manage_quote(request_id):
                     "UPDATE Quotes SET parts_cost = %s, labor_cost = %s, total_cost = %s, notes = %s, last_offer_by = 'business', owner_proposed_cost = NULL WHERE request_id = %s",
                     (parts_cost, labor_cost, total_cost, notes, request_id)
                 )
-            
+
             cursor.execute("UPDATE Requests SET status = %s WHERE id = %s", (new_status, request_id))
             conn.commit()
             return jsonify({"status": "success", "description": "Teklif gönderildi."}), 201
-        
+
         elif user_type == 'owner':
             if request.method != 'PUT': return jsonify({"description": "Geçersiz metod."}), 405
             proposed_cost = data.get('owner_proposed_cost')
@@ -787,7 +884,7 @@ def manage_quote(request_id):
         return jsonify({"description": "Sunucu hatası."}), 500
     finally:
         if conn: conn.close()
-        
+
 @app.route('/api/quotes/<int:quote_id>/reject', methods=['POST'])
 @limiter.limit("30 per minute")
 def reject_quote(quote_id):
@@ -834,7 +931,7 @@ def accept_quote(quote_id):
         if not quote: return jsonify({"description": "Teklif bulunamadı."}), 404
 
         final_cost = 0
-        
+
         if user_type == 'owner' and user_id == quote['owner_user_id']:
             if quote['last_offer_by'] != 'business': return jsonify({"description": "İşletmenin teklifini bekleyin."}), 400
             final_cost = quote['total_cost']
@@ -875,8 +972,8 @@ def get_appointments():
 
         if user_type == 'owner':
             query = """
-                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.selected_parts, 
-                       COALESCE(s.google_place_name, u.name) as shop_name, 
+                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.selected_parts,
+                       COALESCE(s.google_place_name, u.name) as shop_name,
                        COALESCE(s.google_place_phone, s.phone) as shop_phone,
                        s.google_place_id, s.google_place_last_updated,
                        s.google_place_url
@@ -899,13 +996,13 @@ def get_appointments():
             cursor.execute(query, (user_id,))
         else:
             return jsonify([])
-        
+
         appointments = []
         for row in cursor.fetchall():
             app_data = dict(row)
             if app_data.get('selected_parts'):
                 app_data['selected_parts'] = json.loads(app_data['selected_parts'])
-            
+
             if user_type == 'owner':
                 place_id = app_data.get('google_place_id')
                 last_updated = app_data.get('google_place_last_updated')
@@ -922,16 +1019,16 @@ def get_appointments():
                             new_name = result.get('name')
                             new_phone = result.get('formatted_phone_number')
                             new_url = result.get('url')
-                            
+
                             app_data['shop_name'] = new_name or app_data['shop_name']
                             app_data['shop_phone'] = new_phone or app_data['shop_phone']
                             app_data['google_place_url'] = new_url or app_data.get('google_place_url')
-                            
+
                             with get_db_connection() as conn2:
                                 with conn2.cursor() as update_cursor:
                                     update_cursor.execute(
                                         """
-                                        UPDATE Shops SET 
+                                        UPDATE Shops SET
                                             google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s
                                             -- Puanlama ve yorum bilgisi appointment çağrısında güncellenmiyor. Bu kasıtlı olabilir.
                                         WHERE google_place_id = %s
@@ -944,7 +1041,7 @@ def get_appointments():
                         logging.error(f"[get_appointments] İhtiyaç anında önbellek güncelleme başarısız: {e}")
 
             appointments.append(app_data)
-        
+
         return jsonify(appointments)
 
     except Exception as e:
@@ -959,7 +1056,7 @@ def get_appointments():
 def manage_appointment(appointment_id):
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 403
-    
+
     conn = None
     try:
         conn = get_db_connection()
@@ -972,10 +1069,10 @@ def manage_appointment(appointment_id):
 
         if not appointment:
             return jsonify({"description": "Randevu bulunamadı."}), 404
-        
+
         is_owner = user_type == 'owner' and appointment['user_id'] == user_id
         is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
-        
+
         if not (is_owner or is_business):
              return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
 
@@ -986,7 +1083,7 @@ def manage_appointment(appointment_id):
             appointment_date = data.get('appointment_date')
             if not appointment_date:
                 return jsonify({"description": "Randevu tarihi gereklidir."}), 400
-            
+
             cursor.execute("UPDATE Appointments SET appointment_date = %s, status = 'tarih_belirlendi' WHERE id = %s", (appointment_date, appointment_id))
             conn.commit()
             return jsonify({"status": "success", "description": "Randevu tarihi güncellendi."})
@@ -1041,7 +1138,7 @@ def manage_fuel_entries(vehicle_id):
         cursor.execute('SELECT id FROM Vehicles WHERE id = %s AND user_id = %s', (vehicle_id, session['user_id']))
         if not cursor.fetchone():
             return jsonify({"description": "Araç bulunamadı veya yetkiniz yok."}), 404
-        
+
         if request.method == 'POST':
             data = request.get_json()
             if not all(data.get(field) for field in ['date', 'amount', 'unit', 'distance']):
@@ -1054,7 +1151,7 @@ def manage_fuel_entries(vehicle_id):
             )
             conn.commit()
             return jsonify({"status": "success", "description": "Yakıt verisi eklendi."}), 201
-        
+
         if request.method == 'GET':
             start_date = request.args.get('start_date')
             end_date = request.args.get('end_date')
@@ -1106,7 +1203,7 @@ def find_shops():
         cursor.execute(query, (city, brand_search_term))
         shops = [dict(row) for row in cursor.fetchall()]
         logging.info(f"[/api/find_shops] Veritabanından {len(shops)} adet işletme bulundu.")
-        
+
         for shop in shops:
             place_id = shop.get('google_place_id')
             last_updated = shop.get('google_place_last_updated')
@@ -1125,13 +1222,13 @@ def find_shops():
                 shop['name'] = shop['google_place_name'] or shop['db_name']
                 shop['phone'] = shop['google_place_phone'] or shop['db_phone']
                 shop['url'] = shop['google_place_url']
-                
+
                 # Önbellekten puanlama ve yorumları yükle
                 shop['rating'] = rating_from_db
                 shop['user_ratings_total'] = shop.get('user_ratings_total')
                 reviews_json = shop.get('reviews_json')
                 shop['reviews'] = json.loads(reviews_json) if reviews_json else []
-            
+
             # API çağrısı, ya önbellek eski olduğu için (is_cache_valid == False) ya da cache'te rating olmadığı için (rating_from_db is None) zorlanır.
             force_api_call = place_id and api_key and (not is_cache_valid or rating_from_db is None)
 
@@ -1144,11 +1241,11 @@ def find_shops():
                     response = requests.get(url, timeout=5)
                     place_data = response.json()
                     logging.info(f"[/api/find_shops] Google Places API Ham Yanıtı: {json.dumps(place_data, ensure_ascii=False)}")
-                    
+
                     if place_data.get("status") == "OK" and "result" in place_data:
                         logging.info(f"[/api/find_shops] API yanıt durumu 'OK'. Veriler işleniyor.")
                         result = place_data['result']
-                        
+
                         new_name = result.get('name')
                         new_phone = result.get('formatted_phone_number')
                         new_url = result.get('url')
@@ -1165,18 +1262,18 @@ def find_shops():
                             'phone': new_phone or shop['db_phone'],
                             'url': new_url
                         })
-                        
+
                         with get_db_connection() as conn2:
                             with conn2.cursor() as update_cursor:
                                 update_cursor.execute(
                                     """
-                                    UPDATE Shops SET 
-                                        google_place_name = %s, 
-                                        google_place_phone = %s, 
-                                        google_place_url = %s, 
+                                    UPDATE Shops SET
+                                        google_place_name = %s,
+                                        google_place_phone = %s,
+                                        google_place_url = %s,
                                         google_place_last_updated = %s,
-                                        rating = %s, 
-                                        user_ratings_total = %s, 
+                                        rating = %s,
+                                        user_ratings_total = %s,
                                         reviews_json = %s
                                     WHERE user_id = %s
                                     """,
@@ -1213,7 +1310,7 @@ def find_shops():
             shop.pop('google_place_url', None)
             shop.pop('google_place_last_updated', None)
             shop.pop('reviews_json', None)
-            
+
         return jsonify(shops)
     except Exception as e:
         logging.error(f"İşletme arama sırasında genel hata: {e}")
@@ -1258,7 +1355,7 @@ def manage_vehicles(vehicle_id=None):
         user_id = session['user_id']
         if session['user_type'] != 'owner':
             return jsonify({"description": "Yetkisiz işlem."}), 403
-        
+
         if request.method == 'POST':
             data = request.get_json()
             if not all(data.get(f) for f in ['plate_number', 'brand', 'series', 'year', 'fuel', 'model', 'last_inspection_date']):
@@ -1343,14 +1440,14 @@ def account_details():
 
         if request.method == 'POST':
             data = request.get_json()
-            
+
             if 'phone_number' in data and len(data) == 1:
                 phone_number = data.get('phone_number')
                 if phone_number and not validate_phone_number(phone_number):
                     return jsonify({"description": "Geçersiz kişisel telefon no."}), 400
                 cursor.execute('UPDATE Users SET phone_number = %s WHERE id = %s', (phone_number, user['id']))
                 conn.commit()
-            
+
             elif user['user_type'] == 'business':
                 serviced_brands_str = ",".join(data.get('serviced_brands', []))
                 shop_phone = data.get('shop_phone')
@@ -1361,7 +1458,7 @@ def account_details():
 
                 cursor.execute('SELECT id, google_place_id FROM Shops WHERE user_id = %s', (user['id'],))
                 shop_data = cursor.fetchone()
-                
+
                 if shop_data: # İşletme var, güncelle
                     cursor.execute(
                         'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s WHERE user_id = %s',
@@ -1373,16 +1470,16 @@ def account_details():
                         (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str)
                     )
                 conn.commit() # Shops tablosunu kaydet
-                
+
                 # --- LİSANS TABLOSUNU GÜNCELLE ---
                 if new_license_key:
                     cursor.execute("SELECT id FROM Shops WHERE user_id = %s", (user['id'],))
                     shop_id = cursor.fetchone()['id']
-                    
+
                     try:
                         cursor.execute(
                             """
-                            INSERT INTO Licenses (shop_id, license_key, is_active) 
+                            INSERT INTO Licenses (shop_id, license_key, is_active)
                             VALUES (%s, %s, true)
                             ON CONFLICT (shop_id) DO UPDATE SET license_key = EXCLUDED.license_key;
                             """, (shop_id, new_license_key)
@@ -1506,9 +1603,9 @@ def get_maintenance_options():
                 previous_km_point = km_point
             else:
                 break
-        
+
         question_km = base_km + previous_km_point
-        
+
         if previous_km_point == 0:
             next_km_point_index = 0
         else:
@@ -1516,7 +1613,7 @@ def get_maintenance_options():
                 next_km_point_index = sorted_kms.index(previous_km_point) + 1
             except ValueError:
                 next_km_point_index = 0
-            
+
         if next_km_point_index < len(sorted_kms):
             next_service_km = base_km + sorted_kms[next_km_point_index]
             next_details = schedule_data.get(sorted_kms[next_km_point_index])
@@ -1545,21 +1642,21 @@ def get_maintenance_options():
 def google_auth():
     # Google SSO redirect akışı (ux_mode: "redirect") token'ı 'credential' adıyla form verisi olarak gönderir.
     token = request.form.get('credential')
-    
+
     if token is None:
         # Alternatif olarak, bazı tarayıcı/istemci ayarları JSON olarak göndermiş olabilir.
         try:
-            data = request.get_json(silent=True) 
+            data = request.get_json(silent=True)
             if data and isinstance(data, dict):
                 token = data.get('token')
         except Exception:
             pass # Geçersiz JSON yükü varsa yoksay
-            
+
     if token is None:
         logging.error("Google kimlik doğrulama isteği gerekli jeton/kimlik bilgisi olmadan alındı.")
         # redirect flow'da hata durumunda ana sayfaya hata parametresi ile yönlendir.
         return redirect('/?auth_error=token_missing', code=302)
-        
+
     conn = None
     try:
         idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
@@ -1567,17 +1664,17 @@ def google_auth():
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute('SELECT * FROM Users WHERE email = %s', (idinfo['email'],))
         user = cursor.fetchone()
-        
+
         if user:
             session.clear()
             session.update({'user_id': user['id'], 'email': user['email'], 'name': user['name'], 'user_type': user['user_type']})
-            
+
             # --- DÜZELTME: 'redirect' akışı için sunucu tarafı yönlendirmesi GEREKLİDİR ---
             # Tarayıcı /api/auth/google adresine yönlendiği için, işlem bittikten sonra
             # onu tekrar ana sayfaya yönlendirmemiz gerekir.
             logging.info(f"Kullanıcı {user['email']} başarıyla giriş yaptı, anasayfaya yönlendiriliyor.")
             return redirect('/?auth_success=true', code=302)
-            
+
         else:
             # --- DÜZELTME: Yeni kullanıcı için profil tamamlama sayfasına yönlendir ---
             # 'redirect' akışında yeni kullanıcıya JSON dönemeyiz. Bunun yerine,
@@ -1586,7 +1683,7 @@ def google_auth():
             logging.info(f"Yeni Google kullanıcısı {idinfo['email']}, profil tamamlama sayfasına yönlendiriliyor.")
             session['google_register_temp'] = {"email": idinfo['email'], "name": idinfo['name'], "google_id": idinfo['sub']}
             return redirect('/account.html?action=complete_profile', code=302)
-            
+
     except Exception as e:
         logging.error(f"Google auth sırasında hata: {e}")
         # Hata durumunda ana sayfaya hata parametresi ile yönlendir.
@@ -1594,7 +1691,7 @@ def google_auth():
     finally:
         if conn:
             conn.close()
-            
+
 @app.route('/web_sso_success')
 def web_sso_success():
     """
@@ -1603,7 +1700,8 @@ def web_sso_success():
     """
     return redirect('/', code=302)
 
-@app.route('/api/auth/register', methods=['POST'])
+# ADI DEĞİŞTİRİLDİ ve ROTASI GÜNCELLENDİ
+@app.route('/api/auth/google_register_complete', methods=['POST'])
 @limiter.limit("5 per minute")
 def google_register_complete():
     data = request.get_json()
