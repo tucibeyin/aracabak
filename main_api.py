@@ -1,14 +1,15 @@
 import os
 import psycopg2
 import psycopg2.extras
+from psycopg2 import pool # GEREKLİ: Bağlantı havuzu için eklendi
 from psycopg2 import errors as psycopg2_errors
 import logging
 import re
 import json
 import math
 import traceback
-# redirect ve url_for eklendi
-from flask import Flask, jsonify, request, session, redirect, url_for
+import base64
+from flask import Flask, jsonify, request, session, redirect, url_for, g # GEREKLİ: g objesi eklendi
 from flask_session import Session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -42,6 +43,22 @@ all_vehicle_data = []
 # --- Flask Uygulaması ve Oturum Yapılandırması ---
 app = Flask(__name__)
 
+# --- Veritabanı Bağlantı Havuzu (Connection Pooling) ---
+try:
+    db_pool = psycopg2.pool.ThreadedConnectionPool(
+        minconn=1,
+        maxconn=20,
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT")
+    )
+    logging.info("PostgreSQL bağlantı havuzu başarıyla oluşturuldu.")
+except Exception as e:
+    logging.critical(f"Veritabanı bağlantı havuzu oluşturulamadı: {e}")
+    db_pool = None
+
 # --- Sabit ve Güvenli SECRET_KEY Kullanımı ---
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
@@ -72,21 +89,36 @@ except (redis.exceptions.ConnectionError, Exception) as e:
     logging.warning(f"Redis'e bağlanılamadı, rate limiter bellek üzerinde çalışacak: {e}")
 
 # --- Helper Fonksiyonlar ve Veritabanı ---
+
+# GÜNCELLENDİ: Artık bağlantıyı havuzdan alacak
 def get_db_connection():
-    """PostgreSQL veritabanına yeni bir bağlantı oluşturur."""
-    conn = psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        port=os.getenv("DB_PORT")
-    )
-    return conn
+    """Bağlantı havuzundan bir veritabanı bağlantısı alır ve 'g' objesine kaydeder."""
+    if 'db_conn' not in g:
+        if not db_pool:
+            raise Exception("Veritabanı bağlantı havuzu mevcut değil veya oluşturulamadı.")
+        g.db_conn = db_pool.getconn()
+    return g.db_conn
+
+# GÜNCELLENDİ: İstek sonunda bağlantıyı havuza geri bırakır
+@app.teardown_appcontext
+def close_db(e=None):
+    """İstek sonunda bağlantıyı havuza geri bırakır."""
+    db_conn = g.pop('db_conn', None)
+    if db_conn is not None:
+        db_pool.putconn(db_conn)
 
 def init_db():
+    # init_db tek seferlik çalıştığı için havuz kullanmasına gerek yok.
+    # Doğrudan bağlantı açıp kapatması daha güvenli.
     conn = None
     try:
-        conn = get_db_connection()
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT")
+        )
         cursor = conn.cursor()
 
         cursor.execute('''
@@ -136,8 +168,6 @@ def init_db():
         add_column_if_not_exists(cursor, "shops", "google_place_phone", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_url", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_last_updated", "TIMESTAMP WITH TIME ZONE")
-
-        # --- YENİ EKLENEN SÜTUNLAR (Puanlama ve Yorum Cache) ---
         add_column_if_not_exists(cursor, "shops", "rating", "REAL")
         add_column_if_not_exists(cursor, "shops", "user_ratings_total", "INTEGER")
         add_column_if_not_exists(cursor, "shops", "reviews_json", "TEXT")
@@ -166,7 +196,7 @@ def init_db():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Quotes (
                 id SERIAL PRIMARY KEY,
-                request_id INTEGER NOT NULL UNIQUE REFERENCES Requests(id),
+                request_id INTEGER NOT NULL UNIQUE REFERENCES Requests(id) ON DELETE CASCADE,
                 shop_user_id INTEGER NOT NULL REFERENCES Users(id),
                 parts_cost REAL NOT NULL,
                 labor_cost REAL NOT NULL,
@@ -215,7 +245,6 @@ def init_db():
             )
         ''')
 
-        # --- GÜNCELLENMİŞ LİSANS TABLOSU ---
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Licenses (
                 id SERIAL PRIMARY KEY,
@@ -234,6 +263,7 @@ def init_db():
     finally:
         if conn:
             conn.close()
+
 
 def add_column_if_not_exists(cursor, table_name, column_name, column_def):
     """PostgreSQL için bir tabloda sütun var mı diye kontrol eder ve yoksa ekler."""
@@ -381,7 +411,6 @@ with app.app_context():
 @app.route('/api/auth/status')
 def auth_status():
     if 'user_id' in session:
-        conn = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -409,10 +438,7 @@ def auth_status():
         except Exception as e:
             logging.error(f"Oturum durumu kontrol edilirken veritabanı hatası: {e}")
             return jsonify({"loggedIn": False, "error": "Internal server error"}), 500
-        finally:
-            if conn:
-                conn.close()
-
+        # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
     return jsonify({"loggedIn": False})
 
 @app.route('/api/auth/logout', methods=['POST'])
@@ -420,7 +446,6 @@ def logout():
     session.clear()
     return jsonify({"status": "success"})
 
-# YENİ EKLENDİ: MANUEL GİRİŞ ENDPOINT'İ
 @app.route('/api/auth/login', methods=['POST'])
 @limiter.limit("10 per minute")
 def manual_login():
@@ -431,7 +456,6 @@ def manual_login():
     if not email or not password:
         return jsonify({"description": "E-posta ve şifre gereklidir."}), 400
 
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -459,12 +483,8 @@ def manual_login():
     except Exception as e:
         logging.error(f"Manuel giriş sırasında hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
-
-# YENİ EKLENDİ: MANUEL KAYIT ENDPOINT'İ
 @app.route('/api/auth/manual_register', methods=['POST'])
 @limiter.limit("5 per minute")
 def manual_register():
@@ -479,7 +499,6 @@ def manual_register():
         return jsonify({"description": "Şifre en az 6 karakter olmalıdır."}), 400
 
     password_hash = generate_password_hash(password)
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -505,17 +524,15 @@ def manual_register():
         logging.info(f"Yeni kullanıcı {email} manuel olarak başarıyla kaydedildi.")
         return jsonify({"status": "login_success", "userName": new_user['name'], "userType": new_user['user_type']}), 201
     except psycopg2_errors.UniqueViolation:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         return jsonify({"description": "Bu e-posta adresi zaten kullanımda."}), 409
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Manuel kayıt sırasında kritik hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/config')
 def get_config():
@@ -526,7 +543,6 @@ def get_config():
 
 @app.route('/api/fuel_prices')
 def get_fuel_prices():
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -585,19 +601,17 @@ def get_fuel_prices():
             return jsonify({"description": "Yakıt fiyatları servisine şu anda ulaşılamıyor."}), 503
 
     except Exception as e:
+        conn = get_db_connection()
         if conn: conn.rollback()
         logging.error(f"Yakıt fiyatları alınırken beklenmedik bir hata oluştu: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests', methods=['GET'])
 @limiter.limit("30 per minute")
 def get_requests():
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -635,7 +649,7 @@ def get_requests():
                        COALESCE(s.google_place_name, u.name) as shop_name,
                        COALESCE(s.google_place_phone, s.phone) as shop_phone,
                        s.google_place_id, s.google_place_last_updated,
-                       s.rating, s.user_ratings_total, s.reviews_json, -- YENİ CACHE ALANLARI
+                       s.rating, s.user_ratings_total, s.reviews_json,
                        q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id,
                        q.owner_proposed_cost, q.last_offer_by
                 FROM Requests r JOIN Users u ON r.shop_user_id = u.id
@@ -664,7 +678,6 @@ def get_requests():
                 req.pop(key, None)
 
             if user_type == 'owner':
-                # Puanlama ve yorum cache'i ekle
                 req['rating'] = req.pop('rating', None)
                 req['user_ratings_total'] = req.pop('user_ratings_total', None)
                 reviews_json = req.pop('reviews_json', None)
@@ -674,9 +687,6 @@ def get_requests():
                 last_updated = req.get('google_place_last_updated')
                 is_cache_stale = not last_updated or (datetime.now(timezone.utc) - last_updated) > timedelta(days=7)
 
-                # Not: Bu blok, account.html'deki request listesini doldurmak için kullanılıyor.
-                # index.html'deki shop listesini dolduran find_shops API'sinin mantığı farklıdır.
-                # Ancak burada da shop bilgilerini güncel tutmak faydalı olabilir.
                 if place_id and is_cache_stale:
                     logging.info(f"[get_requests] '{req['shop_name']}' için eski/boş önbellek. Google API'den güncel veri çekiliyor.")
                     try:
@@ -699,20 +709,21 @@ def get_requests():
                             req['user_ratings_total'] = new_total_ratings
                             req['reviews'] = new_reviews
 
-                            with get_db_connection() as conn2:
-                                with conn2.cursor() as update_cursor:
-                                    update_cursor.execute(
-                                        """
-                                        UPDATE Shops SET
-                                            google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s,
-                                            rating = %s, user_ratings_total = %s, reviews_json = %s
-                                        WHERE google_place_id = %s
-                                        """,
-                                        (new_name, new_phone, new_url, datetime.now(timezone.utc), new_rating, new_total_ratings, new_reviews_json, place_id)
-                                    )
-                                    conn2.commit()
-                                    logging.info(f"[get_requests] '{new_name}' için önbellek güncellendi.")
+                            # GÜNCELLENDİ: İkinci bağlantı yerine mevcut bağlantı kullanılıyor.
+                            with conn.cursor() as update_cursor:
+                                update_cursor.execute(
+                                    """
+                                    UPDATE Shops SET
+                                        google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s,
+                                        rating = %s, user_ratings_total = %s, reviews_json = %s
+                                    WHERE google_place_id = %s
+                                    """,
+                                    (new_name, new_phone, new_url, datetime.now(timezone.utc), new_rating, new_total_ratings, new_reviews_json, place_id)
+                                )
+                            conn.commit()
+                            logging.info(f"[get_requests] '{new_name}' için önbellek güncellendi.")
                     except Exception as e:
+                        conn.rollback()
                         logging.error(f"[get_requests] İhtiyaç anında önbellek güncelleme başarısız: {e}")
 
             requests_list.append(req)
@@ -720,16 +731,13 @@ def get_requests():
     except Exception as e:
         logging.error(f"Talep listeleme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests', methods=['POST'])
 @limiter.limit("30 per minute")
 def create_request():
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -740,7 +748,6 @@ def create_request():
 
         vehicle = data['vehicle']
 
-        # --- Yinelenen Talep Kontrolü ---
         cursor.execute(
             """
             SELECT id FROM Requests
@@ -769,20 +776,17 @@ def create_request():
         conn.commit()
         return jsonify({"status": "success", "description": "Talep iletildi."}), 201
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Talep oluşturma hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests/<int:request_id>', methods=['DELETE'])
 @limiter.limit("30 per minute")
 def delete_request(request_id):
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -810,20 +814,17 @@ def delete_request(request_id):
         conn.commit()
         return jsonify({"status": "success", "description": "Talep silindi."})
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Talep silme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests/<int:request_id>/quote', methods=['POST', 'PUT'])
 @limiter.limit("30 per minute")
 def manage_quote(request_id):
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -876,20 +877,20 @@ def manage_quote(request_id):
             return jsonify({"status": "success", "description": "Karşı teklif iletildi."})
 
     except psycopg2_errors.UniqueViolation:
-        if conn: conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         return jsonify({"description": "Bu talep için daha önce bir teklif oluşturulmuş."}), 409
     except Exception as e:
-        if conn: conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Teklif yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn: conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/quotes/<int:quote_id>/reject', methods=['POST'])
 @limiter.limit("30 per minute")
 def reject_quote(quote_id):
     if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -908,17 +909,16 @@ def reject_quote(quote_id):
         else:
             return jsonify({"description": "Yetkisiz işlem."}), 403
     except Exception as e:
-        if conn: conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Teklif reddetme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn: return conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/quotes/<int:quote_id>/accept', methods=['POST'])
 @limiter.limit("20 per hour")
 def accept_quote(quote_id):
     if 'user_id' not in session: return jsonify({"description": "Yetkilendirme gerekli."}), 403
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -938,7 +938,6 @@ def accept_quote(quote_id):
         elif user_type == 'business' and user_id == quote['shop_user_id']:
             if quote['last_offer_by'] != 'owner' or not quote['owner_proposed_cost']: return jsonify({"description": "Müşterinin karşı teklifi bekleniyor."}), 400
             final_cost = quote['owner_proposed_cost']
-            # İşletme müşterinin fiyatını kabul ettiği için ana maliyeti güncelle
             cursor.execute("UPDATE Quotes SET total_cost = %s WHERE id = %s", (final_cost, quote_id))
         else:
             return jsonify({"description": "Yetkisiz işlem."}), 403
@@ -952,18 +951,17 @@ def accept_quote(quote_id):
         conn.commit()
         return jsonify({"status": "success", "description": "Teklif kabul edildi ve randevu oluşturuldu."}), 201
     except Exception as e:
-        if conn: conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Teklif kabul etme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn: conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/appointments', methods=['GET'])
 @limiter.limit("60 per minute")
 def get_appointments():
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1024,20 +1022,20 @@ def get_appointments():
                             app_data['shop_phone'] = new_phone or app_data['shop_phone']
                             app_data['google_place_url'] = new_url or app_data.get('google_place_url')
 
-                            with get_db_connection() as conn2:
-                                with conn2.cursor() as update_cursor:
-                                    update_cursor.execute(
-                                        """
-                                        UPDATE Shops SET
-                                            google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s
-                                            -- Puanlama ve yorum bilgisi appointment çağrısında güncellenmiyor. Bu kasıtlı olabilir.
-                                        WHERE google_place_id = %s
-                                        """,
-                                        (new_name, new_phone, new_url, datetime.now(timezone.utc), place_id)
-                                    )
-                                    conn2.commit()
-                                    logging.info(f"[get_appointments] '{new_name}' için önbellek güncellendi.")
+                            # GÜNCELLENDİ: İkinci bağlantı yerine mevcut bağlantı kullanılıyor.
+                            with conn.cursor() as update_cursor:
+                                update_cursor.execute(
+                                    """
+                                    UPDATE Shops SET
+                                        google_place_name = %s, google_place_phone = %s, google_place_url = %s, google_place_last_updated = %s
+                                    WHERE google_place_id = %s
+                                    """,
+                                    (new_name, new_phone, new_url, datetime.now(timezone.utc), place_id)
+                                )
+                            conn.commit()
+                            logging.info(f"[get_appointments] '{new_name}' için önbellek güncellendi.")
                     except Exception as e:
+                        conn.rollback()
                         logging.error(f"[get_appointments] İhtiyaç anında önbellek güncelleme başarısız: {e}")
 
             appointments.append(app_data)
@@ -1047,9 +1045,7 @@ def get_appointments():
     except Exception as e:
         logging.error(f"Randevu listeleme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/appointments/<int:appointment_id>', methods=['PUT', 'DELETE'])
 @limiter.limit("30 per minute")
@@ -1057,7 +1053,6 @@ def manage_appointment(appointment_id):
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 403
 
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1097,19 +1092,17 @@ def manage_appointment(appointment_id):
             return jsonify({"status": "success", "description": "Randevu başarıyla silindi."})
 
     except Exception as e:
-        if conn: conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Randevu yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/appointments/<int:appointment_id>/complete', methods=['POST'])
 @limiter.limit("30 per minute")
 def complete_appointment(appointment_id):
     if 'user_id' not in session or session['user_type'] != 'business':
         return jsonify({"description": "Yetkisiz işlem."}), 403
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1120,18 +1113,17 @@ def complete_appointment(appointment_id):
             return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
         return jsonify({"status": "success", "description": "Randevu tamamlandı olarak işaretlendi."})
     except Exception as e:
-        if conn: conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Randevu tamamlama hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn: conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/vehicles/<int:vehicle_id>/fuel_entries', methods=['GET', 'POST'])
 @limiter.limit("60 per minute")
 def manage_fuel_entries(vehicle_id):
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1172,13 +1164,11 @@ def manage_fuel_entries(vehicle_id):
                 }
             })
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Yakıt girişi yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/find_shops')
 @limiter.limit("60 per minute")
@@ -1188,14 +1178,13 @@ def find_shops():
     logging.info(f"[/api/find_shops] Arama başlatıldı. Şehir: {city}, Marka: {brand}")
     if not all([city, brand]):
         return jsonify({"description": "Şehir ve marka bilgisi gereklidir."}), 400
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         query = """
             SELECT u.id as shop_user_id, u.name as db_name, s.phone as db_phone, s.city, s.google_place_id,
                    s.google_place_name, s.google_place_phone, s.google_place_url, s.google_place_last_updated,
-                   s.rating, s.user_ratings_total, s.reviews_json -- YENİ CACHE ALANLARI
+                   s.rating, s.user_ratings_total, s.reviews_json
             FROM Shops s JOIN Users u ON s.user_id = u.id
             WHERE s.city = %s AND s.serviced_brands LIKE %s
         """
@@ -1210,33 +1199,26 @@ def find_shops():
             api_key = GOOGLE_PLACES_API_KEY
             is_cache_valid = False
 
-            # Önbellek geçerliliğini kontrol et (7 gün)
             if last_updated:
                 if (datetime.now(timezone.utc) - last_updated) < timedelta(days=7):
                     is_cache_valid = True
 
-            # --- DÜZELTME BAŞLANGICI: Önbellek geçerli olsa bile, derecelendirme eksikse API'yi zorla çağır ---
-            # Önbellekteki rating değeri kontrol ediliyor (NULL veya 0 olup olmadığı)
             rating_from_db = shop.get('rating')
             if is_cache_valid:
                 shop['name'] = shop['google_place_name'] or shop['db_name']
                 shop['phone'] = shop['google_place_phone'] or shop['db_phone']
                 shop['url'] = shop['google_place_url']
-
-                # Önbellekten puanlama ve yorumları yükle
                 shop['rating'] = rating_from_db
                 shop['user_ratings_total'] = shop.get('user_ratings_total')
                 reviews_json = shop.get('reviews_json')
                 shop['reviews'] = json.loads(reviews_json) if reviews_json else []
 
-            # API çağrısı, ya önbellek eski olduğu için (is_cache_valid == False) ya da cache'te rating olmadığı için (rating_from_db is None) zorlanır.
             force_api_call = place_id and api_key and (not is_cache_valid or rating_from_db is None)
 
             if force_api_call:
                 log_reason = "Önbellek süresi dolmuş veya Derecelendirme verisi eksik (NULL)" if rating_from_db is None else "Önbellek süresi dolmuş"
                 logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Places API çağrısı yapılıyor. Sebep: {log_reason}. Place ID: {place_id}")
                 try:
-                    # Rating ve reviews alanları da isteniyor
                     url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,rating,user_ratings_total,reviews,formatted_phone_number,url&key={api_key}&language=tr"
                     response = requests.get(url, timeout=5)
                     place_data = response.json()
@@ -1251,7 +1233,7 @@ def find_shops():
                         new_url = result.get('url')
                         new_rating = result.get('rating')
                         new_total_ratings = result.get('user_ratings_total')
-                        new_reviews = result.get('reviews', [])[:2] # Sadece ilk 2 yorumu al
+                        new_reviews = result.get('reviews', [])[:2]
                         new_reviews_json = json.dumps(new_reviews, ensure_ascii=False)
 
                         shop.update({
@@ -1263,23 +1245,22 @@ def find_shops():
                             'url': new_url
                         })
 
-                        with get_db_connection() as conn2:
-                            with conn2.cursor() as update_cursor:
-                                update_cursor.execute(
-                                    """
-                                    UPDATE Shops SET
-                                        google_place_name = %s,
-                                        google_place_phone = %s,
-                                        google_place_url = %s,
-                                        google_place_last_updated = %s,
-                                        rating = %s,
-                                        user_ratings_total = %s,
-                                        reviews_json = %s
-                                    WHERE user_id = %s
-                                    """,
-                                    (new_name, new_phone, new_url, datetime.now(timezone.utc), new_rating, new_total_ratings, new_reviews_json, shop['shop_user_id'])
-                                )
-                                conn2.commit()
+                        with conn.cursor() as update_cursor:
+                            update_cursor.execute(
+                                """
+                                UPDATE Shops SET
+                                    google_place_name = %s,
+                                    google_place_phone = %s,
+                                    google_place_url = %s,
+                                    google_place_last_updated = %s,
+                                    rating = %s,
+                                    user_ratings_total = %s,
+                                    reviews_json = %s
+                                WHERE user_id = %s
+                                """,
+                                (new_name, new_phone, new_url, datetime.now(timezone.utc), new_rating, new_total_ratings, new_reviews_json, shop['shop_user_id'])
+                            )
+                        conn.commit()
                         logging.info(f"[/api/find_shops] İşletme '{shop['name']}' için önbellek güncellendi.")
                     else:
                         logging.warning(f"[/api/find_shops] Google Places API'den beklenen yanıt alınamadı. Durum: {place_data.get('status')}, Hata Mesajı: {place_data.get('error_message')}. DB verileri kullanılacak.")
@@ -1287,12 +1268,12 @@ def find_shops():
                         shop['phone'] = shop['google_place_phone'] or shop['db_phone']
 
                 except requests.exceptions.RequestException as e:
+                    conn.rollback()
                     logging.error(f"[/api/find_shops] API hatası. İşletme '{shop['db_name']}' için DB/eski önbellek verisi kullanılıyor: {e}")
                     shop['name'] = shop['google_place_name'] or shop['db_name']
                     shop['phone'] = shop['google_place_phone'] or shop['db_phone']
             else:
-                 # API çağrısı yapılmadıysa (veya başarısız olduysa) eski/DB verilerini kullan
-                 if not is_cache_valid and not place_id: # Place ID yoksa veya hiç önbellek yoksa
+                 if not is_cache_valid and not place_id:
                     logging.warning(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Place ID veya API Key eksik. Sadece DB verileri kullanılacak.")
                     shop['name'] = shop['db_name']
                     shop['phone'] = shop['db_phone']
@@ -1302,7 +1283,6 @@ def find_shops():
                  elif is_cache_valid:
                     logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için önbellekten tam veri kullanılıyor.")
 
-            # Pop DB fields before sending to client
             shop.pop('db_name', None)
             shop.pop('db_phone', None)
             shop.pop('google_place_name', None)
@@ -1315,16 +1295,13 @@ def find_shops():
     except Exception as e:
         logging.error(f"İşletme arama sırasında genel hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/shops', methods=['DELETE'])
 @limiter.limit("10 per minute")
 def delete_shop():
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1334,13 +1311,11 @@ def delete_shop():
         conn.commit()
         return jsonify({"status": "success", "description": "İşletme profili silindi."})
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Dükkan silinirken hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/vehicles', methods=['POST'])
 @app.route('/api/vehicles/<int:vehicle_id>', methods=['PUT', 'DELETE'])
@@ -1348,7 +1323,6 @@ def delete_shop():
 def manage_vehicles(vehicle_id=None):
     if 'user_id' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1398,19 +1372,16 @@ def manage_vehicles(vehicle_id=None):
             conn.commit()
             return jsonify({"status": "success", "description": "Araç silindi."})
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Araç yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/account', methods=['GET', 'POST'])
 def account_details():
     if 'email' not in session:
         return jsonify({"description": "Yetkilendirme gerekli."}), 401
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1454,24 +1425,23 @@ def account_details():
                 new_license_key = data.get('google_place_id')
 
                 if shop_phone and not validate_phone_number(shop_phone):
-                       return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
+                     return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
 
                 cursor.execute('SELECT id, google_place_id FROM Shops WHERE user_id = %s', (user['id'],))
                 shop_data = cursor.fetchone()
 
-                if shop_data: # İşletme var, güncelle
+                if shop_data:
                     cursor.execute(
                         'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s WHERE user_id = %s',
                         (data.get('city'), shop_phone, new_license_key, serviced_brands_str, user['id'])
                     )
-                else: # İşletme yok, yeni oluştur
+                else:
                     cursor.execute(
                         'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands) VALUES (%s, %s, %s, %s, %s)',
                         (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str)
                     )
-                conn.commit() # Shops tablosunu kaydet
+                conn.commit()
 
-                # --- LİSANS TABLOSUNU GÜNCELLE ---
                 if new_license_key:
                     cursor.execute("SELECT id FROM Shops WHERE user_id = %s", (user['id'],))
                     shop_id = cursor.fetchone()['id']
@@ -1493,13 +1463,11 @@ def account_details():
 
             return jsonify({"status": "success", "description": "Hesap güncellendi."})
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Hesap yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/vehicles/tax_status', methods=['POST'])
 @limiter.limit("60 per minute")
@@ -1510,7 +1478,6 @@ def update_tax_status():
     vehicle_id, period, status = data.get('vehicle_id'), data.get('period'), data.get('status')
     if not all([vehicle_id, period, isinstance(status, bool)]) or period not in ['jan', 'jul']:
         return jsonify({"description": "Eksik veya geçersiz bilgi."}), 400
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1522,13 +1489,11 @@ def update_tax_status():
         conn.commit()
         return jsonify({"status": "success", "description": "Vergi durumu güncellendi."})
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Vergi durumu güncellenirken hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/cities')
 def get_cities():
@@ -1640,27 +1605,23 @@ def get_maintenance_options():
 @app.route('/api/auth/google', methods=['POST'])
 @limiter.limit("10 per minute")
 def google_auth():
-    # Google SSO redirect akışı (ux_mode: "redirect") token'ı 'credential' adıyla form verisi olarak gönderir.
     token = request.form.get('credential')
 
     if token is None:
-        # Alternatif olarak, bazı tarayıcı/istemci ayarları JSON olarak göndermiş olabilir.
         try:
             data = request.get_json(silent=True)
             if data and isinstance(data, dict):
                 token = data.get('token')
         except Exception:
-            pass # Geçersiz JSON yükü varsa yoksay
+            pass
 
     if token is None:
         logging.error("Google kimlik doğrulama isteği gerekli jeton/kimlik bilgisi olmadan alındı.")
-        # redirect flow'da hata durumunda ana sayfaya hata parametresi ile yönlendir.
         return redirect('/?auth_error=token_missing', code=302)
 
-    conn = None
     try:
+        conn = get_db_connection() # GÜNCELLENDİ: Bağlantı havuzdan alınıyor
         idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
-        conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute('SELECT * FROM Users WHERE email = %s', (idinfo['email'],))
         user = cursor.fetchone()
@@ -1668,39 +1629,25 @@ def google_auth():
         if user:
             session.clear()
             session.update({'user_id': user['id'], 'email': user['email'], 'name': user['name'], 'user_type': user['user_type']})
-
-            # --- DÜZELTME: 'redirect' akışı için sunucu tarafı yönlendirmesi GEREKLİDİR ---
-            # Tarayıcı /api/auth/google adresine yönlendiği için, işlem bittikten sonra
-            # onu tekrar ana sayfaya yönlendirmemiz gerekir.
             logging.info(f"Kullanıcı {user['email']} başarıyla giriş yaptı, anasayfaya yönlendiriliyor.")
             return redirect('/?auth_success=true', code=302)
-
         else:
-            # --- DÜZELTME: Yeni kullanıcı için profil tamamlama sayfasına yönlendir ---
-            # 'redirect' akışında yeni kullanıcıya JSON dönemeyiz. Bunun yerine,
-            # bilgileri geçici olarak session'a kaydedip kullanıcıyı profil tamamlama
-            # sayfasına yönlendiririz.
-            logging.info(f"Yeni Google kullanıcısı {idinfo['email']}, profil tamamlama sayfasına yönlendiriliyor.")
-            session['google_register_temp'] = {"email": idinfo['email'], "name": idinfo['name'], "google_id": idinfo['sub']}
-            return redirect('/account.html?action=complete_profile', code=302)
+            new_user_data = {
+                "email": idinfo['email'],
+                "name": idinfo['name'],
+                "google_id": idinfo['sub']
+            }
+            user_data_json = json.dumps(new_user_data)
+            user_data_b64 = base64.urlsafe_b64encode(user_data_json.encode('utf-8')).decode('utf-8')
+            
+            logging.info(f"Yeni Google kullanıcısı {idinfo['email']}, profil tamamlama için anasayfaya yönlendiriliyor.")
+            return redirect(f'/?new_google_user=true&user_data={user_data_b64}', code=302)
 
     except Exception as e:
         logging.error(f"Google auth sırasında hata: {e}")
-        # Hata durumunda ana sayfaya hata parametresi ile yönlendir.
         return redirect('/?auth_error=true', code=302)
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
-@app.route('/web_sso_success')
-def web_sso_success():
-    """
-    Bu rotayı, Apache/Gunicorn yapılandırma sorununu önlemek için kaldırdık ve doğrudan ana sayfaya yönlendiriyoruz.
-    Bu rotaya ulaşılırsa, yine ana sayfaya yönlendirme yapılır.
-    """
-    return redirect('/', code=302)
-
-# ADI DEĞİŞTİRİLDİ ve ROTASI GÜNCELLENDİ
 @app.route('/api/auth/google_register_complete', methods=['POST'])
 @limiter.limit("5 per minute")
 def google_register_complete():
@@ -1710,7 +1657,6 @@ def google_register_complete():
         return jsonify({"description": "Eksik bilgi."}), 400
     if not validate_phone_number(phone_number):
         return jsonify({"description": "Geçersiz telefon numarası formatı."}), 400
-    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1732,18 +1678,17 @@ def google_register_complete():
             logging.error(f"E-posta gönderme başarısız oldu, ancak kullanıcı kaydı başarılı: {email_error}")
         return jsonify({"status": "login_success", "userName": new_user['name'], "userType": new_user['user_type']}), 201
     except psycopg2_errors.UniqueViolation:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         return jsonify({"description": "Bu e-posta adresi zaten kullanımda."}), 409
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn = get_db_connection()
+        conn.rollback()
         logging.error(f"Kayıt tamamlama sırasında kritik hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    finally:
-        if conn:
-            conn.close()
+    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, load_dotenv=False)
+
