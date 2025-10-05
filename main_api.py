@@ -8,7 +8,7 @@ import json
 import math
 import traceback
 # redirect ve url_for eklendi
-from flask import Flask, jsonify, request, session, redirect, url_for 
+from flask import Flask, jsonify, request, session, redirect, url_for
 from flask_session import Session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -1357,7 +1357,7 @@ def account_details():
                 new_license_key = data.get('google_place_id')
 
                 if shop_phone and not validate_phone_number(shop_phone):
-                     return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
+                       return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
 
                 cursor.execute('SELECT id, google_place_id FROM Shops WHERE user_id = %s', (user['id'],))
                 shop_data = cursor.fetchone()
@@ -1557,7 +1557,8 @@ def google_auth():
             
     if token is None:
         logging.error("Google kimlik doğrulama isteği gerekli jeton/kimlik bilgisi olmadan alındı.")
-        return jsonify({"description": "Token bilgisi eksik."}), 400
+        # redirect flow'da hata durumunda ana sayfaya hata parametresi ile yönlendir.
+        return redirect('/?auth_error=token_missing', code=302)
         
     conn = None
     try:
@@ -1571,19 +1572,25 @@ def google_auth():
             session.clear()
             session.update({'user_id': user['id'], 'email': user['email'], 'name': user['name'], 'user_type': user['user_type']})
             
-            # --- BAŞARILI GİRİŞTE YÖNLENDİRME (302 REDIRECT) ---
-            # Anasayfaya, başarılı olduğunu belirten bir query parametresi eklenir.
-            # Bu, Apache yapılandırmasına ihtiyaç duymadan doğrudan anasayfaya yönlendirir ve mobil uyumluluğu artırır.
+            # --- DÜZELTME: 'redirect' akışı için sunucu tarafı yönlendirmesi GEREKLİDİR ---
+            # Tarayıcı /api/auth/google adresine yönlendiği için, işlem bittikten sonra
+            # onu tekrar ana sayfaya yönlendirmemiz gerekir.
             logging.info(f"Kullanıcı {user['email']} başarıyla giriş yaptı, anasayfaya yönlendiriliyor.")
-            return redirect('/?auth_success=true', code=302) 
+            return redirect('/?auth_success=true', code=302)
             
         else:
-            # Kullanıcı yoksa, profil tamamlama bilgisi ile JSON döndürmeye devam et
-            return jsonify({"status": "complete_profile", "email": idinfo['email'], "name": idinfo['name'], "google_id": idinfo['sub']})
+            # --- DÜZELTME: Yeni kullanıcı için profil tamamlama sayfasına yönlendir ---
+            # 'redirect' akışında yeni kullanıcıya JSON dönemeyiz. Bunun yerine,
+            # bilgileri geçici olarak session'a kaydedip kullanıcıyı profil tamamlama
+            # sayfasına yönlendiririz.
+            logging.info(f"Yeni Google kullanıcısı {idinfo['email']}, profil tamamlama sayfasına yönlendiriliyor.")
+            session['google_register_temp'] = {"email": idinfo['email'], "name": idinfo['name'], "google_id": idinfo['sub']}
+            return redirect('/account.html?action=complete_profile', code=302)
             
     except Exception as e:
         logging.error(f"Google auth sırasında hata: {e}")
-        return jsonify({"description": "Sunucu hatası veya geçersiz token."}), 500
+        # Hata durumunda ana sayfaya hata parametresi ile yönlendir.
+        return redirect('/?auth_error=true', code=302)
     finally:
         if conn:
             conn.close()
