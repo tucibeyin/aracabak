@@ -242,10 +242,11 @@
                             <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label>
                             <input type="email" id="loginEmail" name="email" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         </div>
-                        <div class="mb-6">
+                        <div class="mb-4">
                             <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-2">Şifre</label>
                             <input type="password" id="loginPassword" name="password" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         </div>
+                        <p class="text-right text-sm mb-4"><a href="#" id="showForgotPassword" class="text-blue-500 hover:underline">Şifremi unuttum</a></p>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Giriş Yap</button>
                     </form>
                     <div class="my-4 text-center text-gray-500">veya</div>
@@ -291,6 +292,41 @@
                      <div class="my-4 text-center text-gray-500">veya</div>
                     <div id="googleSignInButtonRegister" class="flex justify-center"></div>
                     <p class="mt-6 text-center text-sm">Zaten hesabın var mı? <a href="#" id="showLogin" class="text-blue-500 hover:underline">Giriş Yap</a></p>
+                </div>
+            </div>
+
+            <!-- Şifre Yenileme Formları (YENİ EKLENDİ) -->
+            <div id="forgotPasswordFlow" class="hidden">
+                <!-- Adım 1: E-posta isteme -->
+                <div id="forgotPasswordView">
+                    <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Şifreni Sıfırla</h2>
+                    <p class="text-center text-gray-600 mb-6">Lütfen hesabınıza ait e-posta adresini girin. Size bir sıfırlama kodu göndereceğiz.</p>
+                    <form id="forgotPasswordForm">
+                        <div class="mb-4">
+                            <label for="forgotEmail" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label>
+                            <input type="email" id="forgotEmail" name="email" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Sıfırlama Kodu Gönder</button>
+                    </form>
+                    <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromForgot" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
+                </div>
+
+                <!-- Adım 2: Kodu ve yeni şifreyi isteme -->
+                <div id="resetPasswordView" class="hidden">
+                    <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Yeni Şifre Belirle</h2>
+                    <p class="text-center text-gray-600 mb-6">E-postanıza gönderilen 6 haneli kodu ve yeni şifrenizi girin.</p>
+                    <form id="resetPasswordForm">
+                         <div class="mb-4">
+                            <label for="resetCode" class="block text-sm font-medium text-gray-700 mb-2">Sıfırlama Kodu</label>
+                            <input type="text" id="resetCode" name="code" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required maxlength="6">
+                        </div>
+                        <div class="mb-6">
+                            <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre</label>
+                            <input type="password" id="newPassword" name="new_password" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required minlength="6">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Şifreyi Yenile</button>
+                    </form>
+                     <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromReset" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
                 </div>
             </div>
         </div>
@@ -359,6 +395,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let maintenanceOptions = null; 
     let googleUserData = null;
     
+    // YENİ EKLENDİ: Şifre yenileme formları için selector'lar
+    const forgotPasswordFlow = document.getElementById('forgotPasswordFlow');
+    const forgotPasswordView = document.getElementById('forgotPasswordView');
+    const resetPasswordView = document.getElementById('resetPasswordView');
+    const showForgotPassword = document.getElementById('showForgotPassword');
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+    const backToLoginFromForgot = document.getElementById('backToLoginFromForgot');
+    const backToLoginFromReset = document.getElementById('backToLoginFromReset');
+
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
@@ -429,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
             registeredVehicleSelector.classList.add('hidden');
         }
     }
-
+    
     async function populateSelect(selectElement, url, placeholder, selectedValue = null, shouldDisable = true) {
         selectElement.innerHTML = `<option value="">${placeholder}</option>`;
         if(shouldDisable) selectElement.disabled = true;
@@ -724,12 +770,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayAuthMessage(container, message, type) {
-        // Önceki mesajları temizle
         const existingMessage = container.querySelector('.message-box');
         if (existingMessage) {
             existingMessage.remove();
         }
-        // Yeni mesajı ekle
         const messageDiv = document.createElement('div');
         messageDiv.className = `message-box message-${type}`;
         messageDiv.textContent = message;
@@ -756,9 +800,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // YENİ EKLENDİ: Modal içinde formları yöneten fonksiyonlar
+    // GÜNCELLENDİ: Modal içinde formları yöneten fonksiyonlar
     function showLoginView() {
         googleCompleteProfileForm.classList.add('hidden');
+        forgotPasswordFlow.classList.add('hidden'); // Yeni
         standardAuthForms.classList.remove('hidden');
         registerView.classList.add('hidden');
         loginView.classList.remove('hidden');
@@ -766,10 +811,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showRegisterView() {
         googleCompleteProfileForm.classList.add('hidden');
+        forgotPasswordFlow.classList.add('hidden'); // Yeni
         standardAuthForms.classList.remove('hidden');
         loginView.classList.add('hidden');
         registerView.classList.remove('hidden');
     }
+    
+    // YENİ EKLENDİ: Şifremi unuttum akışını gösteren fonksiyonlar
+    function showForgotPasswordView() {
+        standardAuthForms.classList.add('hidden');
+        googleCompleteProfileForm.classList.add('hidden');
+        forgotPasswordFlow.classList.remove('hidden');
+        resetPasswordView.classList.add('hidden');
+        forgotPasswordView.classList.remove('hidden');
+    }
+    
+    function showResetPasswordView() {
+        forgotPasswordView.classList.add('hidden');
+        resetPasswordView.classList.remove('hidden');
+    }
+
 
     // GÜNCELLENDİ: Butonlar doğru formu gösterecek şekilde ayarlandı
     loginBtn.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
@@ -788,9 +849,13 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtnDesktop.addEventListener('click', logoutHandler);
     logoutBtnMobile.addEventListener('click', logoutHandler);
     
-    // YENİ EKLENDİ: Formlar arası geçiş linkleri
+    // GÜNCELLENDİ: Formlar arası geçiş linkleri
     showRegister.addEventListener('click', (e) => { e.preventDefault(); showRegisterView(); });
     showLogin.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+    showForgotPassword.addEventListener('click', (e) => { e.preventDefault(); showForgotPasswordView(); });
+    backToLoginFromForgot.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+    backToLoginFromReset.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+
 
     // YENİ EKLENDİ: Manuel Kayıt/Giriş Form Handler'ları
     registerForm.addEventListener('submit', (e) => {
@@ -803,8 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = Object.fromEntries(formData.entries());
         data.user_type = data.userType; // name uyumluluğu için
         
-        // DÜZELTME: Yanlış API adresi '/api/auth/manual_register' düzeltildi.
-        fetch('/api/auth/register', {
+        fetch('/api/auth/register', { // Düzeltildi
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -863,8 +927,75 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // YENİ EKLENDİ: Şifre yenileme form handler'ları
+    forgotPasswordForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const submitButton = forgotPasswordForm.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Gönderiliyor...';
 
-    const dropdowns = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
+        const email = document.getElementById('forgotEmail').value;
+
+        fetch('/api/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        })
+        .then(res => res.json().then(body => ({ ok: res.ok, body })))
+        .then(({ok, body}) => {
+            if (ok) {
+                displayAuthMessage(forgotPasswordView, body.description, 'success');
+                setTimeout(() => {
+                    showResetPasswordView();
+                }, 2000);
+            } else {
+                displayAuthMessage(forgotPasswordView, body.description || 'Bir hata oluştu.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Şifre sıfırlama talebi hatası:', error);
+            displayAuthMessage(forgotPasswordView, 'Bir sunucu hatası oluştu.', 'error');
+        }).finally(() => {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Sıfırlama Kodu Gönder';
+        });
+    });
+
+    resetPasswordForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const submitButton = resetPasswordForm.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Yenileniyor...';
+        
+        const email = document.getElementById('forgotEmail').value; // E-postayı ilk formdan alıyoruz
+        const code = document.getElementById('resetCode').value;
+        const new_password = document.getElementById('newPassword').value;
+
+        fetch('/api/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code, new_password })
+        })
+        .then(res => res.json().then(body => ({ ok: res.ok, body })))
+        .then(({ok, body}) => {
+            if (ok) {
+                displayAuthMessage(resetPasswordView, body.description, 'success');
+                setTimeout(() => {
+                    showLoginView();
+                }, 2000);
+            } else {
+                displayAuthMessage(resetPasswordView, body.description || 'Bir hata oluştu.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Şifre yenileme hatası:', error);
+            displayAuthMessage(resetPasswordView, 'Bir sunucu hatası oluştu.', 'error');
+        }).finally(() => {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Şifreyi Yenile';
+        });
+    });
+
     
     phoneNumberInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
     
@@ -883,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const submitButton = document.getElementById('completeGoogleRegistrationBtn');
         submitButton.disabled = true; submitButton.textContent = 'Tamamlanıyor...';
         try {
-            const response = await fetch('/api/auth/register', {
+            const response = await fetch('/api/auth/register', { // Düzeltildi
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -919,14 +1050,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 authModal.classList.add('hidden');
                 showToast(`Hoşgeldin, ${result.userName}!`);
             } else if (result.status === 'complete_profile') {
-                googleUserData = result;
+                googleUserData = {
+                    name: result.name,
+                    email: result.email,
+                    google_id: result.google_id
+                };
                 document.getElementById('googleWelcome').textContent = `Hoşgeldin, ${result.name}! Kaydı tamamlamak için son bir adım kaldı.`;
                 standardAuthForms.classList.add('hidden');
+                forgotPasswordFlow.classList.add('hidden');
                 googleCompleteProfileForm.classList.remove('hidden');
+                authModal.classList.remove('hidden');
             }
         } catch (error) {
             console.error("Google auth yanıtı işlenirken hata:", error);
-            displayAuthMessage(document.querySelector('#standardAuthForms'), "Giriş sırasında bir hata oluştu.", 'error');
+            displayAuthMessage(document.querySelector('#loginView'), "Google ile giriş sırasında bir hata oluştu.", 'error');
         }
     }
     
@@ -939,11 +1076,9 @@ document.addEventListener('DOMContentLoaded', () => {
             google.accounts.id.initialize({
                 client_id: clientId,
                 callback: handleGoogleCredentialResponse,
-                // DÜZELTME: WebView uyumluluğu için 'popup' modu kullanılıyor.
                 ux_mode: "popup" 
             });
 
-            // Hem giriş hem kayıt formları için Google butonları render ediliyor
             google.accounts.id.renderButton(
                 document.getElementById("googleSignInButtonLogin"),
                 { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "350" }
@@ -1063,4 +1198,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
