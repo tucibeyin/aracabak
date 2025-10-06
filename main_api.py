@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import psycopg2.extras
-from psycopg2 import pool # GEREKLİ: Bağlantı havuzu için eklendi
+from psycopg2 import pool 
 from psycopg2 import errors as psycopg2_errors
 import logging
 import re
@@ -9,7 +9,7 @@ import json
 import math
 import traceback
 import base64
-from flask import Flask, jsonify, request, session, redirect, url_for, g # GEREKLİ: g objesi eklendi
+from flask import Flask, jsonify, request, session, redirect, url_for, g
 from flask_session import Session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -22,6 +22,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
+import secrets # YENİ EKLENDİ: Güvenli kod üretimi için
+import string # YENİ EKLENDİ: Güvenli kod üretimi için
 
 # --- Yapılandırma ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s')
@@ -80,7 +82,8 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 try:
-    redis_client = redis.from_url("redis://127.0.0.1:6379")
+    # GÜNCELLENDİ: decode_responses=True eklendi, byte/string sorunlarını önler.
+    redis_client = redis.from_url("redis://127.0.0.1:6379", decode_responses=True)
     redis_client.ping()
     app.config["RATELIMIT_STORAGE_URI"] = "redis://127.0.0.1:6379"
     limiter = Limiter(get_remote_address, app=app, storage_uri="redis://127.0.0.1:6379")
@@ -90,26 +93,20 @@ except (redis.exceptions.ConnectionError, Exception) as e:
 
 # --- Helper Fonksiyonlar ve Veritabanı ---
 
-# GÜNCELLENDİ: Artık bağlantıyı havuzdan alacak
 def get_db_connection():
-    """Bağlantı havuzundan bir veritabanı bağlantısı alır ve 'g' objesine kaydeder."""
     if 'db_conn' not in g:
         if not db_pool:
             raise Exception("Veritabanı bağlantı havuzu mevcut değil veya oluşturulamadı.")
         g.db_conn = db_pool.getconn()
     return g.db_conn
 
-# GÜNCELLENDİ: İstek sonunda bağlantıyı havuza geri bırakır
 @app.teardown_appcontext
 def close_db(e=None):
-    """İstek sonunda bağlantıyı havuza geri bırakır."""
     db_conn = g.pop('db_conn', None)
     if db_conn is not None:
         db_pool.putconn(db_conn)
 
 def init_db():
-    # init_db tek seferlik çalıştığı için havuz kullanmasına gerek yok.
-    # Doğrudan bağlantı açıp kapatması daha güvenli.
     conn = None
     try:
         conn = psycopg2.connect(
@@ -266,7 +263,6 @@ def init_db():
 
 
 def add_column_if_not_exists(cursor, table_name, column_name, column_def):
-    """PostgreSQL için bir tabloda sütun var mı diye kontrol eder ve yoksa ekler."""
     table_name = table_name.lower()
     column_name = column_name.lower()
     cursor.execute("""
@@ -404,6 +400,56 @@ def send_welcome_email(user_name, user_email, user_type):
         logging.error(f"Brevo API hatası: E-posta gönderilemedi ({user_email}). Hata Kodu: {e.status}, Hata Sebebi: {e.reason}")
         logging.error(f"Brevo API Hata Detayı: {e.body}")
 
+# YENİ EKLENDİ: Şifre sıfırlama kodu gönderme fonksiyonu
+def send_reset_code_email(user_name, user_email, reset_code):
+    if not BREVO_API_KEY:
+        logging.error("Brevo API anahtarı bulunamadı. Şifre sıfırlama e-postası gönderilemiyor.")
+        return
+
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = BREVO_API_KEY
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+    subject = "aracabak - Şifre Sıfırlama Kodunuz"
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f4f4f4; padding: 20px; }}
+            .container {{ max-width: 600px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }}
+            h1 {{ color: #111827; }}
+            p {{ line-height: 1.6; color: #333; }}
+            .code {{ font-size: 24px; font-weight: bold; color: #2563eb; letter-spacing: 2px; text-align: center; padding: 15px; background-color: #f0f5ff; border-radius: 5px; margin: 20px 0; }}
+            .footer {{ font-size: 12px; color: #6c757d; text-align: center; margin-top: 30px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Merhaba {user_name},</h1>
+            <p>Hesabınız için bir şifre sıfırlama talebi aldık. Aşağıdaki kodu kullanarak şifrenizi yenileyebilirsiniz. Eğer bu talebi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
+            <p>Şifre sıfırlama kodunuz:</p>
+            <div class="code">{reset_code}</div>
+            <p>Bu kod <b>10 dakika</b> süreyle geçerlidir.</p>
+            <p>İyi günler,<br><b>aracabak Ekibi</b></p>
+        </div>
+        <div class="footer">© 2025 aracabak. Tüm hakları saklıdır.</div>
+    </body>
+    </html>
+    """
+    
+    sender = {"name": "aracabak Destek", "email": "info.aracabak@gmail.com"}
+    to = [{"email": user_email, "name": user_name}]
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(to=to, html_content=html_content, sender=sender, subject=subject)
+
+    try:
+        api_instance.send_transac_email(send_smtp_email)
+        logging.info(f"Şifre sıfırlama kodu başarıyla gönderildi: {user_email}")
+    except ApiException as e:
+        logging.error(f"Brevo API hatası: Şifre sıfırlama e-postası gönderilemedi ({user_email}). Hata: {e.body}")
+
+
 with app.app_context():
     init_db()
 
@@ -438,7 +484,6 @@ def auth_status():
         except Exception as e:
             logging.error(f"Oturum durumu kontrol edilirken veritabanı hatası: {e}")
             return jsonify({"loggedIn": False, "error": "Internal server error"}), 500
-        # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
     return jsonify({"loggedIn": False})
 
 @app.route('/api/auth/logout', methods=['POST'])
@@ -483,28 +528,33 @@ def manual_login():
     except Exception as e:
         logging.error(f"Manuel giriş sırasında hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
-@app.route('/api/auth/manual_register', methods=['POST'])
+# GÜNCELLENDİ: Hem manuel hem de Google kaydını yönetmek için birleştirildi.
+@app.route('/api/auth/register', methods=['POST'])
 @limiter.limit("5 per minute")
-def manual_register():
+def register():
     data = request.get_json()
-    email, name, password, user_type, phone_number = data.get('email'), data.get('name'), data.get('password'), data.get('user_type'), data.get('phone_number')
+    email, name, user_type, phone_number = data.get('email'), data.get('name'), data.get('user_type'), data.get('phone_number')
+    password = data.get('password') # Manuel kayıt için
+    google_id = data.get('google_id') # Google kaydı için
 
-    if not all([email, name, password, user_type, phone_number]):
+    if not all([email, name, user_type, phone_number]):
         return jsonify({"description": "Tüm alanlar zorunludur."}), 400
     if not validate_phone_number(phone_number):
         return jsonify({"description": "Geçersiz telefon numarası formatı."}), 400
-    if len(password) < 6:
+    
+    # Manuel kayıt kontrolü
+    if not google_id and (not password or len(password) < 6):
         return jsonify({"description": "Şifre en az 6 karakter olmalıdır."}), 400
 
-    password_hash = generate_password_hash(password)
+    password_hash = generate_password_hash(password) if password else None
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute(
-            'INSERT INTO Users (email, name, password_hash, user_type, phone_number) VALUES (%s, %s, %s, %s, %s) RETURNING id',
-            (email, name, password_hash, user_type, phone_number)
+            'INSERT INTO Users (email, name, password_hash, user_type, phone_number, google_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
+            (email, name, password_hash, user_type, phone_number, google_id)
         )
         user_id = cursor.fetchone()['id']
         if user_type == 'business':
@@ -521,18 +571,86 @@ def manual_register():
         except Exception as email_error:
             logging.error(f"E-posta gönderme başarısız oldu, ancak kullanıcı kaydı başarılı: {email_error}")
 
-        logging.info(f"Yeni kullanıcı {email} manuel olarak başarıyla kaydedildi.")
+        logging.info(f"Yeni kullanıcı {email} başarıyla kaydedildi.")
         return jsonify({"status": "login_success", "userName": new_user['name'], "userType": new_user['user_type']}), 201
     except psycopg2_errors.UniqueViolation:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         return jsonify({"description": "Bu e-posta adresi zaten kullanımda."}), 409
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
-        logging.error(f"Manuel kayıt sırasında kritik hata: {e}\n{traceback.format_exc()}")
+        get_db_connection().rollback()
+        logging.error(f"Kayıt sırasında kritik hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
+
+# YENİ EKLENDİ: Şifremi unuttum - kod gönderme endpoint'i
+@app.route('/api/auth/forgot-password', methods=['POST'])
+@limiter.limit("5 per hour")
+def forgot_password():
+    data = request.get_json()
+    email = data.get('email')
+    if not email:
+        return jsonify({"description": "E-posta adresi gereklidir."}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        # Sadece manuel şifresi olan kullanıcılar şifre sıfırlayabilir.
+        cursor.execute("SELECT id, name FROM Users WHERE email = %s AND password_hash IS NOT NULL", (email,))
+        user = cursor.fetchone()
+
+        if user:
+            reset_code = ''.join(secrets.choice(string.digits) for i in range(6))
+            redis_key = f"reset_code:{user['id']}"
+            redis_client.setex(redis_key, 600, reset_code) # 10 dakika geçerli
+            send_reset_code_email(user['name'], email, reset_code)
+        else:
+            logging.warning(f"Var olmayan veya manuel şifresi olmayan hesap için şifre sıfırlama denemesi: {email}")
+
+        # Kullanıcı enumerasyonunu önlemek için her zaman başarı mesajı dön
+        return jsonify({"status": "success", "description": "Eğer e-posta adresiniz sistemimizde kayıtlıysa, şifre sıfırlama kodu gönderilmiştir."})
+
+    except Exception as e:
+        logging.error(f"Şifre sıfırlama kodu gönderilirken hata oluştu: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+
+# YENİ EKLENDİ: Şifreyi sıfırlama endpoint'i
+@app.route('/api/auth/reset-password', methods=['POST'])
+@limiter.limit("10 per hour")
+def reset_password():
+    data = request.get_json()
+    email, code, new_password = data.get('email'), data.get('code'), data.get('new_password')
+
+    if not all([email, code, new_password]):
+        return jsonify({"description": "Tüm alanlar zorunludur."}), 400
+    if len(new_password) < 6:
+        return jsonify({"description": "Yeni şifre en az 6 karakter olmalıdır."}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT id FROM Users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+
+        if not user:
+            return jsonify({"description": "Geçersiz e-posta veya kod."}), 400
+
+        redis_key = f"reset_code:{user['id']}"
+        stored_code = redis_client.get(redis_key)
+
+        if not stored_code or stored_code != code:
+            return jsonify({"description": "Geçersiz veya süresi dolmuş sıfırlama kodu."}), 400
+
+        new_password_hash = generate_password_hash(new_password)
+        cursor.execute("UPDATE Users SET password_hash = %s WHERE id = %s", (new_password_hash, user['id']))
+        conn.commit()
+        redis_client.delete(redis_key) # Kodu kullanıldıktan sonra sil
+        
+        logging.info(f"Kullanıcı {email} için şifre başarıyla sıfırlandı.")
+        return jsonify({"status": "success", "description": "Şifreniz başarıyla yenilendi. Şimdi giriş yapabilirsiniz."})
+
+    except Exception as e:
+        get_db_connection().rollback()
+        logging.error(f"Şifre sıfırlama sırasında hata oluştu: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
 
 @app.route('/api/config')
 def get_config():
@@ -605,7 +723,6 @@ def get_fuel_prices():
         if conn: conn.rollback()
         logging.error(f"Yakıt fiyatları alınırken beklenmedik bir hata oluştu: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests', methods=['GET'])
 @limiter.limit("30 per minute")
@@ -709,7 +826,6 @@ def get_requests():
                             req['user_ratings_total'] = new_total_ratings
                             req['reviews'] = new_reviews
 
-                            # GÜNCELLENDİ: İkinci bağlantı yerine mevcut bağlantı kullanılıyor.
                             with conn.cursor() as update_cursor:
                                 update_cursor.execute(
                                     """
@@ -731,7 +847,6 @@ def get_requests():
     except Exception as e:
         logging.error(f"Talep listeleme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests', methods=['POST'])
 @limiter.limit("30 per minute")
@@ -776,11 +891,9 @@ def create_request():
         conn.commit()
         return jsonify({"status": "success", "description": "Talep iletildi."}), 201
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Talep oluşturma hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests/<int:request_id>', methods=['DELETE'])
 @limiter.limit("30 per minute")
@@ -814,11 +927,9 @@ def delete_request(request_id):
         conn.commit()
         return jsonify({"status": "success", "description": "Talep silindi."})
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Talep silme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/requests/<int:request_id>/quote', methods=['POST', 'PUT'])
 @limiter.limit("30 per minute")
@@ -877,15 +988,12 @@ def manage_quote(request_id):
             return jsonify({"status": "success", "description": "Karşı teklif iletildi."})
 
     except psycopg2_errors.UniqueViolation:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         return jsonify({"description": "Bu talep için daha önce bir teklif oluşturulmuş."}), 409
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Teklif yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/quotes/<int:quote_id>/reject', methods=['POST'])
 @limiter.limit("30 per minute")
@@ -909,11 +1017,9 @@ def reject_quote(quote_id):
         else:
             return jsonify({"description": "Yetkisiz işlem."}), 403
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Teklif reddetme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/quotes/<int:quote_id>/accept', methods=['POST'])
 @limiter.limit("20 per hour")
@@ -951,11 +1057,9 @@ def accept_quote(quote_id):
         conn.commit()
         return jsonify({"status": "success", "description": "Teklif kabul edildi ve randevu oluşturuldu."}), 201
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Teklif kabul etme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/appointments', methods=['GET'])
 @limiter.limit("60 per minute")
@@ -1022,7 +1126,6 @@ def get_appointments():
                             app_data['shop_phone'] = new_phone or app_data['shop_phone']
                             app_data['google_place_url'] = new_url or app_data.get('google_place_url')
 
-                            # GÜNCELLENDİ: İkinci bağlantı yerine mevcut bağlantı kullanılıyor.
                             with conn.cursor() as update_cursor:
                                 update_cursor.execute(
                                     """
@@ -1045,7 +1148,6 @@ def get_appointments():
     except Exception as e:
         logging.error(f"Randevu listeleme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/appointments/<int:appointment_id>', methods=['PUT', 'DELETE'])
 @limiter.limit("30 per minute")
@@ -1092,11 +1194,9 @@ def manage_appointment(appointment_id):
             return jsonify({"status": "success", "description": "Randevu başarıyla silindi."})
 
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Randevu yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/appointments/<int:appointment_id>/complete', methods=['POST'])
 @limiter.limit("30 per minute")
@@ -1113,11 +1213,9 @@ def complete_appointment(appointment_id):
             return jsonify({"description": "Randevu bulunamadı veya yetkiniz yok."}), 404
         return jsonify({"status": "success", "description": "Randevu tamamlandı olarak işaretlendi."})
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Randevu tamamlama hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/vehicles/<int:vehicle_id>/fuel_entries', methods=['GET', 'POST'])
 @limiter.limit("60 per minute")
@@ -1164,11 +1262,9 @@ def manage_fuel_entries(vehicle_id):
                 }
             })
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Yakıt girişi yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/find_shops')
 @limiter.limit("60 per minute")
@@ -1295,7 +1391,6 @@ def find_shops():
     except Exception as e:
         logging.error(f"İşletme arama sırasında genel hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/shops', methods=['DELETE'])
 @limiter.limit("10 per minute")
@@ -1311,11 +1406,9 @@ def delete_shop():
         conn.commit()
         return jsonify({"status": "success", "description": "İşletme profili silindi."})
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Dükkan silinirken hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/vehicles', methods=['POST'])
 @app.route('/api/vehicles/<int:vehicle_id>', methods=['PUT', 'DELETE'])
@@ -1372,11 +1465,9 @@ def manage_vehicles(vehicle_id=None):
             conn.commit()
             return jsonify({"status": "success", "description": "Araç silindi."})
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Araç yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/account', methods=['GET', 'POST'])
 def account_details():
@@ -1463,11 +1554,9 @@ def account_details():
 
             return jsonify({"status": "success", "description": "Hesap güncellendi."})
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Hesap yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/vehicles/tax_status', methods=['POST'])
 @limiter.limit("60 per minute")
@@ -1489,11 +1578,9 @@ def update_tax_status():
         conn.commit()
         return jsonify({"status": "success", "description": "Vergi durumu güncellendi."})
     except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Vergi durumu güncellenirken hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
 
 @app.route('/api/cities')
 def get_cities():
@@ -1602,93 +1689,53 @@ def get_maintenance_options():
         logging.error(f"{file_path} okunurken hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
+# GÜNCELLENDİ: WebView uyumlu pop-up akışı için Google Auth endpoint'i tamamen yeniden yazıldı.
 @app.route('/api/auth/google', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("20 per minute")
 def google_auth():
-    token = request.form.get('credential')
-
-    if token is None:
-        try:
-            data = request.get_json(silent=True)
-            if data and isinstance(data, dict):
-                token = data.get('token')
-        except Exception:
-            pass
-
-    if token is None:
-        logging.error("Google kimlik doğrulama isteği gerekli jeton/kimlik bilgisi olmadan alındı.")
-        return redirect('/?auth_error=token_missing', code=302)
-
+    data = request.get_json()
+    if not data or 'token' not in data:
+        return jsonify({"description": "Token bulunamadı."}), 400
+    
+    token = data['token']
     try:
-        conn = get_db_connection() # GÜNCELLENDİ: Bağlantı havuzdan alınıyor
+        conn = get_db_connection()
         idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute('SELECT * FROM Users WHERE email = %s', (idinfo['email'],))
         user = cursor.fetchone()
 
         if user:
+            # Kullanıcı var, giriş yap
             session.clear()
-            session.update({'user_id': user['id'], 'email': user['email'], 'name': user['name'], 'user_type': user['user_type']})
-            logging.info(f"Kullanıcı {user['email']} başarıyla giriş yaptı, anasayfaya yönlendiriliyor.")
-            return redirect('/?auth_success=true', code=302)
+            session.update({
+                'user_id': user['id'], 
+                'email': user['email'], 
+                'name': user['name'], 
+                'user_type': user['user_type']
+            })
+            logging.info(f"Google kullanıcısı {user['email']} başarıyla giriş yaptı.")
+            return jsonify({
+                "status": "login_success", 
+                "userName": user['name'], 
+                "userType": user['user_type']
+            })
         else:
-            new_user_data = {
-                "email": idinfo['email'],
-                "name": idinfo['name'],
+            # Yeni kullanıcı, profil tamamlama bilgisi döndür
+            logging.info(f"Yeni Google kullanıcısı {idinfo['email']}, profil tamamlama gerekiyor.")
+            return jsonify({
+                "status": "complete_profile", 
+                "email": idinfo['email'], 
+                "name": idinfo['name'], 
                 "google_id": idinfo['sub']
-            }
-            user_data_json = json.dumps(new_user_data)
-            user_data_b64 = base64.urlsafe_b64encode(user_data_json.encode('utf-8')).decode('utf-8')
-            
-            logging.info(f"Yeni Google kullanıcısı {idinfo['email']}, profil tamamlama için anasayfaya yönlendiriliyor.")
-            return redirect(f'/?new_google_user=true&user_data={user_data_b64}', code=302)
+            })
 
     except Exception as e:
         logging.error(f"Google auth sırasında hata: {e}")
-        return redirect('/?auth_error=true', code=302)
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
+        return jsonify({"description": "Sunucu hatası veya geçersiz token."}), 500
 
-@app.route('/api/auth/google_register_complete', methods=['POST'])
-@limiter.limit("5 per minute")
-def google_register_complete():
-    data = request.get_json()
-    email, name, google_id, user_type, phone_number = data.get('email'), data.get('name'), data.get('google_id'), data.get('user_type'), data.get('phone_number')
-    if not all([email, name, google_id, user_type, phone_number]):
-        return jsonify({"description": "Eksik bilgi."}), 400
-    if not validate_phone_number(phone_number):
-        return jsonify({"description": "Geçersiz telefon numarası formatı."}), 400
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cursor.execute(
-            'INSERT INTO Users (google_id, email, name, user_type, phone_number) VALUES (%s, %s, %s, %s, %s) RETURNING id',
-            (google_id, email, name, user_type, phone_number)
-        )
-        user_id = cursor.fetchone()['id']
-        if user_type == 'business':
-            cursor.execute('INSERT INTO Shops (user_id, phone) VALUES (%s, %s)', (user_id, phone_number))
-        conn.commit()
-        cursor.execute('SELECT * FROM Users WHERE id = %s', (user_id,))
-        new_user = cursor.fetchone()
-        session.clear()
-        session.update({'user_id': new_user['id'], 'email': new_user['email'], 'name': new_user['name'], 'user_type': new_user['user_type']})
-        try:
-            send_welcome_email(new_user['name'], new_user['email'], new_user['user_type'])
-        except Exception as email_error:
-            logging.error(f"E-posta gönderme başarısız oldu, ancak kullanıcı kaydı başarılı: {email_error}")
-        return jsonify({"status": "login_success", "userName": new_user['name'], "userType": new_user['user_type']}), 201
-    except psycopg2_errors.UniqueViolation:
-        conn = get_db_connection()
-        conn.rollback()
-        return jsonify({"description": "Bu e-posta adresi zaten kullanımda."}), 409
-    except Exception as e:
-        conn = get_db_connection()
-        conn.rollback()
-        logging.error(f"Kayıt tamamlama sırasında kritik hata: {e}\n{traceback.format_exc()}")
-        return jsonify({"description": "Sunucu hatası."}), 500
-    # GÜNCELLENDİ: finally bloğu ve conn.close() kaldırıldı.
+# KALDIRILDI: Bu endpoint'in işlevi /api/auth/register içine taşındı.
 
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, load_dotenv=False)
-
