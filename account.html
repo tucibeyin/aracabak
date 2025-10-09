@@ -190,6 +190,15 @@
              </div>
              <div id="sentRequestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
         </div>
+
+        <!-- YENİ EKLENDİ: Gönderdiğim Parça Talepleri Section -->
+        <div id="ownerSentPartsRequestsSection" class="w-full max-w-4xl hidden">
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gönderdiğim Parça Talepleri</h2>
+                <div id="sentPartsRequestList"></div>
+            </div>
+            <div id="sentPartsRequestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
+        </div>
         
         <!-- Kişisel Bilgiler Section -->
         <div class="w-full max-w-lg">
@@ -241,7 +250,6 @@
                 <div id="shopInfoForm" class="hidden">
                     <h2 id="shopFormTitle" class="text-2xl sm:text-3xl font-bold mb-6"></h2>
                     <form id="businessProfileForm" class="space-y-4">
-                         <!-- GÜNCELLENDİ: İşletme türü seçim alanı eklendi -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türü</label>
                             <div id="shopTypeEditor" class="flex items-center justify-around bg-gray-100 rounded-lg p-1">
@@ -267,6 +275,10 @@
                         <div>
                             <label for="account_shop_phone" class="block text-sm font-medium text-gray-700">İşletme Telefonu</label>
                             <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
+                        </div>
+                        <div>
+                            <label for="account_website" class="block text-sm font-medium text-gray-700">Web Sitesi (İsteğe Bağlı)</label>
+                            <input type="url" id="account_website" class="w-full mt-1 p-3 border rounded-lg" placeholder="https://www.isletmem.com">
                         </div>
                         <div>
                             <label for="account_id" class="block text-sm font-medium text-gray-700">
@@ -477,25 +489,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Selectors ---
     const userMenu = document.getElementById('user-menu');
     const userMenuMobile = document.getElementById('user-menu-mobile');
-    
-    // MASAÜSTÜ SELECTOR'LAR
     const welcomeContainerDesktop = document.getElementById('welcomeContainerDesktop');
     const welcomeMessageDesktop = document.getElementById('welcomeMessageDesktop');
     const userTypeMessageDesktop = document.getElementById('userTypeMessageDesktop');
-    
-    // MOBİL SELECTOR'LAR
     const welcomeContainerMobileWrapper = document.getElementById('welcomeContainerMobileWrapper');
     const welcomeMessage = document.getElementById('welcomeMessage');
     const userTypeMessage = document.getElementById('userTypeMessage');
-
     const logoutBtn = document.getElementById('logoutBtn');
     const logoutBtnMobile = document.getElementById('logoutBtnMobile');
-
     const accountForm = document.getElementById('accountForm');
     const businessSection = document.getElementById('businessSection');
     const ownerVehicleSection = document.getElementById('ownerVehicleSection');
     const businessRequestsSection = document.getElementById('businessRequestsSection');
     const ownerSentRequestsSection = document.getElementById('ownerSentRequestsSection');
+    const ownerSentPartsRequestsSection = document.getElementById('ownerSentPartsRequestsSection');
     const showAddVehicleFormBtn = document.getElementById('showAddVehicleFormBtn');
     const addVehicleFormContainer = document.getElementById('addVehicleFormContainer');
     const cancelAddVehicleBtn = document.getElementById('cancelAddVehicleBtn');
@@ -523,29 +530,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditingRequestId = null;
 
     // --- Header and Auth ---
-    // GÜNCELLENDİ: Hata veren `updateLoginState` çağrıları kaldırıldı, DOM manipülasyonu direkt bu fonksiyona taşındı.
     async function checkAuthStatus() {
         try {
             const response = await fetch('/api/auth/status');
             const data = await response.json();
             if (data.loggedIn) {
                 currentUser = data;
-                
-                // MASAÜSTÜ GÖRÜNÜM
                 document.getElementById('user-menu').classList.remove('hidden');
-                if(welcomeMessageDesktop && userTypeMessageDesktop) {
+                if (welcomeMessageDesktop && userTypeMessageDesktop) {
                     welcomeMessageDesktop.textContent = `Hoşgeldin, ${data.userName}!`;
                     userTypeMessageDesktop.textContent = data.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
                 }
-
-                // MOBİL GÖRÜNÜM
                 userMenuMobile.classList.remove('hidden');
-                if(welcomeMessage && userTypeMessage && welcomeContainerMobileWrapper) {
-                     welcomeMessage.textContent = `Hoşgeldin, ${data.userName}!`;
-                     userTypeMessage.textContent = data.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
-                     welcomeContainerMobileWrapper.classList.remove('hidden'); 
+                if (welcomeMessage && userTypeMessage && welcomeContainerMobileWrapper) {
+                    welcomeMessage.textContent = `Hoşgeldin, ${data.userName}!`;
+                    userTypeMessage.textContent = data.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                    welcomeContainerMobileWrapper.classList.remove('hidden');
                 }
-
                 await populateAccountForm();
             } else {
                 window.location.href = '/';
@@ -563,7 +564,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     logoutBtn.addEventListener('click', handleLogout);
     logoutBtnMobile.addEventListener('click', handleLogout);
-
 
     // --- Functions ---
     function showToast(message, type = 'success') {
@@ -596,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const option = new Option(item, item);
                 selectElement.add(option);
             });
-            if(selectedValue) selectElement.value = selectedValue;
+            if (selectedValue) selectElement.value = selectedValue;
             selectElement.disabled = false;
         } catch (error) { console.error(`'${placeholder}' yüklenirken hata:`, error); }
     }
@@ -631,11 +631,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.delete-vehicle-btn').forEach(btn => btn.addEventListener('click', handleDeleteVehicle));
     }
     
-    function displayRequestDetails(requestId, isOwner) {
+    function displayRequestDetails(requestId, isOwner, detailContainerId) {
         const req = pageData.requests.find(r => r.id == requestId);
         if (!req) return;
 
-        const detailContainer = document.getElementById(isOwner ? 'sentRequestDetail' : 'requestDetail');
+        const detailContainer = document.getElementById(detailContainerId);
 
         let partsHtml = '';
         if (req.selected_parts && Object.keys(req.selected_parts).length > 0) {
@@ -653,37 +653,37 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let actionSectionHtml = '';
              if ((req.status === 'quoted' || req.status === 'negotiating') && req.quote) {
-                 const lastOfferByBusiness = req.quote.last_offer_by === 'business';
-                 const lastOfferByOwner = req.quote.last_offer_by === 'owner';
-                 actionSectionHtml = `
-                     <div class="mt-4 border-t border-dashed pt-4">
-                         ${lastOfferByBusiness ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">İşletmenin Fiyat Teklifi</h4>` : ''}
-                         ${lastOfferByOwner ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">Sizin Karşı Teklifiniz</h4>` : ''}
-                         <div class="bg-gray-50 border-l-4 ${lastOfferByBusiness ? 'border-green-500' : 'border-purple-500'} p-4 rounded-r-lg">
-                             <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                 ${lastOfferByBusiness ? `<span>Parça Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.parts_cost)} TL</span>
-                                 <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.labor_cost)} TL</span>` : ''}
-                                 <span class="font-bold text-xl border-t-2 pt-2 mt-2">TOPLAM:</span><span class="font-bold text-xl border-t-2 pt-2 mt-2 text-right ${lastOfferByBusiness ? 'text-green-700' : 'text-purple-700'}">${formatCurrency(lastOfferByBusiness ? req.quote.total_cost : req.quote.owner_proposed_cost)} TL</span>
-                             </div>
-                             ${req.quote.notes && lastOfferByBusiness ? `<div class="mt-4 text-sm text-gray-700 bg-gray-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
-                         </div>
-                         <div id="owner-action-area-${req.id}" class="mt-4">
-                             ${lastOfferByBusiness ? `
-                                 <div class="flex gap-4 flex-col sm:flex-row">
-                                     <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
-                                     <button class="counter-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Karşı Teklif Yap</button>
-                                 </div>
-                                 <div id="counter-offer-form-${req.quote.id}" class="hidden mt-4 space-y-2">
-                                     <input type="number" placeholder="Yeni Teklifiniz (TL)" class="p-2 border rounded w-full" id="owner-proposed-cost-${req.quote.id}">
-                                     <button class="send-counter-offer-btn bg-purple-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}" data-request-id="${req.id}">Karşı Teklifi Gönder</button>
-                                 </div>
-                             ` : `<div class="text-center text-sm text-gray-500 italic">İşletmenin yanıtı bekleniyor...</div>`}
-                         </div>
-                     </div>`;
+                  const lastOfferByBusiness = req.quote.last_offer_by === 'business';
+                  const lastOfferByOwner = req.quote.last_offer_by === 'owner';
+                  actionSectionHtml = `
+                        <div class="mt-4 border-t border-dashed pt-4">
+                            ${lastOfferByBusiness ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">İşletmenin Fiyat Teklifi</h4>` : ''}
+                            ${lastOfferByOwner ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">Sizin Karşı Teklifiniz</h4>` : ''}
+                            <div class="bg-gray-50 border-l-4 ${lastOfferByBusiness ? 'border-green-500' : 'border-purple-500'} p-4 rounded-r-lg">
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    ${lastOfferByBusiness ? `<span>Parça Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.parts_cost)} TL</span>
+                                    <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.labor_cost)} TL</span>` : ''}
+                                    <span class="font-bold text-xl border-t-2 pt-2 mt-2">TOPLAM:</span><span class="font-bold text-xl border-t-2 pt-2 mt-2 text-right ${lastOfferByBusiness ? 'text-green-700' : 'text-purple-700'}">${formatCurrency(lastOfferByBusiness ? req.quote.total_cost : req.quote.owner_proposed_cost)} TL</span>
+                                </div>
+                                ${req.quote.notes && lastOfferByBusiness ? `<div class="mt-4 text-sm text-gray-700 bg-gray-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
+                            </div>
+                            <div id="owner-action-area-${req.id}" class="mt-4">
+                                ${lastOfferByBusiness ? `
+                                    <div class="flex gap-4 flex-col sm:flex-row">
+                                        <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
+                                        <button class="counter-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Karşı Teklif Yap</button>
+                                    </div>
+                                    <div id="counter-offer-form-${req.quote.id}" class="hidden mt-4 space-y-2">
+                                        <input type="number" placeholder="Yeni Teklifiniz (TL)" class="p-2 border rounded w-full" id="owner-proposed-cost-${req.quote.id}">
+                                        <button class="send-counter-offer-btn bg-purple-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}" data-request-id="${req.id}">Karşı Teklifi Gönder</button>
+                                    </div>
+                                ` : `<div class="text-center text-sm text-gray-500 italic">İşletmenin yanıtı bekleniyor...</div>`}
+                            </div>
+                        </div>`;
              } else if (req.status === 'accepted') {
-                  actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-blue-700 p-3 bg-blue-50 rounded-md">Bu teklif onaylanarak randevuya dönüştürülmüştür. "Randevularım" bölümünden takip edebilirsiniz.</div>`;
+                   actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-blue-700 p-3 bg-blue-50 rounded-md">Bu teklif onaylanarak randevuya dönüştürülmüştür. "Randevularım" bölümünden takip edebilirsiniz.</div>`;
              } else if (req.status === 'rejected') {
-                  actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-red-700 p-3 bg-red-50 rounded-md">Bu teklif reddedildi.</div>`;
+                   actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-red-700 p-3 bg-red-50 rounded-md">Bu teklif reddedildi.</div>`;
              } else {
                  actionSectionHtml = `<div class="mt-4 text-center text-sm text-gray-500 italic">İşletmeden teklif bekleniyor...</div>`;
              }
@@ -696,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <a href="${phoneUrl}" class="text-sm text-blue-600 hover:underline ${phoneButtonClass}"><i class="fas fa-phone mr-1"></i>${req.shop_phone || 'Telefon Yok'}</a>
                     </div>
                     <div class="flex items-center gap-2">
-                         <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
+                        <button class="delete-request-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded hover:bg-red-600" data-request-id="${req.id}">Sil</button>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -828,115 +828,121 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- GÜNCELLENMİŞ populateRequestsList FONKSİYONU (Mobil Kart ve Tablo) ---
+    // YENİ FONKSİYON: Sadece talepleri listelemek için.
+    function renderRequestListContent(requests, listContainerId, detailContainerId, isOwner) {
+        const listElement = document.getElementById(listContainerId);
+        const detailContainer = document.getElementById(detailContainerId);
+
+        listElement.innerHTML = '';
+        detailContainer.classList.add('hidden');
+        detailContainer.innerHTML = '';
+
+        if (!requests || requests.length === 0) {
+            const requestType = listContainerId.includes('Parts') ? 'parça' : 'bakım';
+            listElement.innerHTML = `<p class="text-center text-gray-500">Henüz gönderilmiş bir ${requestType} talebiniz bulunmuyor.</p>`;
+            return;
+        }
+        
+        const statusText = isOwner 
+            ? { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Alındı', 'accepted': 'Onaylandı', 'rejected': 'Reddedildi', 'negotiating': 'Pazarlıkta' }
+            : { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Gönderildi', 'accepted': 'Onaylandı', 'rejected': 'Reddedildi', 'negotiating': 'Pazarlıkta' };
+        const statusColors = { 'pending': 'bg-yellow-100 text-yellow-800', 'quoted': 'bg-green-100 text-green-800', 'accepted': 'bg-blue-100 text-blue-800', 'rejected': 'bg-red-100 text-red-800', 'negotiating': 'bg-purple-100 text-purple-800' };
+        const quotedOrNegotiating = (req) => (req.status === 'quoted' || (req.status === 'negotiating' && req.quote?.last_offer_by === 'business'));
+
+        let cardHtml = '<div class="sm:hidden space-y-4">';
+        let tableWrapperHtml = '<div class="hidden sm:block overflow-x-auto">';
+        let tableHtml = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${isOwner ? 'İşletme' : 'Müşteri'}</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Araç</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+        </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+
+        requests.forEach(req => {
+            const name = isOwner ? req.shop_name : req.customer_name;
+            const vehicleModel = `${req.vehicle_brand} ${req.vehicle_model}`;
+            const date = new Date(req.created_at).toLocaleDateString('tr-TR');
+            const statusSpan = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[req.status] || ''}">${statusText[req.status] || req.status}</span>`;
+            const rowClass = isOwner && quotedOrNegotiating(req) ? 'font-bold' : '';
+            
+            tableHtml += `<tr class="cursor-pointer hover:bg-gray-50 ${rowClass}" data-request-id="${req.id}">
+                <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm ${isOwner && quotedOrNegotiating(req) ? 'text-green-700' : 'text-gray-900'}">${name}</div></td>
+                <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${vehicleModel}</div></td>
+                <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${date}</div></td>
+                <td class="px-6 py-4 whitespace-nowrap">${statusSpan}</td>
+            </tr>`;
+
+            cardHtml += `
+                <div class="block p-3 border border-gray-200 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 ${rowClass}" data-request-id="${req.id}">
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-sm font-bold truncate ${isOwner && quotedOrNegotiating(req) ? 'text-green-700' : 'text-gray-900'}">
+                            ${isOwner ? 'Servis: ' : 'Müşteri: '} ${name}
+                        </p>
+                        ${statusSpan}
+                    </div>
+                    <div class="mobile-card-item">
+                        <span class="mobile-label">Araç:</span>
+                        <span class="mobile-value">${vehicleModel}</span>
+                    </div>
+                    <div class="mobile-card-item">
+                        <span class="mobile-label">KM:</span>
+                        <span class="mobile-value">${req.maintenance_km.toLocaleString()}</span>
+                    </div>
+                    <div class="mobile-card-item">
+                        <span class="mobile-label">Tarih:</span>
+                        <span class="mobile-value">${date}</span>
+                    </div>
+                </div>`;
+        });
+
+        tableHtml += `</tbody></table>`;
+        tableWrapperHtml += tableHtml + '</div>';
+        cardHtml += '</div>';
+        
+        listElement.innerHTML = tableWrapperHtml + cardHtml;
+        
+        const clickableElements = listElement.querySelectorAll('[data-request-id]');
+        clickableElements.forEach(el => {
+            el.addEventListener('click', () => {
+                clickableElements.forEach(r => r.classList.remove('selected-row'));
+                listElement.querySelectorAll(`[data-request-id="${el.dataset.requestId}"]`).forEach(r => r.classList.add('selected-row'));
+                const requestId = el.dataset.requestId;
+                displayRequestDetails(requestId, isOwner, detailContainerId);
+            });
+        });
+    }
+
+    // GÜNCELLENDİ: Artık sadece render fonksiyonunu çağırıyor.
     async function populateRequestsList(isOwner, accountData = null) {
         const listContainerId = isOwner ? 'sentRequestList' : 'requestList';
         const listElement = document.getElementById(listContainerId);
-        const detailContainer = document.getElementById(isOwner ? 'sentRequestDetail' : 'requestDetail');
-
+        
         if (!isOwner && accountData && accountData.license_is_active === false) {
              listElement.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg text-center" role="alert"><h3 class="font-bold text-lg mb-2">Lisansınız Pasif Durumda</h3><p>®aracabak lisansınız aktif olmadığı için yeni bakım taleplerini görüntüleyemezsiniz.</p><p class="mt-1">Lütfen info.aracabak@gmail.com adresinden iletişime geçiniz.</p></div>`;
              return;
         }
 
         listElement.innerHTML = '<div class="text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>';
-        detailContainer.classList.add('hidden');
-        detailContainer.innerHTML = '';
-        
+        if (isOwner) document.getElementById('sentPartsRequestList').innerHTML = '<div class="text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>';
+
         try {
             const response = await fetch(`/api/requests`);
             if (!response.ok) throw new Error('Talepler alınamadı.');
             const requests = await response.json();
-            
             pageData.requests = requests;
-            listElement.innerHTML = '';
-            listElement.className = '';
 
-            if (!requests || requests.length === 0) {
-                listElement.innerHTML = `<p class="text-center text-gray-500">Henüz ${isOwner ? 'gönderilmiş' : 'gelen'} bir bakım talebiniz bulunmuyor.</p>`;
-                return;
+            if (isOwner) {
+                const serviceRequests = requests.filter(r => r.shop_type === 'service');
+                const partsRequests = requests.filter(r => r.shop_type === 'parts_provider');
+                renderRequestListContent(serviceRequests, 'sentRequestList', 'sentRequestDetail', true);
+                renderRequestListContent(partsRequests, 'sentPartsRequestList', 'sentPartsRequestDetail', true);
+            } else {
+                renderRequestListContent(requests, 'requestList', 'requestDetail', false);
             }
-
-            const statusText = isOwner 
-                ? { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Alındı', 'accepted': 'Onaylandı', 'rejected': 'Reddedildi', 'negotiating': 'Pazarlıkta' }
-                : { 'pending': 'Teklif Bekleniyor', 'quoted': 'Teklif Gönderildi', 'accepted': 'Onaylandı', 'rejected': 'Reddedildi', 'negotiating': 'Pazarlıkta' };
-            const statusColors = { 'pending': 'bg-yellow-100 text-yellow-800', 'quoted': 'bg-green-100 text-green-800', 'accepted': 'bg-blue-100 text-blue-800', 'rejected': 'bg-red-100 text-red-800', 'negotiating': 'bg-purple-100 text-purple-800' };
-            const quotedOrNegotiating = (req) => (req.status === 'quoted' || (req.status === 'negotiating' && req.quote?.last_offer_by === 'business'));
-
-            // --- MOBİL GÖRÜNÜM (Kart Görünümü) İÇİN KONTEYNER ---
-            let cardHtml = '<div class="sm:hidden space-y-4">';
-            // --- MASAÜSTÜ GÖRÜNÜM (Tablo Görünümü) İÇİN KONTEYNER ---
-            let tableWrapperHtml = '<div class="hidden sm:block overflow-x-auto">';
-
-            // Tablo Başlıkları
-            let tableHtml = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50 sticky top-0 z-10"><tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${isOwner ? 'İşletme' : 'Müşteri'}</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Araç</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
-            </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
-
-            requests.forEach(req => {
-                const name = isOwner ? req.shop_name : req.customer_name;
-                const vehicleModel = `${req.vehicle_brand} ${req.vehicle_model}`;
-                const date = new Date(req.created_at).toLocaleDateString('tr-TR');
-                const statusSpan = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[req.status] || ''}">${statusText[req.status] || req.status}</span>`;
-                const rowClass = isOwner && quotedOrNegotiating(req) ? 'font-bold' : '';
-                
-                // 1. Tablo Satırı (Masaüstü/Tablet Görünümü)
-                tableHtml += `<tr class="cursor-pointer hover:bg-gray-50 ${rowClass}" data-request-id="${req.id}">
-                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm ${isOwner && quotedOrNegotiating(req) ? 'text-green-700' : 'text-gray-900'}">${name}</div></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${vehicleModel}</div></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${date}</div></td>
-                    <td class="px-6 py-4 whitespace-nowrap">${statusSpan}</td>
-                </tr>`;
-
-                // 2. Kart Görünümü (Mobil Görünümü) - 2 Satırlı Yapı
-                cardHtml += `
-                    <div class="block p-3 border border-gray-200 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 ${rowClass}" data-request-id="${req.id}">
-                        <div class="flex justify-between items-center mb-1">
-                            <p class="text-sm font-bold truncate ${isOwner && quotedOrNegotiating(req) ? 'text-green-700' : 'text-gray-900'}">
-                                ${isOwner ? 'Servis: ' : 'Müşteri: '} ${name}
-                            </p>
-                            ${statusSpan}
-                        </div>
-                        <div class="mobile-card-item">
-                            <span class="mobile-label">Araç:</span>
-                            <span class="mobile-value">${vehicleModel}</span>
-                        </div>
-                        <div class="mobile-card-item">
-                            <span class="mobile-label">KM:</span>
-                            <span class="mobile-value">${req.maintenance_km.toLocaleString()}</span>
-                        </div>
-                        <div class="mobile-card-item">
-                            <span class="mobile-label">Tarih:</span>
-                            <span class="mobile-value">${date}</span>
-                        </div>
-                    </div>`;
-            });
-
-            tableHtml += `</tbody></table>`;
-            tableWrapperHtml += tableHtml + '</div>';
-            cardHtml += '</div>';
-            
-            listElement.innerHTML = tableWrapperHtml + cardHtml;
-            
-            // Etkileşimleri Tablo ve Kartlara ekle
-            const clickableElements = listElement.querySelectorAll('[data-request-id]');
-            clickableElements.forEach(el => {
-                el.addEventListener('click', () => {
-                    // Tüm seçili durumları kaldır
-                    listElement.querySelectorAll('[data-request-id]').forEach(r => r.classList.remove('selected-row'));
-                    // Tıklananı seçili yap
-                    listElement.querySelectorAll(`[data-request-id="${el.dataset.requestId}"]`).forEach(r => r.classList.add('selected-row'));
-
-                    const requestId = el.dataset.requestId;
-                    displayRequestDetails(requestId, isOwner);
-                });
-            });
         } catch(error) {
             console.error("Talep listesi hatası:", error);
             listElement.innerHTML = `<p class="text-center text-red-500">Talepler yüklenirken bir hata oluştu.</p>`;
+            if (isOwner) document.getElementById('sentPartsRequestList').innerHTML = `<p class="text-center text-red-500">Talepler yüklenirken bir hata oluştu.</p>`;
         }
     }
     
@@ -1281,6 +1287,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.user_type === 'owner') {
                     ownerVehicleSection.classList.remove('hidden');
                     ownerSentRequestsSection.classList.remove('hidden');
+                    ownerSentPartsRequestsSection.classList.remove('hidden');
                     appointmentsSection.classList.remove('hidden');
                     businessSection.classList.add('hidden');
                     businessRequestsSection.classList.add('hidden');
@@ -1295,6 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     appointmentsSection.classList.remove('hidden');
                     ownerVehicleSection.classList.add('hidden');
                     ownerSentRequestsSection.classList.add('hidden');
+                    ownerSentPartsRequestsSection.classList.add('hidden');
                     if (data.city || data.shop_phone || data.google_place_id) {
                         displayShopInfo(data);
                     } else {
@@ -1747,14 +1755,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Shop Info Logic ---
-    // GÜNCELLENDİ: `displayShopInfo` fonksiyonu artık işletme türünü de gösterecek.
     function displayShopInfo(shopData) {
         document.getElementById('shopInfoDisplay').classList.remove('hidden');
         document.getElementById('addShopContainer').classList.add('hidden');
         document.getElementById('shopInfoForm').classList.add('hidden');
         const detailsEl = document.getElementById('shopDetails');
 
-        // YENİ EKLENDİ: shop_type'ı daha kullanıcı dostu bir metne çevir.
         const shopTypeDisplay = shopData.shop_type === 'parts_provider' ? 'Parça Sağlayıcı' : 'Servis';
         
         const licenseStatusHtml = shopData.license_is_active === null || shopData.license_is_active === undefined
@@ -1767,6 +1773,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <p><strong class="font-semibold">İşletme Türü:</strong> ${shopTypeDisplay}</p>
             <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
+            <p><strong class="font-semibold">Web Sitesi:</strong> ${shopData.website ? `<a href="${shopData.website}" target="_blank" class="text-blue-600 hover:underline">${shopData.website}</a>` : 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Google Maps Lisansı:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Lisans Durumu:</strong> ${licenseStatusHtml}</p>
             <p><strong class="font-semibold">Servis Verilen Markalar:</strong> ${shopData.serviced_brands ? shopData.serviced_brands.replace(/,/g, ', ') : 'Belirtilmemiş'}</p>
@@ -1779,15 +1786,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('shopInfoForm').classList.add('hidden');
     }
 
-    // GÜNCELLENDİ: `showShopForm` fonksiyonu, form açıldığında doğru işletme türünü seçecek.
     async function showShopForm(shopData = {}) {
         document.getElementById('addShopContainer').classList.add('hidden');
         document.getElementById('shopInfoDisplay').classList.add('hidden');
         document.getElementById('shopInfoForm').classList.remove('hidden');
         document.getElementById('shopFormTitle').textContent = shopData.city ? 'İşletme Bilgilerini Düzenle' : 'Yeni İşletme Profili';
         
-        // YENİ EKLENDİ: Mevcut işletme türünü radio butonlarda seçili hale getir.
-        const shopType = shopData.shop_type || 'service'; // Varsayılan olarak 'service' seç
+        const shopType = shopData.shop_type || 'service';
         document.querySelector(`input[name="shop_type_edit"][value="${shopType}"]`).checked = true;
         
         await populateSelect(document.getElementById('account_city'), '/api/cities', 'Şehir Seçin', shopData.city);
@@ -1800,6 +1805,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         document.getElementById('account_shop_phone').value = shopData.shop_phone || '';
+        document.getElementById('account_website').value = shopData.website || '';
         document.getElementById('account_id').value = shopData.google_place_id || '';
     }
     
@@ -1827,7 +1833,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // GÜNCELLENDİ: `saveShopBtn` event listener'ı, `shop_type` verisini de gönderecek.
     document.getElementById('saveShopBtn').addEventListener('click', async () => {
         const servicedBrandsSelect = document.getElementById('account_serviced_brands');
         const selectedBrands = Array.from(servicedBrandsSelect.selectedOptions).map(opt => opt.value);
@@ -1835,13 +1840,18 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('En fazla 6 marka seçebilirsiniz.', 'error');
             return;
         }
+        const shopPhone = document.getElementById('account_shop_phone').value;
+        if (shopPhone && (!shopPhone.startsWith('0') || shopPhone.length !== 11)) {
+            displayMessage('shopMessageContainer', 'İşletme telefonu 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
+            return;
+        }
         const payload = {
             city: document.getElementById('account_city').value,
-            shop_phone: document.getElementById('account_shop_phone').value,
+            shop_phone: shopPhone,
             google_place_id: document.getElementById('account_id').value,
             serviced_brands: selectedBrands,
-            // YENİ EKLENDİ: Seçili işletme türünü payload'a ekle.
-            shop_type: document.querySelector('input[name="shop_type_edit"]:checked').value
+            shop_type: document.querySelector('input[name="shop_type_edit"]:checked').value,
+            website: document.getElementById('account_website').value
         };
         const submitButton = document.getElementById('saveShopBtn');
         submitButton.disabled = true;
