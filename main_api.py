@@ -159,7 +159,6 @@ def init_db():
                 google_place_id TEXT
             )
         ''')
-        # GÜNCELLENDİ: shop_type sütunu eklendi. Mevcut kayıtların bozulmaması için varsayılan 'service' olarak ayarlandı.
         add_column_if_not_exists(cursor, "shops", "shop_type", "TEXT NOT NULL DEFAULT 'service'")
         add_column_if_not_exists(cursor, "shops", "serviced_brands", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_name", "TEXT")
@@ -169,6 +168,7 @@ def init_db():
         add_column_if_not_exists(cursor, "shops", "rating", "REAL")
         add_column_if_not_exists(cursor, "shops", "user_ratings_total", "INTEGER")
         add_column_if_not_exists(cursor, "shops", "reviews_json", "TEXT")
+        add_column_if_not_exists(cursor, "shops", "website", "TEXT") # YENİ EKLENDİ
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Requests (
@@ -529,30 +529,26 @@ def manual_login():
         logging.error(f"Manuel giriş sırasında hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-# GÜNCELLENDİ: Hem manuel hem de Google kaydını yönetmek ve yeni 'shop_type' alanını işlemek için birleştirildi.
 @app.route('/api/auth/register', methods=['POST'])
 @limiter.limit("5 per minute")
 def register():
     data = request.get_json()
     email, name, user_type, phone_number = data.get('email'), data.get('name'), data.get('user_type'), data.get('phone_number')
-    password = data.get('password') # Manuel kayıt için
-    google_id = data.get('google_id') # Google kaydı için
-    shop_type = data.get('shop_type') # YENİ EKLENDİ: İşletme tipi için
+    password = data.get('password')
+    google_id = data.get('google_id')
+    shop_type = data.get('shop_type')
 
     if not all([email, name, user_type, phone_number]):
         return jsonify({"description": "Tüm alanlar zorunludur."}), 400
-    if not validate_phone_number(phone_number):
+    if not re.match(r'^0[0-9]{10}$', phone_number):
         return jsonify({"description": "Geçersiz telefon numarası formatı."}), 400
     
-    # YENİ EKLENDİ: Eğer kullanıcı tipi işletme ise, işletme alt tipinin (shop_type) de gönderildiğinden emin ol.
     if user_type == 'business' and not shop_type:
         return jsonify({"description": "İşletme türü (Servis / Parça Sağlayıcı) seçilmelidir."}), 400
     
-    # YENİ EKLENDİ: shop_type geçerliliğini sunucu tarafında da kontrol et.
     if shop_type and shop_type not in ['service', 'parts_provider']:
         return jsonify({"description": "Geçersiz işletme türü."}), 400
         
-    # Manuel kayıt kontrolü
     if not google_id and (not password or len(password) < 6):
         return jsonify({"description": "Şifre en az 6 karakter olmalıdır."}), 400
 
@@ -567,7 +563,6 @@ def register():
         )
         user_id = cursor.fetchone()['id']
         
-        # GÜNCELLENDİ: Yeni işletme kaydında 'shop_type' bilgisini Shops tablosuna ekle.
         if user_type == 'business':
             cursor.execute('INSERT INTO Shops (user_id, phone, shop_type) VALUES (%s, %s, %s)', (user_id, phone_number, shop_type))
             
@@ -774,7 +769,7 @@ def get_requests():
                        COALESCE(s.google_place_name, u.name) as shop_name,
                        COALESCE(s.google_place_phone, s.phone) as shop_phone,
                        s.google_place_id, s.google_place_last_updated,
-                       s.rating, s.user_ratings_total, s.reviews_json,
+                       s.rating, s.user_ratings_total, s.reviews_json, s.shop_type,
                        q.parts_cost, q.labor_cost, q.total_cost, q.notes as quote_notes, q.id as quote_id,
                        q.owner_proposed_cost, q.last_offer_by
                 FROM Requests r JOIN Users u ON r.shop_user_id = u.id
@@ -1274,7 +1269,6 @@ def manage_fuel_entries(vehicle_id):
         logging.error(f"Yakıt girişi yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-# GÜNCELLENDİ: /api/find_shops endpoint'i artık her dükkanın `shop_type` bilgisini de döndürecek.
 @app.route('/api/find_shops')
 @limiter.limit("60 per minute")
 def find_shops():
@@ -1286,11 +1280,10 @@ def find_shops():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # YENİ EKLENDİ: Sorguya `s.shop_type` eklendi.
         query = """
             SELECT u.id as shop_user_id, u.name as db_name, s.phone as db_phone, s.city, s.google_place_id,
                    s.google_place_name, s.google_place_phone, s.google_place_url, s.google_place_last_updated,
-                   s.rating, s.user_ratings_total, s.reviews_json, s.shop_type
+                   s.rating, s.user_ratings_total, s.reviews_json, s.shop_type, s.website
             FROM Shops s JOIN Users u ON s.user_id = u.id
             WHERE s.city = %s AND s.serviced_brands LIKE %s
         """
@@ -1479,7 +1472,6 @@ def manage_vehicles(vehicle_id=None):
         logging.error(f"Araç yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-# GÜNCELLENDİ: Hesap detayları endpoint'i, işletme bilgilerini çekerken ve güncellerken `shop_type` alanını da dahil edecek.
 @app.route('/api/account', methods=['GET', 'POST'])
 def account_details():
     if 'email' not in session:
@@ -1498,9 +1490,8 @@ def account_details():
                 cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel, tax_paid_jan, tax_paid_jul, last_inspection_date FROM Vehicles WHERE user_id = %s', (user['id'],))
                 user_data['vehicles'] = [dict(row) for row in cursor.fetchall()]
             elif user_data['user_type'] == 'business':
-                # GÜNCELLENDİ: Sorguya `s.shop_type` eklendi.
                 cursor.execute("""
-                    SELECT s.city, s.phone as shop_phone, s.google_place_id, s.serviced_brands, s.shop_type, l.is_active as license_is_active
+                    SELECT s.city, s.phone as shop_phone, s.google_place_id, s.serviced_brands, s.shop_type, s.website, l.is_active as license_is_active
                     FROM Shops s
                     LEFT JOIN Licenses l ON s.id = l.shop_id
                     WHERE s.user_id = %s
@@ -1526,12 +1517,11 @@ def account_details():
                 serviced_brands_str = ",".join(data.get('serviced_brands', []))
                 shop_phone = data.get('shop_phone')
                 new_license_key = data.get('google_place_id')
-                # YENİ EKLENDİ: `shop_type` verisi request body'den alınır.
                 shop_type = data.get('shop_type')
+                website = data.get('website') # YENİ
 
                 if shop_phone and not validate_phone_number(shop_phone):
                      return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
-                # YENİ EKLENDİ: Gelen `shop_type` verisinin geçerli olup olmadığını kontrol et.
                 if shop_type and shop_type not in ['service', 'parts_provider']:
                     return jsonify({"description": "Geçersiz işletme türü."}), 400
 
@@ -1539,16 +1529,14 @@ def account_details():
                 shop_data = cursor.fetchone()
 
                 if shop_data:
-                    # GÜNCELLENDİ: UPDATE sorgusuna `shop_type` eklendi.
                     cursor.execute(
-                        'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s, shop_type = %s WHERE user_id = %s',
-                        (data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type, user['id'])
+                        'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s, shop_type = %s, website = %s WHERE user_id = %s',
+                        (data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type, website, user['id'])
                     )
                 else:
-                    # GÜNCELLENDİ: INSERT sorgusuna `shop_type` eklendi.
                     cursor.execute(
-                        'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands, shop_type) VALUES (%s, %s, %s, %s, %s, %s)',
-                        (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type)
+                        'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands, shop_type, website) VALUES (%s, %s, %s, %s, %s, %s, %s)',
+                        (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type, website)
                     )
                 conn.commit()
 
@@ -1708,7 +1696,6 @@ def get_maintenance_options():
         logging.error(f"{file_path} okunurken hata: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-# GÜNCELLENDİ: WebView uyumlu pop-up akışı için Google Auth endpoint'i tamamen yeniden yazıldı.
 @app.route('/api/auth/google', methods=['POST'])
 @limiter.limit("20 per minute")
 def google_auth():
@@ -1752,8 +1739,6 @@ def google_auth():
     except Exception as e:
         logging.error(f"Google auth sırasında hata: {e}")
         return jsonify({"description": "Sunucu hatası veya geçersiz token."}), 500
-
-# KALDIRILDI: Bu endpoint'in işlevi /api/auth/register içine taşındı.
 
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
