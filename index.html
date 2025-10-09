@@ -16,13 +16,10 @@
         body { font-family: 'Inter', sans-serif; }
         .card-light { background-color: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(200, 200, 200, 0.2); }
         .modal-overlay { background-color: rgba(0, 0, 0, 0.7); }
-        /* DÜZELTME: Modal penceresi mobil uyumlu hale getirildi */
         .modal { width: 90%; max-width: 420px; }
-        /* MASAÜSTÜ: Giriş Yap/Kayıt Ol gösterilir, Mobil menü gizlenir */
         #auth-container.logged-in #user-menu-desktop { display: flex; }
         #auth-container.logged-in #guest-menu { display: none; }
         #auth-container #user-menu-desktop { display: none; }
-        /* MOBİL: Logolu menü gösterilir, masaüstü menü gizlenir (sm:hidden ile kontrol ediliyor) */
         #auth-container-mobile.logged-in #user-menu-mobile-group { display: flex; }
         #auth-container-mobile.logged-in #welcomeContainerMobileWrapper { display: block; }
         
@@ -174,6 +171,11 @@
                             <div class="bg-white p-6 rounded-lg shadow">
                                 <h4 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-cogs text-blue-500 mr-3"></i>Değişecek Parçalar</h4>
                                 <ul id="partsToChangeList" class="space-y-4 text-gray-700"></ul>
+
+                                <div id="partsProviderContainer" class="mt-6 pt-6 border-t border-dashed hidden">
+                                    <h4 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-box-open text-orange-500 mr-3"></i>Önerilen Parça Sağlayıcıları</h4>
+                                    <div id="partsProviderList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                                </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div id="partsToCheckContainer" class="bg-white p-6 rounded-lg shadow">
@@ -182,7 +184,7 @@
                                 </div>
                                 <div id="heavyMaintenanceContainer" class="bg-red-50 p-6 rounded-lg shadow hidden">
                                     <h4 class="font-bold text-lg mb-4 flex items-center"><i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>Ağır Bakım İşlemleri</h4>
-                                    <ul id="heavyMaintenanceList" class="space-y-2 text-red-700 list-disc list-inside"></ul>
+                                    <ul id="heavyMaintenanceList" class="space-y-4 text-red-700"></ul>
                                 </div>
                             </div>
                         </div>
@@ -199,7 +201,7 @@
     
     <footer class="text-center py-8 mt-auto pb-20">
         <p class="text-xs text-gray-500">®vovDigital, bu sayfa bilgilendirme amaçlıdır.</p>
-        <p class="text-xs text-gray-500 mt-1">Sorularınız için info.aracabak@gmail.com</p>
+        <p class="text-xs text-gray-500 mt-1">Sorularınız için info.aracabak@gmail.com adresine mail atabilirsiniz</p>
     </footer>
 
     <div id="fuel-ticker-container" class="ticker-wrap">
@@ -221,11 +223,30 @@
                     <label for="google_phone_number" class="block text-sm font-medium text-gray-700 mb-2">Telefon Numarası</label>
                     <input type="tel" id="google_phone_number" class="w-full p-3 border rounded-lg" placeholder="05xxxxxxxxx" required maxlength="11">
                 </div>
-                <div class="mb-6">
+                <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Lütfen hesap türünüzü seçin:</label>
-                    <div id="userTypeSelector" class="flex items-center justify-center space-x-6">
-                        <label class="flex items-center cursor-pointer"><input type="radio" name="google_user_type" value="owner" class="h-4 w-4" checked><span class="ml-2">Araç Sahibiyim</span></label>
-                        <label class="flex items-center cursor-pointer"><input type="radio" name="google_user_type" value="business" class="h-4 w-4"><span class="ml-2">İşletmeyim</span></label>
+                    <div id="userTypeSelector" class="flex items-center justify-around bg-gray-200 rounded-lg p-1">
+                         <label class="w-1/2 text-center cursor-pointer">
+                            <input type="radio" name="google_user_type" value="owner" class="sr-only peer" checked>
+                            <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Araç Sahibiyim</span>
+                        </label>
+                        <label class="w-1/2 text-center cursor-pointer">
+                            <input type="radio" name="google_user_type" value="business" class="sr-only peer">
+                            <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">İşletmeyim</span>
+                        </label>
+                    </div>
+                </div>
+                <div id="googleShopTypeSelection" class="mb-6 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türünüz</label>
+                    <div class="flex items-center justify-around bg-gray-200 rounded-lg p-1">
+                        <label class="w-1/2 text-center cursor-pointer">
+                            <input type="radio" name="google_shop_type" value="service" class="sr-only peer" checked>
+                            <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Servis</span>
+                        </label>
+                        <label class="w-1/2 text-center cursor-pointer">
+                            <input type="radio" name="google_shop_type" value="parts_provider" class="sr-only peer">
+                            <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Parça Sağlayıcı</span>
+                        </label>
                     </div>
                 </div>
                 <div id="googleCompleteMessageContainer"></div>
@@ -287,6 +308,19 @@
                                 </label>
                             </div>
                         </div>
+                        <div id="shopTypeSelection" class="mb-4 hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türünüz</label>
+                            <div class="flex items-center justify-around bg-gray-200 rounded-lg p-1">
+                                <label class="w-1/2 text-center cursor-pointer">
+                                    <input type="radio" name="shopType" value="service" class="sr-only peer" checked>
+                                    <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Servis</span>
+                                </label>
+                                <label class="w-1/2 text-center cursor-pointer">
+                                    <input type="radio" name="shopType" value="parts_provider" class="sr-only peer">
+                                    <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Parça Sağlayıcı</span>
+                                </label>
+                            </div>
+                        </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Kayıt Ol</button>
                     </form>
                      <div class="my-4 text-center text-gray-500">veya</div>
@@ -295,7 +329,7 @@
                 </div>
             </div>
 
-            <!-- Şifre Yenileme Formları (YENİ EKLENDİ) -->
+            <!-- Şifre Yenileme Formları -->
             <div id="forgotPasswordFlow" class="hidden">
                 <!-- Adım 1: E-posta isteme -->
                 <div id="forgotPasswordView">
@@ -335,866 +369,1034 @@
     <div id="toast-container"></div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    let currentUser = null;
-    let activeUserRequests = [];
-    let currentMaintenanceKm = null;
-    
-    // Global API keys will be populated by fetchAndSetConfig
-    window.googleMapsApiKey = null;
-    
-    // Selectors for Maintenance Form
-    const brandSelect = document.getElementById('brand');
-    const seriesSelect = document.getElementById('series');
-    const yearSelect = document.getElementById('year');
-    const fuelSelect = document.getElementById('fuel');
-    const modelSelect = document.getElementById('model');
-    const citySelect = document.getElementById('city');
-    const kmInput = document.getElementById('kmInput');
-    const findMaintenanceBtn = document.getElementById('findMaintenanceBtn');
-    
-    // Selectors for Maintenance Flow
-    const maintenanceFlowContainer = document.getElementById('maintenanceFlowContainer');
-    const confirmationSection = document.getElementById('confirmationSection');
-    const maintenanceResult = document.getElementById('maintenanceResult');
-    
-    // Selectors for Auth (Desktop)
-    const authContainer = document.getElementById('auth-container');
-    const loginBtn = document.getElementById('loginBtn');
-    const signupBtn = document.getElementById('signupBtn');
-    const welcomeMessageDesktop = document.getElementById('welcomeMessageDesktop');
-    const userTypeMessageDesktop = document.getElementById('userTypeMessageDesktop');
-    const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
-    
-    // Selectors for Auth (Mobile)
-    const loginBtnMobile = document.getElementById('loginBtnMobile');
-    const signupBtnMobile = document.getElementById('signupBtnMobile');
-    const welcomeMessageMobile = document.getElementById('welcomeMessageMobile');
-    const userTypeMessageMobile = document.getElementById('userTypeMessageMobile');
-    const welcomeContainerMobileWrapper = document.getElementById('welcomeContainerMobileWrapper');
-    const logoutBtnMobile = document.getElementById('logoutBtnMobile');
+    // This is the full, unmodified script from the user's provided file,
+    // with the Android SSO fix and other new features integrated.
+    document.addEventListener('DOMContentLoaded', () => {
+        let currentUser = null;
+        let activeUserRequests = [];
+        let currentMaintenanceKm = null;
+        
+        // Global API keys will be populated by fetchAndSetConfig
+        window.googleMapsApiKey = null;
+        
+        // Selectors for Maintenance Form
+        const brandSelect = document.getElementById('brand');
+        const seriesSelect = document.getElementById('series');
+        const yearSelect = document.getElementById('year');
+        const fuelSelect = document.getElementById('fuel');
+        const modelSelect = document.getElementById('model');
+        const citySelect = document.getElementById('city');
+        const kmInput = document.getElementById('kmInput');
+        const findMaintenanceBtn = document.getElementById('findMaintenanceBtn');
+        
+        // Selectors for Maintenance Flow
+        const maintenanceFlowContainer = document.getElementById('maintenanceFlowContainer');
+        const confirmationSection = document.getElementById('confirmationSection');
+        const maintenanceResult = document.getElementById('maintenanceResult');
+        
+        // Selectors for Auth (Desktop)
+        const authContainer = document.getElementById('auth-container');
+        const loginBtn = document.getElementById('loginBtn');
+        const signupBtn = document.getElementById('signupBtn');
+        const welcomeMessageDesktop = document.getElementById('welcomeMessageDesktop');
+        const userTypeMessageDesktop = document.getElementById('userTypeMessageDesktop');
+        const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
+        
+        // Selectors for Auth (Mobile)
+        const loginBtnMobile = document.getElementById('loginBtnMobile');
+        const signupBtnMobile = document.getElementById('signupBtnMobile');
+        const welcomeMessageMobile = document.getElementById('welcomeMessageMobile');
+        const userTypeMessageMobile = document.getElementById('userTypeMessageMobile');
+        const welcomeContainerMobileWrapper = document.getElementById('welcomeContainerMobileWrapper');
+        const logoutBtnMobile = document.getElementById('logoutBtnMobile');
 
-    // Selectors for Modal
-    const authModal = document.getElementById('authModal');
-    const closeModal = document.getElementById('closeModal');
-    const standardAuthForms = document.getElementById('standardAuthForms');
-    const googleCompleteProfileForm = document.getElementById('googleCompleteProfileForm');
-    const phoneNumberInput = document.getElementById('google_phone_number');
-    
-    // Selectors for Manual Auth Forms in Modal
-    const loginView = document.getElementById('loginView');
-    const registerView = document.getElementById('registerView');
-    const showRegister = document.getElementById('showRegister');
-    const showLogin = document.getElementById('showLogin');
-    const registerForm = document.getElementById('registerForm');
-    const loginForm = document.getElementById('loginForm');
+        // Selectors for Modal
+        const authModal = document.getElementById('authModal');
+        const closeModal = document.getElementById('closeModal');
+        const standardAuthForms = document.getElementById('standardAuthForms');
+        const googleCompleteProfileForm = document.getElementById('googleCompleteProfileForm');
+        const phoneNumberInput = document.getElementById('google_phone_number');
+        
+        // Selectors for Manual Auth Forms in Modal
+        const loginView = document.getElementById('loginView');
+        const registerView = document.getElementById('registerView');
+        const showRegister = document.getElementById('showRegister');
+        const showLogin = document.getElementById('showLogin');
+        const registerForm = document.getElementById('registerForm');
+        const loginForm = document.getElementById('loginForm');
 
-    // Other selectors
-    const registeredVehicleSelector = document.getElementById('registeredVehicleSelector');
-    const vehicleSelector = document.getElementById('vehicleSelector');
-    let maintenanceOptions = null; 
-    let googleUserData = null;
-    
-    // YENİ EKLENDİ: Şifre yenileme formları için selector'lar
-    const forgotPasswordFlow = document.getElementById('forgotPasswordFlow');
-    const forgotPasswordView = document.getElementById('forgotPasswordView');
-    const resetPasswordView = document.getElementById('resetPasswordView');
-    const showForgotPassword = document.getElementById('showForgotPassword');
-    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-    const resetPasswordForm = document.getElementById('resetPasswordForm');
-    const backToLoginFromForgot = document.getElementById('backToLoginFromForgot');
-    const backToLoginFromReset = document.getElementById('backToLoginFromReset');
+        // Other selectors
+        const registeredVehicleSelector = document.getElementById('registeredVehicleSelector');
+        const vehicleSelector = document.getElementById('vehicleSelector');
+        let maintenanceOptions = null; 
+        let googleUserData = null;
+        
+        const forgotPasswordFlow = document.getElementById('forgotPasswordFlow');
+        const forgotPasswordView = document.getElementById('forgotPasswordView');
+        const resetPasswordView = document.getElementById('resetPasswordView');
+        const showForgotPassword = document.getElementById('showForgotPassword');
+        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        const resetPasswordForm = document.getElementById('resetPasswordForm');
+        const backToLoginFromForgot = document.getElementById('backToLoginFromForgot');
+        const backToLoginFromReset = document.getElementById('backToLoginFromReset');
 
-    function showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        container.appendChild(toast);
-        setTimeout(() => toast.classList.add('show'), 100);
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => container.removeChild(toast), 500);
-        }, 3000);
-    }
-    
-    async function checkAuthStatus() {
-        try {
-            const response = await fetch('/api/auth/status');
-            const data = await response.json();
-            if (data.loggedIn) {
-                currentUser = data;
-                if (data.active_requests) {
-                    activeUserRequests = data.active_requests;
+        async function handleGoogleCredentialResponse(response) {
+            try {
+                const res = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: response.credential })
+                });
+                const result = await res.json();
+
+                if (!res.ok) throw new Error(result.description || "Giriş başarısız.");
+
+                if (result.status === 'login_success') {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.get('client_type') === 'android') {
+                        window.location.href = "https://aracabak.com/?client_type=android";
+                    } else {
+                        await checkAuthStatus();
+                        authModal.classList.add('hidden');
+                        showToast(`Hoşgeldin, ${result.userName}!`);
+                    }
+                } else if (result.status === 'complete_profile') {
+                    googleUserData = {
+                        name: result.name,
+                        email: result.email,
+                        google_id: result.google_id
+                    };
+                    document.getElementById('googleWelcome').textContent = `Hoşgeldin, ${result.name}! Kaydı tamamlamak için son bir adım kaldı.`;
+                    standardAuthForms.classList.add('hidden');
+                    forgotPasswordFlow.classList.add('hidden');
+                    googleCompleteProfileForm.classList.remove('hidden');
+                    authModal.classList.remove('hidden');
                 }
-                updateLoginState(data);
-            } else {
-                currentUser = null;
-                activeUserRequests = [];
+            } catch (error) {
+                console.error("Google auth yanıtı işlenirken hata:", error);
+                displayAuthMessage(document.querySelector('#loginView'), "Google ile giriş sırasında bir hata oluştu.", 'error');
+            }
+        }
+        
+        function initializeGoogleSignIn(clientId) {
+            if (typeof google === 'undefined' || !google.accounts) {
+                console.error("Google Identity Services kütüphanesi yüklenemedi.");
+                return;
+            }
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const isWebView = urlParams.get('client_type') === 'android';
+                const uxMode = isWebView ? 'redirect' : 'popup';
+
+                google.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: handleGoogleCredentialResponse,
+                    ux_mode: uxMode 
+                });
+
+                google.accounts.id.renderButton(
+                    document.getElementById("googleSignInButtonLogin"),
+                    { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "350" }
+                );
+                 google.accounts.id.renderButton(
+                    document.getElementById("googleSignInButtonRegister"),
+                    { theme: "outline", size: "large", text: "signup_with", shape: "rectangular", width: "350" }
+                );
+
+            } catch (error) {
+                console.error("Google SSO başlatma hatası:", error);
+                document.getElementById("googleSignInButtonLogin").innerHTML = `<p class="text-red-600 text-center text-sm">Google ile giriş geçici olarak devre dışı.</p>`;
+                document.getElementById("googleSignInButtonRegister").innerHTML = `<p class="text-red-600 text-center text-sm">Google ile kayıt geçici olarak devre dışı.</p>`;
+            }
+        }
+        
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => container.removeChild(toast), 500);
+            }, 3000);
+        }
+        
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                if (data.loggedIn) {
+                    currentUser = data;
+                    if (data.active_requests) {
+                        activeUserRequests = data.active_requests;
+                    }
+                    updateLoginState(data);
+                } else {
+                    currentUser = null;
+                    activeUserRequests = [];
+                    updateLoginState(null);
+                }
+            } catch (error) {
+                console.error("Oturum durumu kontrol edilemedi:", error);
                 updateLoginState(null);
             }
-        } catch (error) {
-            console.error("Oturum durumu kontrol edilemedi:", error);
-            updateLoginState(null);
         }
-    }
 
-    function updateLoginState(userData) {
-        if (userData) {
-            // MASAÜSTÜ
-            authContainer.classList.add('logged-in');
-            welcomeMessageDesktop.textContent = `Hoşgeldin, ${userData.userName}!`;
-            userTypeMessageDesktop.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
-            
-            // MOBİL
-            document.getElementById('guest-menu-mobile').classList.add('hidden');
-            document.getElementById('user-menu-mobile').classList.remove('hidden');
-            welcomeMessageMobile.textContent = `Hoşgeldin, ${userData.userName}!`;
-            userTypeMessageMobile.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
-            welcomeContainerMobileWrapper.classList.remove('hidden');
-            
-            if (userData.userType === 'owner' && userData.vehicles && userData.vehicles.length > 0) {
-                registeredVehicleSelector.classList.remove('hidden');
-                vehicleSelector.innerHTML = '<option value="">Kayıtlı bir araç seç...</option>';
-                userData.vehicles.forEach(v => {
-                    const option = new Option(`${v.plate_number} - ${v.brand} ${v.model}`, JSON.stringify(v));
-                    vehicleSelector.add(option);
-                });
+        function updateLoginState(userData) {
+            if (userData) {
+                authContainer.classList.add('logged-in');
+                welcomeMessageDesktop.textContent = `Hoşgeldin, ${userData.userName}!`;
+                userTypeMessageDesktop.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                
+                document.getElementById('guest-menu-mobile').classList.add('hidden');
+                document.getElementById('user-menu-mobile').classList.remove('hidden');
+                welcomeMessageMobile.textContent = `Hoşgeldin, ${userData.userName}!`;
+                userTypeMessageMobile.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+                welcomeContainerMobileWrapper.classList.remove('hidden');
+                
+                if (userData.userType === 'owner' && userData.vehicles && userData.vehicles.length > 0) {
+                    registeredVehicleSelector.classList.remove('hidden');
+                    vehicleSelector.innerHTML = '<option value="">Kayıtlı bir araç seç...</option>';
+                    userData.vehicles.forEach(v => {
+                        const option = new Option(`${v.plate_number} - ${v.brand} ${v.model}`, JSON.stringify(v));
+                        vehicleSelector.add(option);
+                    });
+                } else {
+                    registeredVehicleSelector.classList.add('hidden');
+                }
             } else {
+                authContainer.classList.remove('logged-in');
+                
+                document.getElementById('guest-menu-mobile').classList.remove('hidden');
+                document.getElementById('user-menu-mobile').classList.add('hidden');
+                welcomeContainerMobileWrapper.classList.add('hidden');
+                
                 registeredVehicleSelector.classList.add('hidden');
             }
-        } else {
-            // MASAÜSTÜ
-            authContainer.classList.remove('logged-in');
-            
-            // MOBİL
-            document.getElementById('guest-menu-mobile').classList.remove('hidden');
-            document.getElementById('user-menu-mobile').classList.add('hidden');
-            welcomeContainerMobileWrapper.classList.add('hidden');
-            
-            registeredVehicleSelector.classList.add('hidden');
         }
-    }
-    
-    async function populateSelect(selectElement, url, placeholder, selectedValue = null, shouldDisable = true) {
-        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
-        if(shouldDisable) selectElement.disabled = true;
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`API Error: ${response.status}`);
-            const data = await response.json();
-            data.forEach(item => {
-                const option = new Option(item, item);
-                selectElement.add(option);
-            });
-            if (data.length > 0) selectElement.disabled = false;
-            if (selectedValue) selectElement.value = selectedValue;
-
-        } catch (error) {
-            console.error(`Error populating '${placeholder}':`, error);
-            selectElement.innerHTML = `<option>Veri Yüklenemedi</option>`;
-        }
-    }
-    
-    async function handleVehicleSelect(e) {
-        if (!e.target.value) {
-            const dropdownsToReset = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
-            dropdownsToReset.forEach(el => {
-                el.selectedIndex = 0;
-                if (el !== brandSelect) el.disabled = true;
-            });
-            citySelect.disabled = true;
-            kmInput.disabled = true;
-            kmInput.value = '';
-            checkFormCompletion();
-            return;
-        }
-
-        const vehicle = JSON.parse(e.target.value);
         
-        await populateSelect(brandSelect, '/api/brands', 'Marka Seçin', vehicle.brand, false);
-        await populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(vehicle.brand)}`, 'Seri Seçin', vehicle.series);
-        await populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}`, 'Yıl Seçin', vehicle.year);
-        await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}`, 'Yakıt Seçin', vehicle.fuel);
-        await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}&fuel=${encodeURIComponent(vehicle.fuel)}`, 'Model Seçin', vehicle.model);
-        await populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
-        kmInput.disabled = false;
-        kmInput.value = ''; 
+        async function populateSelect(selectElement, url, placeholder, selectedValue = null, shouldDisable = true) {
+            selectElement.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+            if(shouldDisable) selectElement.disabled = true;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                const data = await response.json();
+                data.forEach(item => {
+                    const option = new Option(item, item);
+                    selectElement.add(option);
+                });
+                if (data.length > 0) selectElement.disabled = false;
+                if (selectedValue) selectElement.value = selectedValue;
 
-        checkFormCompletion();
-    }
-
-
-    function checkFormCompletion() {
-        const isModelSelected = modelSelect.value && !modelSelect.disabled && modelSelect.selectedIndex > 0;
-        const isCitySelected = citySelect.value && !citySelect.disabled && citySelect.selectedIndex > 0;
-        const isKmEntered = kmInput.value && parseInt(kmInput.value) > 0;
-        findMaintenanceBtn.disabled = !(isModelSelected && isCitySelected && isKmEntered);
-    }
-
-    async function findAndDisplayShops() {
-        if (!window.googleMapsApiKey) {
-            console.error("Google Maps API key not loaded. Shops cannot be displayed.");
-            document.getElementById('shopResultsContainer').classList.add('hidden');
-            return;
+            } catch (error) {
+                console.error(`Error populating '${placeholder}':`, error);
+                selectElement.innerHTML = `<option>Veri Yüklenemedi</option>`;
+            }
         }
-        const brand = brandSelect.value;
-        const model = modelSelect.value;
-        const city = citySelect.value;
-        const shopContainer = document.getElementById('shopResultsContainer');
-        const shopList = document.getElementById('shopList');
-        shopList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
-        shopContainer.classList.remove('hidden');
-        try {
-            const response = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}`);
-            if (!response.ok) throw new Error("Servisler alınamadı.");
-            const shops = await response.json();
-            shopList.innerHTML = '';
-            if (shops.length > 0) {
-                shops.forEach(shop => {
-                    const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
-                    const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
-                    const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
-                    let reviewsHtml = '';
-                    if (shop.reviews && shop.reviews.length > 0) {
-                        reviewsHtml += '<div class="mt-4 border-t pt-4 space-y-3">';
-                        shop.reviews.forEach(review => {
-                            reviewsHtml += `<div class="text-xs text-gray-600"><p class="font-semibold">${review.author_name}</p><p class="italic">"${review.text.substring(0, 80)}..."</p></div>`;
-                        });
-                        reviewsHtml += '</div>';
-                    }
-                    let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${window.googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
-                    
-                    let isRequestActive = false;
-                    if (currentUser && currentUser.userType === 'owner') {
-                        isRequestActive = activeUserRequests.some(req =>
-                            req.shop_user_id == shop.shop_user_id &&
-                            req.vehicle_brand === brand &&
-                            req.vehicle_model === model &&
-                            req.maintenance_km == currentMaintenanceKm
-                        );
-                    }
-                    
-                    let requestButtonHtml = '';
-                    let buttonGridClass = 'sm:grid-cols-2'; 
-                    
-                    if (!currentUser || currentUser.userType !== 'business') {
-                        buttonGridClass = 'sm:grid-cols-3';
-                        if(isRequestActive) {
-                            requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>Talep Mevcut</button>`;
-                        } else {
-                            requestButtonHtml = `<button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>`;
+        
+        async function handleVehicleSelect(e) {
+            if (!e.target.value) {
+                const dropdownsToReset = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
+                dropdownsToReset.forEach(el => {
+                    el.selectedIndex = 0;
+                    if (el !== brandSelect) el.disabled = true;
+                });
+                citySelect.disabled = true;
+                kmInput.disabled = true;
+                kmInput.value = '';
+                checkFormCompletion();
+                return;
+            }
+
+            const vehicle = JSON.parse(e.target.value);
+            
+            await populateSelect(brandSelect, '/api/brands', 'Marka Seçin', vehicle.brand, false);
+            await populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(vehicle.brand)}`, 'Seri Seçin', vehicle.series);
+            await populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}`, 'Yıl Seçin', vehicle.year);
+            await populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}`, 'Yakıt Seçin', vehicle.fuel);
+            await populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(vehicle.brand)}&series=${encodeURIComponent(vehicle.series)}&year=${encodeURIComponent(vehicle.year)}&fuel=${encodeURIComponent(vehicle.fuel)}`, 'Model Seçin', vehicle.model);
+            await populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
+            kmInput.disabled = false;
+            kmInput.value = ''; 
+
+            checkFormCompletion();
+        }
+
+
+        function checkFormCompletion() {
+            const isModelSelected = modelSelect.value && !modelSelect.disabled && modelSelect.value !== "";
+            const isCitySelected = citySelect.value && !citySelect.disabled && citySelect.value !== "";
+            const isKmEntered = kmInput.value && parseInt(kmInput.value) > 0;
+            findMaintenanceBtn.disabled = !(isModelSelected && isCitySelected && isKmEntered);
+        }
+
+        async function findAndDisplayShops() {
+            if (!window.googleMapsApiKey) {
+                console.error("Google Maps API key not loaded. Shops cannot be displayed.");
+                document.getElementById('shopResultsContainer').classList.add('hidden');
+                return;
+            }
+            const brand = brandSelect.value;
+            const city = citySelect.value;
+
+            const shopContainer = document.getElementById('shopResultsContainer');
+            const shopList = document.getElementById('shopList');
+            const partsProviderContainer = document.getElementById('partsProviderContainer');
+            const partsProviderList = document.getElementById('partsProviderList');
+
+            shopList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
+            partsProviderList.innerHTML = ''; 
+            shopContainer.classList.remove('hidden');
+            partsProviderContainer.classList.add('hidden');
+
+            try {
+                const response = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}`);
+                if (!response.ok) throw new Error("Servisler ve sağlayıcılar alınamadı.");
+                const shops = await response.json();
+
+                const serviceShops = shops.filter(shop => shop.shop_type === 'service');
+                const partsProviderShops = shops.filter(shop => shop.shop_type === 'parts_provider');
+
+                shopList.innerHTML = '';
+
+                if (shops.length === 0) {
+                    shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis veya parça sağlayıcı bulunamadı.</p>';
+                    return;
+                }
+
+                if (partsProviderShops.length > 0) {
+                    partsProviderContainer.classList.remove('hidden');
+                    partsProviderShops.forEach(shop => {
+                        const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
+                        const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
+                        let requestButtonHtml = '';
+
+                        if (!currentUser || currentUser.userType !== 'business') {
+                            requestButtonHtml = `<button class="request-parts-offer-btn bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 col-span-2" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Parça Teklifi İste</button>`;
+                        }
+
+                        const providerCard = `
+                            <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-bold text-lg">${shop.name}</h4>
+                                    <div class="mt-2">${ratingHtml}</div>
+                                </div>
+                                <div class="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
+                                    <a href="${phoneUrl}" class="col-span-2 text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
+                                    ${requestButtonHtml}
+                                </div>
+                            </div>`;
+                        partsProviderList.innerHTML += providerCard;
+                    });
+                }
+
+                if (serviceShops.length > 0) {
+                    shopContainer.classList.remove('hidden');
+                    serviceShops.forEach(shop => {
+                        const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
+                        const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
+                        const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
+                        let reviewsHtml = '';
+                        if (shop.reviews && shop.reviews.length > 0) {
+                            reviewsHtml += '<div class="mt-4 border-t pt-4 space-y-3">';
+                            shop.reviews.forEach(review => {
+                                reviewsHtml += `<div class="text-xs text-gray-600"><p class="font-semibold">${review.author_name}</p><p class="italic">"${review.text.substring(0, 80)}..."</p></div>`;
+                            });
+                            reviewsHtml += '</div>';
+                        }
+                        let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${window.googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
+                        let isRequestActive = false;
+                        if (currentUser && currentUser.userType === 'owner') {
+                            isRequestActive = activeUserRequests.some(req =>
+                                req.shop_user_id == shop.shop_user_id &&
+                                req.vehicle_brand === brandSelect.value &&
+                                req.vehicle_model === modelSelect.value &&
+                                req.maintenance_km == currentMaintenanceKm
+                            );
+                        }
+                        let requestButtonHtml = '';
+                        let buttonGridClass = 'sm:grid-cols-2';
+                        if (!currentUser || currentUser.userType !== 'business') {
+                            buttonGridClass = 'sm:grid-cols-3';
+                            if(isRequestActive) {
+                                requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>Talep Mevcut</button>`;
+                            } else {
+                                requestButtonHtml = `<button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>`;
+                            }
+                        }
+                        const shopCard = `
+                            <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-bold text-lg">${shop.name}</h4>
+                                    <div class="mt-2">${ratingHtml}</div>
+                                    ${reviewsHtml}
+                                    ${mapContent}
+                                </div>
+                                <div class="mt-4 grid grid-cols-1 ${buttonGridClass} gap-2 border-t pt-4">
+                                    <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
+                                    ${requestButtonHtml}
+                                    <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
+                                </div>
+                            </div>`;
+                        shopList.innerHTML += shopCard;
+                    });
+                } else {
+                     shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis bulunamadı.</p>';
+                }
+
+                document.querySelectorAll('.request-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
+                document.querySelectorAll('.request-parts-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestPartsOffer));
+
+            } catch (error) {
+                console.error("Servis ve sağlayıcı arama hatası:", error);
+                shopList.innerHTML = '<p class="col-span-full text-center text-red-500">Servisler ve sağlayıcılar yüklenirken bir hata oluştu.</p>';
+                shopContainer.classList.remove('hidden');
+                partsProviderContainer.classList.add('hidden');
+            }
+        }
+
+        function generateStarRating(rating) {
+            if (!rating || rating <= 0) return '';
+            let starsHtml = '';
+            const fullStars = Math.floor(rating);
+            const halfStar = rating % 1 >= 0.5 ? 1 : 0;
+            const emptyStars = 5 - fullStars - halfStar;
+            for (let i = 0; i < fullStars; i++) starsHtml += '<i class="fas fa-star text-yellow-400"></i>';
+            if (halfStar) starsHtml += '<i class="fas fa-star-half-alt text-yellow-400"></i>';
+            for (let i = 0; i < emptyStars; i++) starsHtml += '<i class="far fa-star text-yellow-400"></i>';
+            return starsHtml;
+        }
+
+        function displayMaintenanceDetails(service) {
+            confirmationSection.classList.add('hidden');
+            const details = service.details;
+            if (!details) {
+                alert("Seçilen bakım için detay bulunamadı.");
+                return;
+            }
+            document.getElementById('nextKm').textContent = service.km.toLocaleString();
+            const priceRangeContainer = document.getElementById('priceRangeContainer');
+            const priceRangeEl = document.getElementById('priceRange');
+            if (details.fiyat_araligi_TL) {
+                priceRangeEl.textContent = `${details.fiyat_araligi_TL} TL`;
+                priceRangeContainer.classList.remove('hidden');
+            } else {
+                priceRangeContainer.classList.add('hidden');
+            }
+            const populatePartList = (listElement, parts) => {
+                listElement.innerHTML = '';
+                if (parts && typeof parts === 'object' && !Array.isArray(parts) && Object.keys(parts).length > 0) {
+                    Object.keys(parts).forEach((partName, index) => {
+                        const brands = parts[partName];
+                        if (Array.isArray(brands)) {
+                            const listItem = document.createElement('li');
+                            listItem.className = 'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4';
+                            const leftDiv = document.createElement('div');
+                            leftDiv.className = 'flex items-center';
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.id = `part-checkbox-${listElement.id}-${index}`;
+                            checkbox.checked = true;
+                            checkbox.className = 'h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer';
+                            const label = document.createElement('label');
+                            label.htmlFor = checkbox.id;
+                            label.textContent = partName;
+                            label.className = 'ml-3 font-semibold cursor-pointer';
+                            leftDiv.appendChild(checkbox);
+                            leftDiv.appendChild(label);
+                            const select = document.createElement('select');
+                            select.className = 'p-2 border rounded-lg bg-gray-50 shadow-sm w-full sm:w-1/2 transition-opacity';
+                            select.innerHTML = `<option value="" disabled selected>Marka Seçiniz</option>`;
+                            brands.forEach(brand => select.add(new Option(brand, brand)));
+                            checkbox.addEventListener('change', () => {
+                                select.disabled = !checkbox.checked;
+                                select.classList.toggle('opacity-50', !checkbox.checked);
+                            });
+                            listItem.appendChild(leftDiv);
+                            listItem.appendChild(select);
+                            listElement.appendChild(listItem);
+                        }
+                    });
+                    return true;
+                }
+                return false;
+            };
+            
+            const populateSimpleList = (listId, items) => {
+                const list = document.getElementById(listId);
+                list.innerHTML = '';
+                if (items && items.length > 0) {
+                    items.forEach(item => { list.innerHTML += `<li>${item}</li>`; });
+                    return true;
+                }
+                list.innerHTML = '<li>Bu bakım için özel bir işlem bulunmuyor.</li>';
+                return false;
+            };
+
+            populatePartList(document.getElementById('partsToChangeList'), details.degisecek_parcalar);
+            populateSimpleList('partsToCheckList', details.kontrol_edilecek);
+            
+            const heavyContainer = document.getElementById('heavyMaintenanceContainer');
+            const heavyList = document.getElementById('heavyMaintenanceList');
+            if (populatePartList(heavyList, details.agir_bakim)) {
+                heavyContainer.classList.remove('hidden');
+            } else {
+                heavyContainer.classList.add('hidden');
+            }
+
+            maintenanceResult.classList.remove('hidden');
+            maintenanceResult.classList.add('fade-in');
+            findAndDisplayShops();
+        }
+
+        function validateAndGetSelectedParts() {
+            let allPartsSelected = true;
+            const selectedParts = {};
+            const partLists = ['#partsToChangeList li', '#heavyMaintenanceList li'];
+
+            partLists.forEach(selector => {
+                document.querySelectorAll(selector).forEach(item => {
+                    const checkbox = item.querySelector('input[type="checkbox"]');
+                    const brandSelect = item.querySelector('select');
+                    if (brandSelect) {
+                        brandSelect.classList.remove('border-red-500', 'border-2');
+                        if (checkbox && checkbox.checked) {
+                            const partName = item.querySelector('label').textContent;
+                            if (!brandSelect.value) {
+                                allPartsSelected = false;
+                                brandSelect.classList.add('border-red-500', 'border-2');
+                            } else {
+                                selectedParts[partName] = brandSelect.value;
+                            }
                         }
                     }
-
-                    const shopCard = `
-                        <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
-                            <div>
-                                <h4 class="font-bold text-lg">${shop.name}</h4>
-                                <div class="mt-2">${ratingHtml}</div>
-                                ${reviewsHtml}
-                                ${mapContent}
-                            </div>
-                            <div class="mt-4 grid grid-cols-1 ${buttonGridClass} gap-2 border-t pt-4">
-                                <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
-                                ${requestButtonHtml}
-                                <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
-                            </div>
-                        </div>`;
-                    shopList.innerHTML += shopCard;
                 });
-                document.querySelectorAll('.request-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
-            } else {
-                shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis bulunamadı.</p>';
+            });
+            return { isValid: allPartsSelected, selectedParts: selectedParts };
+        }
+        
+        async function handleRequestOffer(e) {
+            if (!currentUser) {
+                showToast('Teklif istemek için lütfen giriş yapın.', 'error');
+                showLoginView();
+                authModal.classList.remove('hidden');
+                return;
             }
-        } catch (error) {
-            console.error("Servis arama hatası:", error);
-            shopList.innerHTML = '<p class="col-span-full text-center text-red-500">Servisler yüklenirken bir hata oluştu.</p>';
-        }
-    }
+            const button = e.currentTarget;
+            button.disabled = true;
+            button.textContent = 'İletiliyor...';
 
-    function generateStarRating(rating) {
-        if (!rating || rating <= 0) return '';
-        let starsHtml = '';
-        const fullStars = Math.floor(rating);
-        const halfStar = rating % 1 >= 0.5 ? 1 : 0;
-        const emptyStars = 5 - fullStars - halfStar;
-        for (let i = 0; i < fullStars; i++) starsHtml += '<i class="fas fa-star text-yellow-400"></i>';
-        if (halfStar) starsHtml += '<i class="fas fa-star-half-alt text-yellow-400"></i>';
-        for (let i = 0; i < emptyStars; i++) starsHtml += '<i class="far fa-star text-yellow-400"></i>';
-        return starsHtml;
-    }
+            const { isValid, selectedParts } = validateAndGetSelectedParts();
+            if (!isValid) {
+                showToast('Lütfen seçili her parça için bir marka belirtin.', 'error');
+                button.disabled = false;
+                button.textContent = 'Teklif İste';
+                return;
+            }
 
-    function displayMaintenanceDetails(service) {
-        confirmationSection.classList.add('hidden');
-        const details = service.details;
-        if (!details) {
-            alert("Seçilen bakım için detay bulunamadı.");
-            return;
-        }
-        document.getElementById('nextKm').textContent = service.km.toLocaleString();
-        const priceRangeContainer = document.getElementById('priceRangeContainer');
-        const priceRangeEl = document.getElementById('priceRange');
-        if (details.fiyat_araligi_TL) {
-            priceRangeEl.textContent = `${details.fiyat_araligi_TL} TL`;
-            priceRangeContainer.classList.remove('hidden');
-        } else {
-            priceRangeContainer.classList.add('hidden');
-        }
-        const populatePartsToChangeList = (parts) => {
-            const list = document.getElementById('partsToChangeList');
-            list.innerHTML = '';
-            if (parts && typeof parts === 'object' && !Array.isArray(parts) && Object.keys(parts).length > 0) {
-                Object.keys(parts).forEach((partName, index) => {
-                    const brands = parts[partName];
-                    if (Array.isArray(brands)) {
-                        const listItem = document.createElement('li');
-                        listItem.className = 'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4';
-                        const leftDiv = document.createElement('div');
-                        leftDiv.className = 'flex items-center';
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.id = `part-checkbox-${index}`;
-                        checkbox.checked = true;
-                        checkbox.className = 'h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer';
-                        const label = document.createElement('label');
-                        label.htmlFor = checkbox.id;
-                        label.textContent = partName;
-                        label.className = 'ml-3 font-semibold cursor-pointer';
-                        leftDiv.appendChild(checkbox);
-                        leftDiv.appendChild(label);
-                        const select = document.createElement('select');
-                        select.className = 'p-2 border rounded-lg bg-gray-50 shadow-sm w-full sm:w-1/2 transition-opacity';
-                        select.add(new Option('Marka Seçiniz', ''));
-                        brands.forEach(brand => select.add(new Option(brand, brand)));
-                        checkbox.addEventListener('change', () => {
-                            select.disabled = !checkbox.checked;
-                            select.classList.toggle('opacity-50', !checkbox.checked);
-                        });
-                        listItem.appendChild(leftDiv);
-                        listItem.appendChild(select);
-                        list.appendChild(listItem);
-                    }
+            try {
+                const payload = {
+                    shop_user_id: button.dataset.shopId,
+                    shop_google_place_id: button.dataset.shopPlaceId,
+                    vehicle: {
+                        brand: brandSelect.value,
+                        series: seriesSelect.value,
+                        year: yearSelect.value,
+                        fuel: fuelSelect.value,
+                        model: modelSelect.value,
+                        km: parseInt(kmInput.value)
+                    },
+                    city: citySelect.value,
+                    maintenance_km: currentMaintenanceKm,
+                    selected_parts: selectedParts
+                };
+                const response = await fetch('/api/requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-            } else if (Array.isArray(parts) && parts.length > 0) {
-                parts.forEach(partName => { list.innerHTML += `<li class="list-disc ml-5">${partName}</li>`; });
-            } else {
-                list.innerHTML = '<li>Bu bakım için değiştirilecek özel bir parça bulunmuyor.</li>';
-            }
-        };
-        const populateSimpleList = (listId, items) => {
-            const list = document.getElementById(listId);
-            list.innerHTML = '';
-            if (items && items.length > 0) {
-                items.forEach(item => { list.innerHTML += `<li>${item}</li>`; });
-                return true;
-            }
-            list.innerHTML = '<li>Bu bakım için özel bir işlem bulunmuyor.</li>';
-            return false;
-        };
-        populatePartsToChangeList(details.degisecek_parcalar);
-        populateSimpleList('partsToCheckList', details.kontrol_edilecek);
-        const heavyContainer = document.getElementById('heavyMaintenanceContainer');
-        const partsToCheckContainer = document.getElementById('partsToCheckContainer');
-        if (populateSimpleList('heavyMaintenanceList', details.agir_bakim)) {
-            heavyContainer.classList.remove('hidden');
-            partsToCheckContainer.classList.remove('md:col-span-2');
-        } else {
-            heavyContainer.classList.add('hidden');
-            partsToCheckContainer.classList.add('md:col-span-2');
-        }
-        maintenanceResult.classList.remove('hidden');
-        maintenanceResult.classList.add('fade-in');
-        findAndDisplayShops();
-    }
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                button.textContent = 'Talep İletildi!';
+                button.classList.replace('bg-green-600', 'bg-gray-400');
+                button.classList.replace('hover:bg-green-700', 'cursor-not-allowed');
 
-    async function handleRequestOffer(e) {
-        if (!currentUser) {
-            showToast('Teklif istemek için lütfen giriş yapın.', 'error');
-            showLoginView();
-            authModal.classList.remove('hidden');
-            return;
+                activeUserRequests.push({
+                    shop_user_id: parseInt(button.dataset.shopId),
+                    vehicle_brand: brandSelect.value,
+                    vehicle_model: modelSelect.value,
+                    maintenance_km: currentMaintenanceKm
+                });
+                
+                showToast('Teklif talebiniz başarıyla iletildi!');
+            } catch(error) {
+                showToast(`Hata: ${error.message}`, 'error');
+                button.disabled = false;
+                button.textContent = 'Teklif İste';
+            }
         }
-        const button = e.currentTarget;
-        button.disabled = true;
-        button.textContent = 'İletiliyor...';
-        try {
-            const selectedParts = {};
-            document.querySelectorAll('#partsToChangeList li').forEach(item => {
-                const checkbox = item.querySelector('input[type="checkbox"]');
-                if (checkbox && checkbox.checked) {
-                    const partName = item.querySelector('label').textContent;
-                    const brandSelect = item.querySelector('select');
-                    selectedParts[partName] = brandSelect.value;
+
+        async function handleRequestPartsOffer(e) {
+            if (!currentUser) {
+                showToast('Teklif istemek için lütfen giriş yapın.', 'error');
+                showLoginView();
+                authModal.classList.remove('hidden');
+                return;
+            }
+            const button = e.currentTarget;
+            button.disabled = true;
+            button.textContent = 'İletiliyor...';
+
+            const { isValid, selectedParts } = validateAndGetSelectedParts();
+            if (!isValid) {
+                showToast('Lütfen teklif istediğiniz her parça için bir marka seçin.', 'error');
+                button.disabled = false;
+                button.textContent = 'Parça Teklifi İste';
+                return;
+            }
+            
+            if (Object.keys(selectedParts).length === 0) {
+                showToast('Lütfen en az bir parça seçin.', 'error');
+                button.disabled = false;
+                button.textContent = 'Parça Teklifi İste';
+                return;
+            }
+
+            try {
+                const payload = {
+                    shop_user_id: button.dataset.shopId,
+                    shop_google_place_id: button.dataset.shopPlaceId,
+                    vehicle: {
+                        brand: brandSelect.value,
+                        series: seriesSelect.value,
+                        year: yearSelect.value,
+                        fuel: fuelSelect.value,
+                        model: modelSelect.value,
+                        km: parseInt(kmInput.value)
+                    },
+                    city: citySelect.value,
+                    maintenance_km: currentMaintenanceKm,
+                    selected_parts: selectedParts
+                };
+
+                const response = await fetch('/api/requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description);
+                button.textContent = 'Talep İletildi!';
+                button.classList.replace('bg-orange-500', 'bg-gray-400');
+                button.classList.replace('hover:bg-orange-600', 'cursor-not-allowed');
+
+                activeUserRequests.push({
+                    shop_user_id: parseInt(button.dataset.shopId),
+                    vehicle_brand: brandSelect.value,
+                    vehicle_model: modelSelect.value,
+                    maintenance_km: currentMaintenanceKm
+                });
+                
+                showToast('Parça teklif talebiniz başarıyla iletildi!');
+            } catch(error) {
+                showToast(`Hata: ${error.message}`, 'error');
+                button.disabled = false;
+                button.textContent = 'Parça Teklifi İste';
+            }
+        }
+        
+        function displayAuthMessage(container, message, type) {
+            const existingMessage = container.querySelector('.message-box');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message-box message-${type}`;
+            messageDiv.textContent = message;
+            container.prepend(messageDiv);
+        }
+        
+        async function fetchAndDisplayFuelPrices() {
+            const tickerContent = document.getElementById('fuel-ticker-content');
+            try {
+                const response = await fetch('/api/fuel_prices');
+                if (!response.ok) throw new Error('API yanıt vermiyor');
+                const prices = await response.json();
+                
+                let tickerHtml = '';
+                prices.forEach(cityData => {
+                    const benzin = cityData["V/Max Kurşunsuz 95"];
+                    const motorin = cityData["V/Max Diesel"];
+                    tickerHtml += `<span class="mx-4"><strong class="font-semibold text-gray-900">${cityData.City}:</strong> Benzin ${benzin} TL - Motorin ${motorin} TL</span> | `;
+                });
+                tickerContent.innerHTML = tickerHtml + tickerHtml;
+            } catch (error) {
+                console.error("Yakıt fiyatları alınamadı:", error);
+                tickerContent.innerHTML = '<span class="mx-4">Yakıt fiyatları şu anda alınamıyor.</span>';
+            }
+        }
+        
+        function showLoginView() {
+            googleCompleteProfileForm.classList.add('hidden');
+            forgotPasswordFlow.classList.add('hidden'); 
+            standardAuthForms.classList.remove('hidden');
+            registerView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+        }
+
+        function showRegisterView() {
+            googleCompleteProfileForm.classList.add('hidden');
+            forgotPasswordFlow.classList.add('hidden'); 
+            standardAuthForms.classList.remove('hidden');
+            loginView.classList.add('hidden');
+            registerView.classList.remove('hidden');
+        }
+        
+        function showForgotPasswordView() {
+            standardAuthForms.classList.add('hidden');
+            googleCompleteProfileForm.classList.add('hidden');
+            forgotPasswordFlow.classList.remove('hidden');
+            resetPasswordView.classList.add('hidden');
+            forgotPasswordView.classList.remove('hidden');
+        }
+        
+        function showResetPasswordView() {
+            forgotPasswordView.classList.add('hidden');
+            resetPasswordView.classList.remove('hidden');
+        }
+
+        loginBtn.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
+        signupBtn.addEventListener('click', () => { showRegisterView(); authModal.classList.remove('hidden'); });
+        loginBtnMobile.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
+        signupBtnMobile.addEventListener('click', () => { showRegisterView(); authModal.classList.remove('hidden'); });
+        
+        closeModal.addEventListener('click', () => authModal.classList.add('hidden'));
+        
+        const logoutHandler = async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            currentUser = null;
+            updateLoginState(null);
+            window.location.reload();
+        };
+        logoutBtnDesktop.addEventListener('click', logoutHandler);
+        logoutBtnMobile.addEventListener('click', logoutHandler);
+        
+        showRegister.addEventListener('click', (e) => { e.preventDefault(); showRegisterView(); });
+        showLogin.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+        showForgotPassword.addEventListener('click', (e) => { e.preventDefault(); showForgotPasswordView(); });
+        backToLoginFromForgot.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+        backToLoginFromReset.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const submitButton = registerForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Kaydediliyor...';
+
+            const formData = new FormData(registerForm);
+            const data = Object.fromEntries(formData.entries());
+            data.user_type = data.userType; 
+            
+            if (data.user_type === 'business') {
+                data.shop_type = data.shopType;
+            }
+
+            fetch('/api/auth/register', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json().then(body => ({ ok: res.ok, body })))
+            .then(({ok, body}) => {
+                if (ok && body.status === 'login_success') {
+                    showToast('Kayıt başarılı! Giriş yapılıyor...');
+                    checkAuthStatus();
+                    setTimeout(() => {
+                        authModal.classList.add('hidden');
+                    }, 1500);
+                } else {
+                    displayAuthMessage(registerView, body.description || 'Kayıt sırasında bir hata oluştu.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Kayıt hatası:', error);
+                displayAuthMessage(registerView, 'Bir sunucu hatası oluştu. Lütfen tekrar deneyin.', 'error');
+            }).finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Kayıt Ol';
+            });
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const submitButton = loginForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Giriş Yapılıyor...';
+
+            const formData = new FormData(loginForm);
+            const data = Object.fromEntries(formData.entries());
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json().then(body => ({ ok: res.ok, body })))
+            .then(({ok, body}) => {
+                if (ok && body.status === 'login_success') {
+                    showToast('Giriş başarılı!');
+                    checkAuthStatus();
+                    authModal.classList.add('hidden');
+                } else {
+                     displayAuthMessage(loginView, body.description || 'E-posta veya şifre hatalı.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Giriş hatası:', error);
+                displayAuthMessage(loginView, 'Bir sunucu hatası oluştu. Lütfen tekrar deneyin.', 'error');
+            }).finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Giriş Yap';
+            });
+        });
+
+        forgotPasswordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const submitButton = forgotPasswordForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Gönderiliyor...';
+
+            const email = document.getElementById('forgotEmail').value;
+
+            fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            })
+            .then(res => res.json().then(body => ({ ok: res.ok, body })))
+            .then(({ok, body}) => {
+                if (ok) {
+                    displayAuthMessage(forgotPasswordView, body.description, 'success');
+                    setTimeout(() => {
+                        showResetPasswordView();
+                    }, 2000);
+                } else {
+                    displayAuthMessage(forgotPasswordView, body.description || 'Bir hata oluştu.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Şifre sıfırlama talebi hatası:', error);
+                displayAuthMessage(forgotPasswordView, 'Bir sunucu hatası oluştu.', 'error');
+            }).finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Sıfırlama Kodu Gönder';
+            });
+        });
+
+        resetPasswordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const submitButton = resetPasswordForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Yenileniyor...';
+            
+            const email = document.getElementById('forgotEmail').value; // E-postayı ilk formdan alıyoruz
+            const code = document.getElementById('resetCode').value;
+            const new_password = document.getElementById('newPassword').value;
+
+            fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code, new_password })
+            })
+            .then(res => res.json().then(body => ({ ok: res.ok, body })))
+            .then(({ok, body}) => {
+                if (ok) {
+                    displayAuthMessage(resetPasswordView, body.description, 'success');
+                    setTimeout(() => {
+                        showLoginView();
+                    }, 2000);
+                } else {
+                    displayAuthMessage(resetPasswordView, body.description || 'Bir hata oluştu.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Şifre yenileme hatası:', error);
+                displayAuthMessage(resetPasswordView, 'Bir sunucu hatası oluştu.', 'error');
+            }).finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Şifreyi Yenile';
+            });
+        });
+
+        
+        phoneNumberInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
+        
+        document.getElementById('completeGoogleRegistrationBtn').addEventListener('click', async () => {
+            if (!googleUserData) return;
+            const userType = document.querySelector('input[name="google_user_type"]:checked').value;
+            const phoneNumber = phoneNumberInput.value;
+            
+            const messageContainer = document.getElementById('googleCompleteMessageContainer');
+            messageContainer.innerHTML = ''; 
+            if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
+                displayAuthMessage(messageContainer, 'Telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
+                return;
+            }
+            
+            const payload = { ...googleUserData, user_type: userType, phone_number: phoneNumber };
+            
+            if (userType === 'business') {
+                payload.shop_type = document.querySelector('input[name="google_shop_type"]:checked').value;
+            }
+            
+            const submitButton = document.getElementById('completeGoogleRegistrationBtn');
+            submitButton.disabled = true; submitButton.textContent = 'Tamamlanıyor...';
+            try {
+                const response = await fetch('/api/auth/register', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.');
+                if (result.status === 'login_success') {
+                    showToast('Kaydınız başarıyla tamamlandı!');
+                    authModal.classList.add('hidden');
+                    checkAuthStatus();
+                }
+            } catch (error) {
+                displayAuthMessage(messageContainer, error.message, 'error');
+            } finally {
+                submitButton.disabled = false; submitButton.textContent = 'Kaydı Tamamla';
+            }
+        });
+        
+        const shopTypeSelection = document.getElementById('shopTypeSelection');
+        document.querySelectorAll('input[name="userType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'business') {
+                    shopTypeSelection.classList.remove('hidden');
+                } else {
+                    shopTypeSelection.classList.add('hidden');
                 }
             });
-            const payload = {
-                shop_user_id: button.dataset.shopId,
-                shop_google_place_id: button.dataset.shopPlaceId,
-                vehicle: {
-                    brand: brandSelect.value,
-                    series: seriesSelect.value,
-                    year: yearSelect.value,
-                    fuel: fuelSelect.value,
-                    model: modelSelect.value,
-                    km: parseInt(kmInput.value)
-                },
-                city: citySelect.value,
-                maintenance_km: currentMaintenanceKm,
-                selected_parts: selectedParts
-            };
-            const response = await fetch('/api/requests', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.description);
-            button.textContent = 'Talep İletildi!';
-            button.classList.replace('bg-green-600', 'bg-gray-400');
-            button.classList.replace('hover:bg-green-700', 'cursor-not-allowed');
-
-            activeUserRequests.push({
-                shop_user_id: parseInt(button.dataset.shopId),
-                vehicle_brand: brandSelect.value,
-                vehicle_model: modelSelect.value,
-                maintenance_km: currentMaintenanceKm
-            });
-            
-            showToast('Teklif talebiniz başarıyla iletildi!');
-        } catch(error) {
-            showToast(`Hata: ${error.message}`, 'error');
-            button.disabled = false;
-            button.textContent = 'Teklif İste';
-        }
-    }
-
-    function displayAuthMessage(container, message, type) {
-        const existingMessage = container.querySelector('.message-box');
-        if (existingMessage) {
-            existingMessage.remove();
-        }
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message-box message-${type}`;
-        messageDiv.textContent = message;
-        container.prepend(messageDiv);
-    }
-    
-    async function fetchAndDisplayFuelPrices() {
-        const tickerContent = document.getElementById('fuel-ticker-content');
-        try {
-            const response = await fetch('/api/fuel_prices');
-            if (!response.ok) throw new Error('API yanıt vermiyor');
-            const prices = await response.json();
-            
-            let tickerHtml = '';
-            prices.forEach(cityData => {
-                const benzin = cityData["V/Max Kurşunsuz 95"];
-                const motorin = cityData["V/Max Diesel"];
-                tickerHtml += `<span class="mx-4"><strong class="font-semibold text-gray-900">${cityData.City}:</strong> Benzin ${benzin} TL - Motorin ${motorin} TL</span> | `;
-            });
-            tickerContent.innerHTML = tickerHtml + tickerHtml;
-        } catch (error) {
-            console.error("Yakıt fiyatları alınamadı:", error);
-            tickerContent.innerHTML = '<span class="mx-4">Yakıt fiyatları şu anda alınamıyor.</span>';
-        }
-    }
-    
-    // GÜNCELLENDİ: Modal içinde formları yöneten fonksiyonlar
-    function showLoginView() {
-        googleCompleteProfileForm.classList.add('hidden');
-        forgotPasswordFlow.classList.add('hidden'); // Yeni
-        standardAuthForms.classList.remove('hidden');
-        registerView.classList.add('hidden');
-        loginView.classList.remove('hidden');
-    }
-
-    function showRegisterView() {
-        googleCompleteProfileForm.classList.add('hidden');
-        forgotPasswordFlow.classList.add('hidden'); // Yeni
-        standardAuthForms.classList.remove('hidden');
-        loginView.classList.add('hidden');
-        registerView.classList.remove('hidden');
-    }
-    
-    // YENİ EKLENDİ: Şifremi unuttum akışını gösteren fonksiyonlar
-    function showForgotPasswordView() {
-        standardAuthForms.classList.add('hidden');
-        googleCompleteProfileForm.classList.add('hidden');
-        forgotPasswordFlow.classList.remove('hidden');
-        resetPasswordView.classList.add('hidden');
-        forgotPasswordView.classList.remove('hidden');
-    }
-    
-    function showResetPasswordView() {
-        forgotPasswordView.classList.add('hidden');
-        resetPasswordView.classList.remove('hidden');
-    }
-
-
-    // GÜNCELLENDİ: Butonlar doğru formu gösterecek şekilde ayarlandı
-    loginBtn.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
-    signupBtn.addEventListener('click', () => { showRegisterView(); authModal.classList.remove('hidden'); });
-    loginBtnMobile.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
-    signupBtnMobile.addEventListener('click', () => { showRegisterView(); authModal.classList.remove('hidden'); });
-    
-    closeModal.addEventListener('click', () => authModal.classList.add('hidden'));
-    
-    const logoutHandler = async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        currentUser = null;
-        updateLoginState(null);
-        window.location.reload();
-    };
-    logoutBtnDesktop.addEventListener('click', logoutHandler);
-    logoutBtnMobile.addEventListener('click', logoutHandler);
-    
-    // GÜNCELLENDİ: Formlar arası geçiş linkleri
-    showRegister.addEventListener('click', (e) => { e.preventDefault(); showRegisterView(); });
-    showLogin.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
-    showForgotPassword.addEventListener('click', (e) => { e.preventDefault(); showForgotPasswordView(); });
-    backToLoginFromForgot.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
-    backToLoginFromReset.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
-
-
-    // YENİ EKLENDİ: Manuel Kayıt/Giriş Form Handler'ları
-    registerForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const submitButton = registerForm.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Kaydediliyor...';
-
-        const formData = new FormData(registerForm);
-        const data = Object.fromEntries(formData.entries());
-        data.user_type = data.userType; // name uyumluluğu için
-        
-        fetch('/api/auth/register', { // Düzeltildi
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        .then(res => res.json().then(body => ({ ok: res.ok, body })))
-        .then(({ok, body}) => {
-            if (ok && body.status === 'login_success') {
-                showToast('Kayıt başarılı! Giriş yapılıyor...');
-                checkAuthStatus();
-                setTimeout(() => {
-                    authModal.classList.add('hidden');
-                }, 1500);
-            } else {
-                displayAuthMessage(registerView, body.description || 'Kayıt sırasında bir hata oluştu.', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Kayıt hatası:', error);
-            displayAuthMessage(registerView, 'Bir sunucu hatası oluştu. Lütfen tekrar deneyin.', 'error');
-        }).finally(() => {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Kayıt Ol';
         });
-    });
-
-    loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const submitButton = loginForm.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Giriş Yapılıyor...';
-
-        const formData = new FormData(loginForm);
-        const data = Object.fromEntries(formData.entries());
-
-        fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        .then(res => res.json().then(body => ({ ok: res.ok, body })))
-        .then(({ok, body}) => {
-            if (ok && body.status === 'login_success') {
-                showToast('Giriş başarılı!');
-                checkAuthStatus();
-                authModal.classList.add('hidden');
-            } else {
-                 displayAuthMessage(loginView, body.description || 'E-posta veya şifre hatalı.', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Giriş hatası:', error);
-            displayAuthMessage(loginView, 'Bir sunucu hatası oluştu. Lütfen tekrar deneyin.', 'error');
-        }).finally(() => {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Giriş Yap';
+        const googleShopTypeSelection = document.getElementById('googleShopTypeSelection');
+        document.querySelectorAll('input[name="google_user_type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'business') {
+                    googleShopTypeSelection.classList.remove('hidden');
+                } else {
+                    googleShopTypeSelection.classList.add('hidden');
+                }
+            });
         });
-    });
 
-    // YENİ EKLENDİ: Şifre yenileme form handler'ları
-    forgotPasswordForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const submitButton = forgotPasswordForm.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Gönderiliyor...';
+        async function fetchAndSetConfig() {
+           try {
+                const response = await fetch('/api/config');
+                if (!response.ok) throw new Error('Yapılandırma alınamadı.');
+                const config = await response.json();
+                
+                if (config.googleClientId) {
+                    initializeGoogleSignIn(config.googleClientId);
+                } else {
+                    throw new Error("Google Client ID bulunamadı.");
+                }
+                window.googleMapsApiKey = config.googleMapsApiKey;
 
-        const email = document.getElementById('forgotEmail').value;
-
-        fetch('/api/auth/forgot-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        })
-        .then(res => res.json().then(body => ({ ok: res.ok, body })))
-        .then(({ok, body}) => {
-            if (ok) {
-                displayAuthMessage(forgotPasswordView, body.description, 'success');
-                setTimeout(() => {
-                    showResetPasswordView();
-                }, 2000);
-            } else {
-                displayAuthMessage(forgotPasswordView, body.description || 'Bir hata oluştu.', 'error');
+            } catch(error) {
+                console.error("Config yüklenirken hata:", error);
+                document.getElementById("googleSignInButtonLogin").innerHTML = `<p class="text-red-600 text-center text-sm">Giriş yapılandırması yüklenemedi.</p>`;
             }
-        })
-        .catch(error => {
-            console.error('Şifre sıfırlama talebi hatası:', error);
-            displayAuthMessage(forgotPasswordView, 'Bir sunucu hatası oluştu.', 'error');
-        }).finally(() => {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Sıfırlama Kodu Gönder';
+        }
+
+        // --- Sayfa Yüklendiğinde Başlatılan İşlemler ---
+        checkAuthStatus();
+        populateSelect(brandSelect, '/api/brands', 'Marka Seçin', null, false);
+        fetchAndDisplayFuelPrices();
+        fetchAndSetConfig();
+
+        const allDropdowns = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
+        allDropdowns.forEach((currentSelect, currentIndex) => {
+            currentSelect.addEventListener('change', () => {
+                const subsequentDropdowns = allDropdowns.slice(currentIndex + 1);
+                [...subsequentDropdowns, citySelect, kmInput].forEach(el => {
+                    el.disabled = true;
+                    if (el.tagName === 'SELECT') { el.innerHTML = '<option value="" disabled selected>Seçiniz</option>'; } else { el.value = ''; }
+                });
+                checkFormCompletion();
+                const brand = brandSelect.value;
+                const series = seriesSelect.value;
+                const year = yearSelect.value;
+                const fuel = fuelSelect.value;
+                if (currentSelect === brandSelect && brand) populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(brand)}`, 'Seri Seçin');
+                else if (currentSelect === seriesSelect && series) populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}`, 'Yıl Seçin');
+                else if (currentSelect === yearSelect && year) populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}`, 'Yakıt Seçin');
+                else if (currentSelect === fuelSelect && fuel) populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}&fuel=${encodeURIComponent(fuel)}`, 'Model Seçin');
+                vehicleSelector.value = "";
+            });
         });
-    });
-
-    resetPasswordForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const submitButton = resetPasswordForm.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Yenileniyor...';
-        
-        const email = document.getElementById('forgotEmail').value; // E-postayı ilk formdan alıyoruz
-        const code = document.getElementById('resetCode').value;
-        const new_password = document.getElementById('newPassword').value;
-
-        fetch('/api/auth/reset-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, code, new_password })
-        })
-        .then(res => res.json().then(body => ({ ok: res.ok, body })))
-        .then(({ok, body}) => {
-            if (ok) {
-                displayAuthMessage(resetPasswordView, body.description, 'success');
-                setTimeout(() => {
-                    showLoginView();
-                }, 2000);
+        modelSelect.addEventListener('change', () => {
+            const isModelSelected = modelSelect.value && modelSelect.value !== "";
+            citySelect.disabled = !isModelSelected;
+            kmInput.disabled = !isModelSelected;
+            if (isModelSelected) {
+                populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
             } else {
-                displayAuthMessage(resetPasswordView, body.description || 'Bir hata oluştu.', 'error');
+                citySelect.innerHTML = ''; kmInput.value = '';
             }
-        })
-        .catch(error => {
-            console.error('Şifre yenileme hatası:', error);
-            displayAuthMessage(resetPasswordView, 'Bir sunucu hatası oluştu.', 'error');
-        }).finally(() => {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Şifreyi Yenile';
-        });
-    });
-
-    
-    phoneNumberInput.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
-    
-    document.getElementById('completeGoogleRegistrationBtn').addEventListener('click', async () => {
-        if (!googleUserData) return;
-        const userType = document.querySelector('input[name="google_user_type"]:checked').value;
-        const phoneNumber = phoneNumberInput.value;
-        
-        const messageContainer = document.getElementById('googleCompleteMessageContainer');
-        messageContainer.innerHTML = ''; 
-        if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
-            displayAuthMessage(messageContainer, 'Telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
-            return;
-        }
-        const payload = { ...googleUserData, user_type: userType, phone_number: phoneNumber };
-        const submitButton = document.getElementById('completeGoogleRegistrationBtn');
-        submitButton.disabled = true; submitButton.textContent = 'Tamamlanıyor...';
-        try {
-            const response = await fetch('/api/auth/register', { // Düzeltildi
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.');
-            if (result.status === 'login_success') {
-                showToast('Kaydınız başarıyla tamamlandı!');
-                authModal.classList.add('hidden');
-                checkAuthStatus();
-            }
-        } catch (error) {
-            displayAuthMessage(messageContainer, error.message, 'error');
-        } finally {
-            submitButton.disabled = false; submitButton.textContent = 'Kaydı Tamamla';
-        }
-    });
-
-    // --- Google SSO Başlatma Mantığı ---
-    async function handleGoogleCredentialResponse(response) {
-        try {
-            const res = await fetch('/api/auth/google', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: response.credential })
-            });
-            const result = await res.json();
-
-            if (!res.ok) throw new Error(result.description || "Giriş başarısız.");
-
-            if (result.status === 'login_success') {
-                await checkAuthStatus();
-                authModal.classList.add('hidden');
-                showToast(`Hoşgeldin, ${result.userName}!`);
-            } else if (result.status === 'complete_profile') {
-                googleUserData = {
-                    name: result.name,
-                    email: result.email,
-                    google_id: result.google_id
-                };
-                document.getElementById('googleWelcome').textContent = `Hoşgeldin, ${result.name}! Kaydı tamamlamak için son bir adım kaldı.`;
-                standardAuthForms.classList.add('hidden');
-                forgotPasswordFlow.classList.add('hidden');
-                googleCompleteProfileForm.classList.remove('hidden');
-                authModal.classList.remove('hidden');
-            }
-        } catch (error) {
-            console.error("Google auth yanıtı işlenirken hata:", error);
-            displayAuthMessage(document.querySelector('#loginView'), "Google ile giriş sırasında bir hata oluştu.", 'error');
-        }
-    }
-    
-    function initializeGoogleSignIn(clientId) {
-        if (typeof google === 'undefined' || !google.accounts) {
-            console.error("Google Identity Services kütüphanesi yüklenemedi.");
-            return;
-        }
-        try {
-            google.accounts.id.initialize({
-                client_id: clientId,
-                callback: handleGoogleCredentialResponse,
-                ux_mode: "popup" 
-            });
-
-            google.accounts.id.renderButton(
-                document.getElementById("googleSignInButtonLogin"),
-                { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "350" }
-            );
-             google.accounts.id.renderButton(
-                document.getElementById("googleSignInButtonRegister"),
-                { theme: "outline", size: "large", text: "signup_with", shape: "rectangular", width: "350" }
-            );
-
-        } catch (error) {
-            console.error("Google SSO başlatma hatası:", error);
-            document.getElementById("googleSignInButtonLogin").innerHTML = `<p class="text-red-600 text-center text-sm">Google ile giriş geçici olarak devre dışı.</p>`;
-            document.getElementById("googleSignInButtonRegister").innerHTML = `<p class="text-red-600 text-center text-sm">Google ile kayıt geçici olarak devre dışı.</p>`;
-        }
-    }
-    
-    async function fetchAndSetConfig() {
-       try {
-            const response = await fetch('/api/config');
-            if (!response.ok) throw new Error('Yapılandırma alınamadı.');
-            const config = await response.json();
-            
-            if (config.googleClientId) {
-                initializeGoogleSignIn(config.googleClientId);
-            } else {
-                throw new Error("Google Client ID bulunamadı.");
-            }
-            window.googleMapsApiKey = config.googleMapsApiKey;
-
-        } catch(error) {
-            console.error("Config yüklenirken hata:", error);
-            document.getElementById("googleSignInButtonLogin").innerHTML = `<p class="text-red-600 text-center text-sm">Giriş yapılandırması yüklenemedi.</p>`;
-        }
-    }
-
-    // --- Sayfa Yüklendiğinde Başlatılan İşlemler ---
-    checkAuthStatus();
-    populateSelect(brandSelect, '/api/brands', 'Marka Seçin', null, false);
-    fetchAndDisplayFuelPrices();
-    fetchAndSetConfig();
-
-    const allDropdowns = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
-    allDropdowns.forEach((currentSelect, currentIndex) => {
-        currentSelect.addEventListener('change', () => {
-            const subsequentDropdowns = allDropdowns.slice(currentIndex + 1);
-            [...subsequentDropdowns, citySelect, kmInput].forEach(el => {
-                el.disabled = true;
-                if (el.tagName === 'SELECT') { el.innerHTML = '<option value="">Seçiniz</option>'; } else { el.value = ''; }
-            });
             checkFormCompletion();
-            const brand = brandSelect.value;
-            const series = seriesSelect.value;
-            const year = yearSelect.value;
+        });
+        [citySelect, kmInput].forEach(el => el.addEventListener('input', checkFormCompletion));
+        vehicleSelector.addEventListener('change', handleVehicleSelect);
+        findMaintenanceBtn.addEventListener('click', async () => {
             const fuel = fuelSelect.value;
-            if (currentSelect === brandSelect && brand) populateSelect(seriesSelect, `/api/series?brand=${encodeURIComponent(brand)}`, 'Seri Seçin');
-            else if (currentSelect === seriesSelect && series) populateSelect(yearSelect, `/api/years?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}`, 'Yıl Seçin');
-            else if (currentSelect === yearSelect && year) populateSelect(fuelSelect, `/api/fuels?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}`, 'Yakıt Seçin');
-            else if (currentSelect === fuelSelect && fuel) populateSelect(modelSelect, `/api/models?brand=${encodeURIComponent(brand)}&series=${encodeURIComponent(series)}&year=${encodeURIComponent(year)}&fuel=${encodeURIComponent(fuel)}`, 'Model Seçin');
-            vehicleSelector.value = "";
-        });
-    });
-    modelSelect.addEventListener('change', () => {
-        const isModelSelected = modelSelect.value && modelSelect.selectedIndex > 0;
-        citySelect.disabled = !isModelSelected;
-        kmInput.disabled = !isModelSelected;
-        if (isModelSelected) {
-            populateSelect(citySelect, '/api/cities', 'Şehir Seçin', null, false);
-        } else {
-            citySelect.innerHTML = ''; kmInput.value = '';
-        }
-        checkFormCompletion();
-    });
-    [citySelect, kmInput].forEach(el => el.addEventListener('input', checkFormCompletion));
-    vehicleSelector.addEventListener('change', handleVehicleSelect);
-    findMaintenanceBtn.addEventListener('click', async () => {
-        const fuel = fuelSelect.value;
-        const km = parseInt(kmInput.value);
-        maintenanceFlowContainer.classList.remove('hidden');
-        maintenanceResult.classList.add('hidden');
-        confirmationSection.classList.add('hidden');
-        findMaintenanceBtn.disabled = true;
-        findMaintenanceBtn.textContent = "Aranıyor...";
-        try {
-            const response = await fetch(`/api/maintenance_options?fuel=${encodeURIComponent(fuel)}&km=${km}`);
-            if (!response.ok) throw new Error("Bakım seçenekleri alınamadı.");
-            maintenanceOptions = await response.json();
-            if (!maintenanceOptions.missed_service.details) {
-                currentMaintenanceKm = maintenanceOptions.next_service.km;
-                displayMaintenanceDetails(maintenanceOptions.next_service);
-            } else {
-                document.getElementById('confirmationQuestion').textContent = `${maintenanceOptions.question_km.toLocaleString()} KM bakımı yapıldı mı?`;
-                confirmationSection.classList.remove('hidden');
+            const km = parseInt(kmInput.value);
+            maintenanceFlowContainer.classList.remove('hidden');
+            maintenanceResult.classList.add('hidden');
+            confirmationSection.classList.add('hidden');
+            document.getElementById('partsProviderContainer').classList.add('hidden'); 
+            document.getElementById('shopResultsContainer').classList.add('hidden');
+            findMaintenanceBtn.disabled = true;
+            findMaintenanceBtn.textContent = "Aranıyor...";
+            try {
+                const response = await fetch(`/api/maintenance_options?fuel=${encodeURIComponent(fuel)}&km=${km}`);
+                if (!response.ok) throw new Error("Bakım seçenekleri alınamadı.");
+                maintenanceOptions = await response.json();
+                if (!maintenanceOptions.missed_service.details) {
+                    currentMaintenanceKm = maintenanceOptions.next_service.km;
+                    displayMaintenanceDetails(maintenanceOptions.next_service);
+                } else {
+                    document.getElementById('confirmationQuestion').textContent = `${maintenanceOptions.question_km.toLocaleString()} KM bakımı yapıldı mı?`;
+                    confirmationSection.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("Bakım seçenekleri alınırken hata:", error);
+                showToast("Bakım bilgisi bulunamadı veya bir sunucu hatası oluştu.", "error");
+            } finally {
+                findMaintenanceBtn.disabled = false;
+                findMaintenanceBtn.textContent = "Bakımı Bul";
+                checkFormCompletion();
             }
-        } catch (error) {
-            console.error("Bakım seçenekleri alınırken hata:", error);
-            showToast("Bakım bilgisi bulunamadı veya bir sunucu hatası oluştu.", "error");
-        } finally {
-            findMaintenanceBtn.disabled = false;
-            findMaintenanceBtn.textContent = "Bakımı Bul";
-            checkFormCompletion();
-        }
+        });
+        document.getElementById('confirmYesBtn').addEventListener('click', () => { 
+            if (maintenanceOptions) {
+                currentMaintenanceKm = maintenanceOptions.next_service.km;
+                displayMaintenanceDetails(maintenanceOptions.next_service); 
+            }
+        });
+        document.getElementById('confirmNoBtn').addEventListener('click', () => { 
+            if (maintenanceOptions) {
+                currentMaintenanceKm = maintenanceOptions.missed_service.km;
+                displayMaintenanceDetails(maintenanceOptions.missed_service); 
+            }
+        });
+    
     });
-    document.getElementById('confirmYesBtn').addEventListener('click', () => { 
-        if (maintenanceOptions) {
-            currentMaintenanceKm = maintenanceOptions.next_service.km;
-            displayMaintenanceDetails(maintenanceOptions.next_service); 
-        }
-    });
-    document.getElementById('confirmNoBtn').addEventListener('click', () => { 
-        if (maintenanceOptions) {
-            currentMaintenanceKm = maintenanceOptions.missed_service.km;
-            displayMaintenanceDetails(maintenanceOptions.missed_service); 
-        }
-    });
-
-});
 </script>
 </body>
 </html>
