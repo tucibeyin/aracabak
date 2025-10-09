@@ -634,7 +634,7 @@
         }
 
         async function findAndDisplayShops() {
-            if (!window.googleMapsApiKey) {
+             if (!window.googleMapsApiKey) {
                 console.error("Google Maps API key not loaded. Shops cannot be displayed.");
                 document.getElementById('shopResultsContainer').classList.add('hidden');
                 return;
@@ -647,55 +647,17 @@
             const partsProviderContainer = document.getElementById('partsProviderContainer');
             const partsProviderList = document.getElementById('partsProviderList');
 
+            // --- Fetch and Display Services ---
             shopList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
-            partsProviderList.innerHTML = ''; 
             shopContainer.classList.remove('hidden');
-            partsProviderContainer.classList.add('hidden');
-
+            
             try {
-                const response = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}`);
-                if (!response.ok) throw new Error("Servisler ve sağlayıcılar alınamadı.");
-                const shops = await response.json();
-
-                const serviceShops = shops.filter(shop => shop.shop_type === 'service');
-                const partsProviderShops = shops.filter(shop => shop.shop_type === 'parts_provider');
-
+                const serviceResponse = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}&shop_type=service`);
+                if (!serviceResponse.ok) throw new Error("Servisler alınamadı.");
+                const serviceShops = await serviceResponse.json();
                 shopList.innerHTML = '';
-
-                if (shops.length === 0) {
-                    shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis veya parça sağlayıcı bulunamadı.</p>';
-                    return;
-                }
-
-                if (partsProviderShops.length > 0) {
-                    partsProviderContainer.classList.remove('hidden');
-                    partsProviderShops.forEach(shop => {
-                        const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
-                        const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
-                        let requestButtonHtml = '';
-
-                        if (!currentUser || currentUser.userType !== 'business') {
-                            requestButtonHtml = `<button class="request-parts-offer-btn bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 col-span-2" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Parça Teklifi İste</button>`;
-                        }
-
-                        const providerCard = `
-                            <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
-                                <div>
-                                    <h4 class="font-bold text-lg">${shop.name}</h4>
-                                    <div class="mt-2">${ratingHtml}</div>
-                                </div>
-                                <div class="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
-                                    <a href="${phoneUrl}" class="col-span-2 text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
-                                    ${requestButtonHtml}
-                                </div>
-                            </div>`;
-                        partsProviderList.innerHTML += providerCard;
-                    });
-                }
-
                 if (serviceShops.length > 0) {
-                    shopContainer.classList.remove('hidden');
-                    serviceShops.forEach(shop => {
+                     serviceShops.forEach(shop => {
                         const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
                         const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
                         const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
@@ -742,20 +704,58 @@
                                 </div>
                             </div>`;
                         shopList.innerHTML += shopCard;
+                     });
+                } else {
+                    shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis bulunamadı.</p>';
+                }
+            } catch(error) {
+                console.error("Servis arama hatası:", error);
+                shopList.innerHTML = '<p class="col-span-full text-center text-red-500">Servisler yüklenirken bir hata oluştu.</p>';
+            }
+
+            // --- Fetch and Display Parts Providers ---
+            partsProviderList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
+            partsProviderContainer.classList.remove('hidden');
+
+            try {
+                const partsResponse = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}&shop_type=parts_provider`);
+                if (!partsResponse.ok) throw new Error("Parça sağlayıcıları alınamadı.");
+                const partsProviderShops = await partsResponse.json();
+                partsProviderList.innerHTML = '';
+                if (partsProviderShops.length > 0) {
+                    partsProviderShops.forEach(shop => {
+                        const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
+                        const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
+                        let requestButtonHtml = '';
+
+                        if (!currentUser || currentUser.userType !== 'business') {
+                            requestButtonHtml = `<button class="request-parts-offer-btn bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 col-span-2" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Parça Teklifi İste</button>`;
+                        }
+
+                        const providerCard = `
+                            <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-bold text-lg">${shop.name}</h4>
+                                    <div class="mt-2">${ratingHtml}</div>
+                                </div>
+                                <div class="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
+                                    <a href="${phoneUrl}" class="col-span-2 text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
+                                    ${requestButtonHtml}
+                                </div>
+                            </div>`;
+                        partsProviderList.innerHTML += providerCard;
                     });
                 } else {
-                     shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis bulunamadı.</p>';
+                     partsProviderList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir parça sağlayıcı bulunamadı.</p>';
                 }
-
-                document.querySelectorAll('.request-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
-                document.querySelectorAll('.request-parts-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestPartsOffer));
-
-            } catch (error) {
-                console.error("Servis ve sağlayıcı arama hatası:", error);
-                shopList.innerHTML = '<p class="col-span-full text-center text-red-500">Servisler ve sağlayıcılar yüklenirken bir hata oluştu.</p>';
-                shopContainer.classList.remove('hidden');
-                partsProviderContainer.classList.add('hidden');
+            } catch(error) {
+                console.error("Parça sağlayıcı arama hatası:", error);
+                partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
             }
+
+            // Re-add event listeners
+            document.querySelectorAll('.request-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
+            document.querySelectorAll('.request-parts-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestPartsOffer));
         }
 
         function generateStarRating(rating) {
@@ -1085,7 +1085,7 @@
         logoutBtnMobile.addEventListener('click', logoutHandler);
         
         showRegister.addEventListener('click', (e) => { e.preventDefault(); showRegisterView(); });
-        showLogin.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+        document.querySelectorAll('#showLogin').forEach(el => el.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); }));
         showForgotPassword.addEventListener('click', (e) => { e.preventDefault(); showForgotPasswordView(); });
         backToLoginFromForgot.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
         backToLoginFromReset.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
@@ -1356,6 +1356,13 @@
         findMaintenanceBtn.addEventListener('click', async () => {
             const fuel = fuelSelect.value;
             const km = parseInt(kmInput.value);
+            const city = citySelect.value;
+
+            if (!city) {
+                showToast("Lütfen bir şehir seçin.", "error");
+                return;
+            }
+
             maintenanceFlowContainer.classList.remove('hidden');
             maintenanceResult.classList.add('hidden');
             confirmationSection.classList.add('hidden');
