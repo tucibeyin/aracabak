@@ -22,8 +22,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-import secrets # YENİ EKLENDİ: Güvenli kod üretimi için
-import string # YENİ EKLENDİ: Güvenli kod üretimi için
+import secrets 
+import string 
 
 # --- Yapılandırma ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s')
@@ -82,7 +82,6 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 try:
-    # GÜNCELLENDİ: decode_responses=True eklendi, byte/string sorunlarını önler.
     redis_client = redis.from_url("redis://127.0.0.1:6379", decode_responses=True)
     redis_client.ping()
     app.config["RATELIMIT_STORAGE_URI"] = "redis://127.0.0.1:6379"
@@ -160,6 +159,8 @@ def init_db():
                 google_place_id TEXT
             )
         ''')
+        # GÜNCELLENDİ: shop_type sütunu eklendi. Mevcut kayıtların bozulmaması için varsayılan 'service' olarak ayarlandı.
+        add_column_if_not_exists(cursor, "shops", "shop_type", "TEXT NOT NULL DEFAULT 'service'")
         add_column_if_not_exists(cursor, "shops", "serviced_brands", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_name", "TEXT")
         add_column_if_not_exists(cursor, "shops", "google_place_phone", "TEXT")
@@ -400,7 +401,6 @@ def send_welcome_email(user_name, user_email, user_type):
         logging.error(f"Brevo API hatası: E-posta gönderilemedi ({user_email}). Hata Kodu: {e.status}, Hata Sebebi: {e.reason}")
         logging.error(f"Brevo API Hata Detayı: {e.body}")
 
-# YENİ EKLENDİ: Şifre sıfırlama kodu gönderme fonksiyonu
 def send_reset_code_email(user_name, user_email, reset_code):
     if not BREVO_API_KEY:
         logging.error("Brevo API anahtarı bulunamadı. Şifre sıfırlama e-postası gönderilemiyor.")
@@ -529,7 +529,7 @@ def manual_login():
         logging.error(f"Manuel giriş sırasında hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-# GÜNCELLENDİ: Hem manuel hem de Google kaydını yönetmek için birleştirildi.
+# GÜNCELLENDİ: Hem manuel hem de Google kaydını yönetmek ve yeni 'shop_type' alanını işlemek için birleştirildi.
 @app.route('/api/auth/register', methods=['POST'])
 @limiter.limit("5 per minute")
 def register():
@@ -537,12 +537,21 @@ def register():
     email, name, user_type, phone_number = data.get('email'), data.get('name'), data.get('user_type'), data.get('phone_number')
     password = data.get('password') # Manuel kayıt için
     google_id = data.get('google_id') # Google kaydı için
+    shop_type = data.get('shop_type') # YENİ EKLENDİ: İşletme tipi için
 
     if not all([email, name, user_type, phone_number]):
         return jsonify({"description": "Tüm alanlar zorunludur."}), 400
     if not validate_phone_number(phone_number):
         return jsonify({"description": "Geçersiz telefon numarası formatı."}), 400
     
+    # YENİ EKLENDİ: Eğer kullanıcı tipi işletme ise, işletme alt tipinin (shop_type) de gönderildiğinden emin ol.
+    if user_type == 'business' and not shop_type:
+        return jsonify({"description": "İşletme türü (Servis / Parça Sağlayıcı) seçilmelidir."}), 400
+    
+    # YENİ EKLENDİ: shop_type geçerliliğini sunucu tarafında da kontrol et.
+    if shop_type and shop_type not in ['service', 'parts_provider']:
+        return jsonify({"description": "Geçersiz işletme türü."}), 400
+        
     # Manuel kayıt kontrolü
     if not google_id and (not password or len(password) < 6):
         return jsonify({"description": "Şifre en az 6 karakter olmalıdır."}), 400
@@ -557,8 +566,11 @@ def register():
             (email, name, password_hash, user_type, phone_number, google_id)
         )
         user_id = cursor.fetchone()['id']
+        
+        # GÜNCELLENDİ: Yeni işletme kaydında 'shop_type' bilgisini Shops tablosuna ekle.
         if user_type == 'business':
-            cursor.execute('INSERT INTO Shops (user_id, phone) VALUES (%s, %s)', (user_id, phone_number))
+            cursor.execute('INSERT INTO Shops (user_id, phone, shop_type) VALUES (%s, %s, %s)', (user_id, phone_number, shop_type))
+            
         conn.commit()
 
         cursor.execute('SELECT * FROM Users WHERE id = %s', (user_id,))
@@ -581,7 +593,6 @@ def register():
         logging.error(f"Kayıt sırasında kritik hata: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-# YENİ EKLENDİ: Şifremi unuttum - kod gönderme endpoint'i
 @app.route('/api/auth/forgot-password', methods=['POST'])
 @limiter.limit("5 per hour")
 def forgot_password():
@@ -593,7 +604,6 @@ def forgot_password():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # Sadece manuel şifresi olan kullanıcılar şifre sıfırlayabilir.
         cursor.execute("SELECT id, name FROM Users WHERE email = %s AND password_hash IS NOT NULL", (email,))
         user = cursor.fetchone()
 
@@ -605,14 +615,12 @@ def forgot_password():
         else:
             logging.warning(f"Var olmayan veya manuel şifresi olmayan hesap için şifre sıfırlama denemesi: {email}")
 
-        # Kullanıcı enumerasyonunu önlemek için her zaman başarı mesajı dön
         return jsonify({"status": "success", "description": "Eğer e-posta adresiniz sistemimizde kayıtlıysa, şifre sıfırlama kodu gönderilmiştir."})
 
     except Exception as e:
         logging.error(f"Şifre sıfırlama kodu gönderilirken hata oluştu: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
-# YENİ EKLENDİ: Şifreyi sıfırlama endpoint'i
 @app.route('/api/auth/reset-password', methods=['POST'])
 @limiter.limit("10 per hour")
 def reset_password():
@@ -642,7 +650,7 @@ def reset_password():
         new_password_hash = generate_password_hash(new_password)
         cursor.execute("UPDATE Users SET password_hash = %s WHERE id = %s", (new_password_hash, user['id']))
         conn.commit()
-        redis_client.delete(redis_key) # Kodu kullanıldıktan sonra sil
+        redis_client.delete(redis_key) 
         
         logging.info(f"Kullanıcı {email} için şifre başarıyla sıfırlandı.")
         return jsonify({"status": "success", "description": "Şifreniz başarıyla yenilendi. Şimdi giriş yapabilirsiniz."})
@@ -1171,7 +1179,7 @@ def manage_appointment(appointment_id):
         is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
 
         if not (is_owner or is_business):
-             return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
+                 return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
 
         if request.method == 'PUT':
             if not is_business:
@@ -1266,6 +1274,7 @@ def manage_fuel_entries(vehicle_id):
         logging.error(f"Yakıt girişi yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
+# GÜNCELLENDİ: /api/find_shops endpoint'i artık her dükkanın `shop_type` bilgisini de döndürecek.
 @app.route('/api/find_shops')
 @limiter.limit("60 per minute")
 def find_shops():
@@ -1277,10 +1286,11 @@ def find_shops():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        # YENİ EKLENDİ: Sorguya `s.shop_type` eklendi.
         query = """
             SELECT u.id as shop_user_id, u.name as db_name, s.phone as db_phone, s.city, s.google_place_id,
                    s.google_place_name, s.google_place_phone, s.google_place_url, s.google_place_last_updated,
-                   s.rating, s.user_ratings_total, s.reviews_json
+                   s.rating, s.user_ratings_total, s.reviews_json, s.shop_type
             FROM Shops s JOIN Users u ON s.user_id = u.id
             WHERE s.city = %s AND s.serviced_brands LIKE %s
         """
@@ -1369,14 +1379,14 @@ def find_shops():
                     shop['name'] = shop['google_place_name'] or shop['db_name']
                     shop['phone'] = shop['google_place_phone'] or shop['db_phone']
             else:
-                 if not is_cache_valid and not place_id:
+                if not is_cache_valid and not place_id:
                     logging.warning(f"[/api/find_shops] İşletme '{shop['db_name']}' için Google Place ID veya API Key eksik. Sadece DB verileri kullanılacak.")
                     shop['name'] = shop['db_name']
                     shop['phone'] = shop['db_phone']
                     shop['rating'] = 0
                     shop['user_ratings_total'] = 0
                     shop['reviews'] = []
-                 elif is_cache_valid:
+                elif is_cache_valid:
                     logging.info(f"[/api/find_shops] İşletme '{shop['db_name']}' için önbellekten tam veri kullanılıyor.")
 
             shop.pop('db_name', None)
@@ -1469,6 +1479,7 @@ def manage_vehicles(vehicle_id=None):
         logging.error(f"Araç yönetimi hatası: {e}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
+# GÜNCELLENDİ: Hesap detayları endpoint'i, işletme bilgilerini çekerken ve güncellerken `shop_type` alanını da dahil edecek.
 @app.route('/api/account', methods=['GET', 'POST'])
 def account_details():
     if 'email' not in session:
@@ -1487,8 +1498,9 @@ def account_details():
                 cursor.execute('SELECT id, plate_number, brand, series, year, model, fuel, tax_paid_jan, tax_paid_jul, last_inspection_date FROM Vehicles WHERE user_id = %s', (user['id'],))
                 user_data['vehicles'] = [dict(row) for row in cursor.fetchall()]
             elif user_data['user_type'] == 'business':
+                # GÜNCELLENDİ: Sorguya `s.shop_type` eklendi.
                 cursor.execute("""
-                    SELECT s.city, s.phone as shop_phone, s.google_place_id, s.serviced_brands, l.is_active as license_is_active
+                    SELECT s.city, s.phone as shop_phone, s.google_place_id, s.serviced_brands, s.shop_type, l.is_active as license_is_active
                     FROM Shops s
                     LEFT JOIN Licenses l ON s.id = l.shop_id
                     WHERE s.user_id = %s
@@ -1514,22 +1526,29 @@ def account_details():
                 serviced_brands_str = ",".join(data.get('serviced_brands', []))
                 shop_phone = data.get('shop_phone')
                 new_license_key = data.get('google_place_id')
+                # YENİ EKLENDİ: `shop_type` verisi request body'den alınır.
+                shop_type = data.get('shop_type')
 
                 if shop_phone and not validate_phone_number(shop_phone):
                      return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
+                # YENİ EKLENDİ: Gelen `shop_type` verisinin geçerli olup olmadığını kontrol et.
+                if shop_type and shop_type not in ['service', 'parts_provider']:
+                    return jsonify({"description": "Geçersiz işletme türü."}), 400
 
                 cursor.execute('SELECT id, google_place_id FROM Shops WHERE user_id = %s', (user['id'],))
                 shop_data = cursor.fetchone()
 
                 if shop_data:
+                    # GÜNCELLENDİ: UPDATE sorgusuna `shop_type` eklendi.
                     cursor.execute(
-                        'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s WHERE user_id = %s',
-                        (data.get('city'), shop_phone, new_license_key, serviced_brands_str, user['id'])
+                        'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s, shop_type = %s WHERE user_id = %s',
+                        (data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type, user['id'])
                     )
                 else:
+                    # GÜNCELLENDİ: INSERT sorgusuna `shop_type` eklendi.
                     cursor.execute(
-                        'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands) VALUES (%s, %s, %s, %s, %s)',
-                        (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str)
+                        'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands, shop_type) VALUES (%s, %s, %s, %s, %s, %s)',
+                        (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type)
                     )
                 conn.commit()
 
