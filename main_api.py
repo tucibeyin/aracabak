@@ -168,7 +168,7 @@ def init_db():
         add_column_if_not_exists(cursor, "shops", "rating", "REAL")
         add_column_if_not_exists(cursor, "shops", "user_ratings_total", "INTEGER")
         add_column_if_not_exists(cursor, "shops", "reviews_json", "TEXT")
-        add_column_if_not_exists(cursor, "shops", "website", "TEXT") # YENİ EKLENDİ
+        add_column_if_not_exists(cursor, "shops", "website", "TEXT")
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Requests (
@@ -190,6 +190,7 @@ def init_db():
             )
         ''')
         add_column_if_not_exists(cursor, "requests", "status", "TEXT DEFAULT 'pending'")
+        add_column_if_not_exists(cursor, "requests", "delivery_date", "TEXT")
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Quotes (
@@ -756,16 +757,21 @@ def get_requests():
 
             query = """
                 SELECT r.*, u.name as customer_name, u.phone_number as customer_phone,
+                       s.shop_type,
                        q.total_cost, q.parts_cost, q.labor_cost, q.notes as quote_notes, q.id as quote_id,
                        q.owner_proposed_cost, q.last_offer_by
-                FROM Requests r JOIN Users u ON r.user_id = u.id
+                FROM Requests r 
+                JOIN Users u ON r.user_id = u.id
+                JOIN Shops s ON r.shop_user_id = s.user_id
                 LEFT JOIN Quotes q ON r.id = q.request_id
                 WHERE r.shop_user_id = %s ORDER BY r.created_at DESC
             """
             cursor.execute(query, (user_id,))
         elif user_type == 'owner':
             query = """
-                SELECT r.*,
+                SELECT r.id, r.user_id, r.shop_user_id, r.vehicle_brand, r.vehicle_series, r.vehicle_year,
+                       r.vehicle_fuel, r.vehicle_model, r.vehicle_km, r.city, r.maintenance_km,
+                       r.selected_parts, r.status, r.created_at, r.shop_google_place_id, r.delivery_date,
                        COALESCE(s.google_place_name, u.name) as shop_name,
                        COALESCE(s.google_place_phone, s.phone) as shop_phone,
                        s.google_place_id, s.google_place_last_updated,
@@ -998,6 +1004,43 @@ def manage_quote(request_id):
         logging.error(f"Teklif yönetimi hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
+@app.route('/api/requests/<int:request_id>/delivery_date', methods=['POST'])
+@limiter.limit("30 per minute")
+def set_delivery_date(request_id):
+    if 'user_id' not in session or session.get('user_type') != 'business':
+        return jsonify({"description": "Yetkilendirme gerekli."}), 403
+
+    data = request.get_json()
+    delivery_date = data.get('delivery_date')
+    if not delivery_date:
+        return jsonify({"description": "Teslim tarihi gereklidir."}), 400
+
+    try:
+        datetime.strptime(delivery_date, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({"description": "Geçersiz tarih formatı. YYYY-MM-DD kullanın."}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, status FROM Requests WHERE id = %s AND shop_user_id = %s", (request_id, session['user_id']))
+        req = cursor.fetchone()
+        if not req:
+            return jsonify({"description": "Talep bulunamadı veya bu işlem için yetkiniz yok."}), 404
+
+        if req[1] != 'accepted':
+            return jsonify({"description": "Sadece onaylanmış taleplere teslim tarihi atanabilir."}), 400
+
+        cursor.execute("UPDATE Requests SET delivery_date = %s WHERE id = %s", (delivery_date, request_id))
+        conn.commit()
+        
+        return jsonify({"status": "success", "description": "Teslim tarihi güncellendi."})
+    except Exception as e:
+        get_db_connection().rollback()
+        logging.error(f"Teslim tarihi ayarlanırken hata: {e}\n{traceback.format_exc()}")
+        return jsonify({"description": "Sunucu hatası."}), 500
+
 @app.route('/api/quotes/<int:quote_id>/reject', methods=['POST'])
 @limiter.limit("30 per minute")
 def reject_quote(quote_id):
@@ -1053,12 +1096,19 @@ def accept_quote(quote_id):
 
         cursor.execute("UPDATE Quotes SET status = 'accepted' WHERE id = %s", (quote_id,))
         cursor.execute("UPDATE Requests SET status = 'accepted' WHERE id = %s", (quote['request_id'],))
-        cursor.execute(
-            "INSERT INTO Appointments (request_id, quote_id, user_id, shop_user_id, status) VALUES (%s, %s, %s, %s, 'tarih_bekleniyor')",
-            (quote['request_id'], quote_id, quote['owner_user_id'], quote['shop_user_id'])
-        )
+        
+        # Sadece 'service' tipi işletmeler için randevu oluştur
+        cursor.execute("SELECT shop_type FROM Shops WHERE user_id = %s", (quote['shop_user_id'],))
+        shop = cursor.fetchone()
+        if shop and shop['shop_type'] == 'service':
+            cursor.execute(
+                "INSERT INTO Appointments (request_id, quote_id, user_id, shop_user_id, status) VALUES (%s, %s, %s, %s, 'tarih_bekleniyor')",
+                (quote['request_id'], quote_id, quote['owner_user_id'], quote['shop_user_id'])
+            )
+        
         conn.commit()
-        return jsonify({"status": "success", "description": "Teklif kabul edildi ve randevu oluşturuldu."}), 201
+        description = "Teklif kabul edildi ve randevu oluşturuldu." if shop and shop['shop_type'] == 'service' else "Teklif kabul edildi."
+        return jsonify({"status": "success", "description": description}), 201
     except Exception as e:
         get_db_connection().rollback()
         logging.error(f"Teklif kabul etme hatası: {e}\n{traceback.format_exc()}")
@@ -1081,7 +1131,7 @@ def get_appointments():
                        COALESCE(s.google_place_name, u.name) as shop_name,
                        COALESCE(s.google_place_phone, s.phone) as shop_phone,
                        s.google_place_id, s.google_place_last_updated,
-                       s.google_place_url
+                       s.google_place_url, s.shop_type
                 FROM Appointments a
                 JOIN Requests r ON a.request_id = r.id
                 JOIN Users u ON a.shop_user_id = u.id
@@ -1091,10 +1141,11 @@ def get_appointments():
             cursor.execute(query, (user_id,))
         elif user_type == 'business':
             query = """
-                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.vehicle_km, r.selected_parts, v.plate_number as vehicle_plate, u.name as customer_name, u.phone_number as customer_phone
+                SELECT a.*, r.vehicle_brand, r.vehicle_model, r.vehicle_km, r.selected_parts, v.plate_number as vehicle_plate, u.name as customer_name, u.phone_number as customer_phone, s.shop_type
                 FROM Appointments a
                 JOIN Requests r ON a.request_id = r.id
                 JOIN Users u ON a.user_id = u.id
+                JOIN Shops s ON a.shop_user_id = s.user_id
                 LEFT JOIN Vehicles v ON r.user_id = v.user_id AND r.vehicle_brand = v.brand AND r.vehicle_model = v.model
                 WHERE a.shop_user_id = %s ORDER BY a.created_at DESC
             """
@@ -1174,7 +1225,7 @@ def manage_appointment(appointment_id):
         is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
 
         if not (is_owner or is_business):
-                 return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
+                   return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
 
         if request.method == 'PUT':
             if not is_business:
@@ -1274,9 +1325,13 @@ def manage_fuel_entries(vehicle_id):
 def find_shops():
     city = request.args.get('city')
     brand = request.args.get('brand')
-    logging.info(f"[/api/find_shops] Arama başlatıldı. Şehir: {city}, Marka: {brand}")
-    if not all([city, brand]):
-        return jsonify({"description": "Şehir ve marka bilgisi gereklidir."}), 400
+    shop_type = request.args.get('shop_type')
+    logging.info(f"[/api/find_shops] Arama başlatıldı. Şehir: {city}, Marka: {brand}, Tip: {shop_type}")
+    if not all([city, brand, shop_type]):
+        return jsonify({"description": "Şehir, marka ve işletme türü bilgisi gereklidir."}), 400
+    if shop_type not in ['service', 'parts_provider']:
+        return jsonify({"description": "Geçersiz işletme türü."}), 400
+        
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1285,10 +1340,11 @@ def find_shops():
                    s.google_place_name, s.google_place_phone, s.google_place_url, s.google_place_last_updated,
                    s.rating, s.user_ratings_total, s.reviews_json, s.shop_type, s.website
             FROM Shops s JOIN Users u ON s.user_id = u.id
-            WHERE s.city = %s AND s.serviced_brands LIKE %s
+            WHERE s.city LIKE %s AND s.serviced_brands LIKE %s AND s.shop_type = %s
         """
+        city_search_term = f"%{city}%"
         brand_search_term = f"%{brand}%"
-        cursor.execute(query, (city, brand_search_term))
+        cursor.execute(query, (city_search_term, brand_search_term, shop_type))
         shops = [dict(row) for row in cursor.fetchall()]
         logging.info(f"[/api/find_shops] Veritabanından {len(shops)} adet işletme bulundu.")
 
@@ -1498,7 +1554,18 @@ def account_details():
                 """, (user['id'],))
                 shop = cursor.fetchone()
                 if shop:
-                    user_data.update(dict(shop))
+                    shop_data = dict(shop)
+                    if shop_data.get('city'):
+                        shop_data['city'] = shop_data['city'].split(',')
+                    else:
+                        shop_data['city'] = []
+                        
+                    if shop_data.get('serviced_brands'):
+                        shop_data['serviced_brands'] = shop_data['serviced_brands'].split(',')
+                    else:
+                        shop_data['serviced_brands'] = []
+                    user_data.update(shop_data)
+                    
             for key in ['password_hash', 'google_id', 'id']:
                 user_data.pop(key, None)
             return jsonify(user_data)
@@ -1515,13 +1582,14 @@ def account_details():
 
             elif user['user_type'] == 'business':
                 serviced_brands_str = ",".join(data.get('serviced_brands', []))
+                cities_str = ",".join(data.get('city', []))
                 shop_phone = data.get('shop_phone')
                 new_license_key = data.get('google_place_id')
                 shop_type = data.get('shop_type')
-                website = data.get('website') # YENİ
+                website = data.get('website')
 
                 if shop_phone and not validate_phone_number(shop_phone):
-                     return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
+                       return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
                 if shop_type and shop_type not in ['service', 'parts_provider']:
                     return jsonify({"description": "Geçersiz işletme türü."}), 400
 
@@ -1531,12 +1599,12 @@ def account_details():
                 if shop_data:
                     cursor.execute(
                         'UPDATE Shops SET city = %s, phone = %s, google_place_id = %s, serviced_brands = %s, shop_type = %s, website = %s WHERE user_id = %s',
-                        (data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type, website, user['id'])
+                        (cities_str, shop_phone, new_license_key, serviced_brands_str, shop_type, website, user['id'])
                     )
                 else:
                     cursor.execute(
                         'INSERT INTO Shops (user_id, city, phone, google_place_id, serviced_brands, shop_type, website) VALUES (%s, %s, %s, %s, %s, %s, %s)',
-                        (user['id'], data.get('city'), shop_phone, new_license_key, serviced_brands_str, shop_type, website)
+                        (user['id'], cities_str, shop_phone, new_license_key, serviced_brands_str, shop_type, website)
                     )
                 conn.commit()
 
