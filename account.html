@@ -138,7 +138,7 @@
         <div class="container mx-auto px-4 sm:hidden">
             <!-- 1. Satır: Logo (Ortalanmış) -->
             <div class="py-3 flex justify-center items-center">
-                 <a href="/">
+                <a href="/">
                     <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 w-auto">
                 </a>
             </div>
@@ -200,7 +200,7 @@
                 </button>
                 <div id="personalInfoContent" class="details-content">
                     <div class="px-6 sm:px-8 pb-8">
-                         <form id="accountForm" class="border-t border-gray-200 pt-8">
+                        <form id="accountForm" class="border-t border-gray-200 pt-8">
                             <div class="mb-4">
                                 <label for="account_name" class="block text-sm font-medium text-gray-700">Ad Soyad</label>
                                 <input type="text" id="account_name" class="w-full mt-1 p-3 border rounded-lg bg-gray-100 cursor-not-allowed" disabled>
@@ -222,7 +222,7 @@
                         </form>
                     </div>
                 </div>
-            </div>
+             </div>
         </div>
 
         <!-- İşletme Profili Section -->
@@ -241,12 +241,26 @@
                 <div id="shopInfoForm" class="hidden">
                     <h2 id="shopFormTitle" class="text-2xl sm:text-3xl font-bold mb-6"></h2>
                     <form id="businessProfileForm" class="space-y-4">
-                         <div>
+                         <!-- GÜNCELLENDİ: İşletme türü seçim alanı eklendi -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türü</label>
+                            <div id="shopTypeEditor" class="flex items-center justify-around bg-gray-100 rounded-lg p-1">
+                                <label class="w-1/2 text-center cursor-pointer">
+                                    <input type="radio" name="shop_type_edit" value="service" class="sr-only peer">
+                                    <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Servis</span>
+                                </label>
+                                <label class="w-1/2 text-center cursor-pointer">
+                                    <input type="radio" name="shop_type_edit" value="parts_provider" class="sr-only peer">
+                                    <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Parça Sağlayıcı</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
                             <label for="account_city" class="block text-sm font-medium text-gray-700">Şehir</label>
                             <select id="account_city" class="w-full mt-1 p-3 border rounded-lg bg-white"></select>
                         </div>
                         <div>
-                            <label for="account_serviced_brands" class="block text-sm font-medium text-gray-700">Servis Verilen Markalar</label>
+                            <label for="account_serviced_brands" class="block text-sm font-medium text-gray-700">Hizmet Verilen Markalar</label>
                             <select id="account_serviced_brands" multiple class="w-full mt-1 p-3 border rounded-lg bg-white h-48"></select>
                             <p class="text-xs text-gray-500 mt-1">En fazla 6 marka seçebilirsiniz. Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
                         </div>
@@ -462,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Selectors ---
     const userMenu = document.getElementById('user-menu');
-    const userMenuMobile = document.getElementById('user-menu-mobile'); // Yeni mobil menü konteyneri
+    const userMenuMobile = document.getElementById('user-menu-mobile');
     
     // MASAÜSTÜ SELECTOR'LAR
     const welcomeContainerDesktop = document.getElementById('welcomeContainerDesktop');
@@ -475,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userTypeMessage = document.getElementById('userTypeMessage');
 
     const logoutBtn = document.getElementById('logoutBtn');
-    const logoutBtnMobile = document.getElementById('logoutBtnMobile'); // Yeni mobil logout butonu
+    const logoutBtnMobile = document.getElementById('logoutBtnMobile');
 
     const accountForm = document.getElementById('accountForm');
     const businessSection = document.getElementById('businessSection');
@@ -509,6 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditingRequestId = null;
 
     // --- Header and Auth ---
+    // GÜNCELLENDİ: Hata veren `updateLoginState` çağrıları kaldırıldı, DOM manipülasyonu direkt bu fonksiyona taşındı.
     async function checkAuthStatus() {
         try {
             const response = await fetch('/api/auth/status');
@@ -546,7 +561,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = '/';
     }
 
-    // Hem masaüstü hem de mobil çıkış butonlarına event ekleniyor
     logoutBtn.addEventListener('click', handleLogout);
     logoutBtnMobile.addEventListener('click', handleLogout);
 
@@ -617,7 +631,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.delete-vehicle-btn').forEach(btn => btn.addEventListener('click', handleDeleteVehicle));
     }
     
-    // --- GÜNCELLENMİŞ displayRequestDetails FONKSİYONU (Mobil Kartlara Uyumlu) ---
     function displayRequestDetails(requestId, isOwner) {
         const req = pageData.requests.find(r => r.id == requestId);
         if (!req) return;
@@ -640,40 +653,40 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let actionSectionHtml = '';
              if ((req.status === 'quoted' || req.status === 'negotiating') && req.quote) {
-                const lastOfferByBusiness = req.quote.last_offer_by === 'business';
-                const lastOfferByOwner = req.quote.last_offer_by === 'owner';
-                actionSectionHtml = `
-                    <div class="mt-4 border-t border-dashed pt-4">
-                        ${lastOfferByBusiness ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">İşletmenin Fiyat Teklifi</h4>` : ''}
-                        ${lastOfferByOwner ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">Sizin Karşı Teklifiniz</h4>` : ''}
-                        <div class="bg-gray-50 border-l-4 ${lastOfferByBusiness ? 'border-green-500' : 'border-purple-500'} p-4 rounded-r-lg">
-                            <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                ${lastOfferByBusiness ? `<span>Parça Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.parts_cost)} TL</span>
-                                <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.labor_cost)} TL</span>` : ''}
-                                <span class="font-bold text-xl border-t-2 pt-2 mt-2">TOPLAM:</span><span class="font-bold text-xl border-t-2 pt-2 mt-2 text-right ${lastOfferByBusiness ? 'text-green-700' : 'text-purple-700'}">${formatCurrency(lastOfferByBusiness ? req.quote.total_cost : req.quote.owner_proposed_cost)} TL</span>
-                            </div>
-                            ${req.quote.notes && lastOfferByBusiness ? `<div class="mt-4 text-sm text-gray-700 bg-gray-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
-                        </div>
-                        <div id="owner-action-area-${req.id}" class="mt-4">
-                            ${lastOfferByBusiness ? `
-                                <div class="flex gap-4 flex-col sm:flex-row">
-                                    <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
-                                    <button class="counter-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Karşı Teklif Yap</button>
-                                </div>
-                                <div id="counter-offer-form-${req.quote.id}" class="hidden mt-4 space-y-2">
-                                    <input type="number" placeholder="Yeni Teklifiniz (TL)" class="p-2 border rounded w-full" id="owner-proposed-cost-${req.quote.id}">
-                                    <button class="send-counter-offer-btn bg-purple-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}" data-request-id="${req.id}">Karşı Teklifi Gönder</button>
-                                </div>
-                            ` : `<div class="text-center text-sm text-gray-500 italic">İşletmenin yanıtı bekleniyor...</div>`}
-                        </div>
-                    </div>`;
-            } else if (req.status === 'accepted') {
-                 actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-blue-700 p-3 bg-blue-50 rounded-md">Bu teklif onaylanarak randevuya dönüştürülmüştür. "Randevularım" bölümünden takip edebilirsiniz.</div>`;
-            } else if (req.status === 'rejected') {
-                 actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-red-700 p-3 bg-red-50 rounded-md">Bu teklif reddedildi.</div>`;
-            } else {
-                actionSectionHtml = `<div class="mt-4 text-center text-sm text-gray-500 italic">İşletmeden teklif bekleniyor...</div>`;
-            }
+                 const lastOfferByBusiness = req.quote.last_offer_by === 'business';
+                 const lastOfferByOwner = req.quote.last_offer_by === 'owner';
+                 actionSectionHtml = `
+                     <div class="mt-4 border-t border-dashed pt-4">
+                         ${lastOfferByBusiness ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">İşletmenin Fiyat Teklifi</h4>` : ''}
+                         ${lastOfferByOwner ? `<h4 class="font-semibold text-lg mb-3 text-gray-800">Sizin Karşı Teklifiniz</h4>` : ''}
+                         <div class="bg-gray-50 border-l-4 ${lastOfferByBusiness ? 'border-green-500' : 'border-purple-500'} p-4 rounded-r-lg">
+                             <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                 ${lastOfferByBusiness ? `<span>Parça Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.parts_cost)} TL</span>
+                                 <span>İşçilik Maliyeti:</span><span class="font-medium text-right">${formatCurrency(req.quote.labor_cost)} TL</span>` : ''}
+                                 <span class="font-bold text-xl border-t-2 pt-2 mt-2">TOPLAM:</span><span class="font-bold text-xl border-t-2 pt-2 mt-2 text-right ${lastOfferByBusiness ? 'text-green-700' : 'text-purple-700'}">${formatCurrency(lastOfferByBusiness ? req.quote.total_cost : req.quote.owner_proposed_cost)} TL</span>
+                             </div>
+                             ${req.quote.notes && lastOfferByBusiness ? `<div class="mt-4 text-sm text-gray-700 bg-gray-100 p-3 rounded-md"><strong class="block mb-1">İşletmenin Notu:</strong> ${req.quote.notes}</div>` : ''}
+                         </div>
+                         <div id="owner-action-area-${req.id}" class="mt-4">
+                             ${lastOfferByBusiness ? `
+                                 <div class="flex gap-4 flex-col sm:flex-row">
+                                     <button class="accept-quote-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Teklifi Onayla</button>
+                                     <button class="counter-offer-btn bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}">Karşı Teklif Yap</button>
+                                 </div>
+                                 <div id="counter-offer-form-${req.quote.id}" class="hidden mt-4 space-y-2">
+                                     <input type="number" placeholder="Yeni Teklifiniz (TL)" class="p-2 border rounded w-full" id="owner-proposed-cost-${req.quote.id}">
+                                     <button class="send-counter-offer-btn bg-purple-600 text-white font-bold py-2 px-4 rounded-lg w-full text-sm" data-quote-id="${req.quote.id}" data-request-id="${req.id}">Karşı Teklifi Gönder</button>
+                                 </div>
+                             ` : `<div class="text-center text-sm text-gray-500 italic">İşletmenin yanıtı bekleniyor...</div>`}
+                         </div>
+                     </div>`;
+             } else if (req.status === 'accepted') {
+                  actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-blue-700 p-3 bg-blue-50 rounded-md">Bu teklif onaylanarak randevuya dönüştürülmüştür. "Randevularım" bölümünden takip edebilirsiniz.</div>`;
+             } else if (req.status === 'rejected') {
+                  actionSectionHtml = `<div class="mt-4 text-center text-sm font-semibold text-red-700 p-3 bg-red-50 rounded-md">Bu teklif reddedildi.</div>`;
+             } else {
+                 actionSectionHtml = `<div class="mt-4 text-center text-sm text-gray-500 italic">İşletmeden teklif bekleniyor...</div>`;
+             }
 
             detailViewHtml = `
                 <div class="flex flex-wrap justify-between items-center border-b pb-4 mb-4 gap-y-2">
@@ -1734,12 +1747,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Shop Info Logic ---
+    // GÜNCELLENDİ: `displayShopInfo` fonksiyonu artık işletme türünü de gösterecek.
     function displayShopInfo(shopData) {
         document.getElementById('shopInfoDisplay').classList.remove('hidden');
         document.getElementById('addShopContainer').classList.add('hidden');
         document.getElementById('shopInfoForm').classList.add('hidden');
         const detailsEl = document.getElementById('shopDetails');
 
+        // YENİ EKLENDİ: shop_type'ı daha kullanıcı dostu bir metne çevir.
+        const shopTypeDisplay = shopData.shop_type === 'parts_provider' ? 'Parça Sağlayıcı' : 'Servis';
+        
         const licenseStatusHtml = shopData.license_is_active === null || shopData.license_is_active === undefined
             ? `<span class="bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded">Bilinmiyor (Lisans eklenmemiş)</span>`
             : shopData.license_is_active
@@ -1747,6 +1764,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded">Pasif</span>`;
 
         detailsEl.innerHTML = `
+            <p><strong class="font-semibold">İşletme Türü:</strong> ${shopTypeDisplay}</p>
             <p><strong class="font-semibold">Şehir:</strong> ${shopData.city || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">İşletme Telefonu:</strong> ${shopData.shop_phone || 'Belirtilmemiş'}</p>
             <p><strong class="font-semibold">Google Maps Lisansı:</strong> ${shopData.google_place_id || 'Belirtilmemiş'}</p>
@@ -1761,11 +1779,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('shopInfoForm').classList.add('hidden');
     }
 
+    // GÜNCELLENDİ: `showShopForm` fonksiyonu, form açıldığında doğru işletme türünü seçecek.
     async function showShopForm(shopData = {}) {
         document.getElementById('addShopContainer').classList.add('hidden');
         document.getElementById('shopInfoDisplay').classList.add('hidden');
         document.getElementById('shopInfoForm').classList.remove('hidden');
         document.getElementById('shopFormTitle').textContent = shopData.city ? 'İşletme Bilgilerini Düzenle' : 'Yeni İşletme Profili';
+        
+        // YENİ EKLENDİ: Mevcut işletme türünü radio butonlarda seçili hale getir.
+        const shopType = shopData.shop_type || 'service'; // Varsayılan olarak 'service' seç
+        document.querySelector(`input[name="shop_type_edit"][value="${shopType}"]`).checked = true;
+        
         await populateSelect(document.getElementById('account_city'), '/api/cities', 'Şehir Seçin', shopData.city);
         const servicedBrandsSelect = document.getElementById('account_serviced_brands');
         await populateSelect(servicedBrandsSelect, '/api/brands', 'Marka Yükleniyor...');
@@ -1803,6 +1827,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // GÜNCELLENDİ: `saveShopBtn` event listener'ı, `shop_type` verisini de gönderecek.
     document.getElementById('saveShopBtn').addEventListener('click', async () => {
         const servicedBrandsSelect = document.getElementById('account_serviced_brands');
         const selectedBrands = Array.from(servicedBrandsSelect.selectedOptions).map(opt => opt.value);
@@ -1814,7 +1839,9 @@ document.addEventListener('DOMContentLoaded', () => {
             city: document.getElementById('account_city').value,
             shop_phone: document.getElementById('account_shop_phone').value,
             google_place_id: document.getElementById('account_id').value,
-            serviced_brands: selectedBrands
+            serviced_brands: selectedBrands,
+            // YENİ EKLENDİ: Seçili işletme türünü payload'a ekle.
+            shop_type: document.querySelector('input[name="shop_type_edit"]:checked').value
         };
         const submitButton = document.getElementById('saveShopBtn');
         submitButton.disabled = true;
