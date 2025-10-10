@@ -478,6 +478,9 @@
             }
         }
         
+        // Make it globally accessible for Google's callback
+        window.handleGoogleCredentialResponse = handleGoogleCredentialResponse;
+
         function initializeGoogleSignIn(clientId) {
             if (typeof google === 'undefined' || !google.accounts) {
                 console.error("Google Identity Services kütüphanesi yüklenemedi.");
@@ -634,7 +637,7 @@
         }
 
         async function findAndDisplayShops() {
-             if (!window.googleMapsApiKey) {
+            if (!window.googleMapsApiKey) {
                 console.error("Google Maps API key not loaded. Shops cannot be displayed.");
                 document.getElementById('shopResultsContainer').classList.add('hidden');
                 return;
@@ -651,111 +654,107 @@
             shopList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
             shopContainer.classList.remove('hidden');
             
-            try {
-                const serviceResponse = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}&shop_type=service`);
-                if (!serviceResponse.ok) throw new Error("Servisler alınamadı.");
-                const serviceShops = await serviceResponse.json();
-                shopList.innerHTML = '';
-                if (serviceShops.length > 0) {
-                     serviceShops.forEach(shop => {
-                        const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
-                        const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
-                        const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
-                        let reviewsHtml = '';
-                        if (shop.reviews && shop.reviews.length > 0) {
-                            reviewsHtml += '<div class="mt-4 border-t pt-4 space-y-3">';
-                            shop.reviews.forEach(review => {
-                                reviewsHtml += `<div class="text-xs text-gray-600"><p class="font-semibold">${review.author_name}</p><p class="italic">"${review.text.substring(0, 80)}..."</p></div>`;
-                            });
-                            reviewsHtml += '</div>';
-                        }
-                        let mapContent = shop.google_place_id ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${window.googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
-                        let isRequestActive = false;
-                        if (currentUser && currentUser.userType === 'owner') {
-                            isRequestActive = activeUserRequests.some(req =>
-                                req.shop_user_id == shop.shop_user_id &&
-                                req.vehicle_brand === brandSelect.value &&
-                                req.vehicle_model === modelSelect.value &&
-                                req.maintenance_km == currentMaintenanceKm
-                            );
-                        }
-                        let requestButtonHtml = '';
-                        let buttonGridClass = 'sm:grid-cols-2';
-                        if (!currentUser || currentUser.userType !== 'business') {
-                            buttonGridClass = 'sm:grid-cols-3';
-                            if(isRequestActive) {
-                                requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>Talep Mevcut</button>`;
-                            } else {
-                                requestButtonHtml = `<button class="request-offer-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Teklif İste</button>`;
-                            }
-                        }
-                        const shopCard = `
-                            <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
-                                <div>
-                                    <h4 class="font-bold text-lg">${shop.name}</h4>
-                                    <div class="mt-2">${ratingHtml}</div>
-                                    ${reviewsHtml}
-                                    ${mapContent}
-                                </div>
-                                <div class="mt-4 grid grid-cols-1 ${buttonGridClass} gap-2 border-t pt-4">
-                                    <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
-                                    ${requestButtonHtml}
-                                    <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
-                                </div>
-                            </div>`;
-                        shopList.innerHTML += shopCard;
-                     });
-                } else {
-                    shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir servis bulunamadı.</p>';
-                }
-            } catch(error) {
-                console.error("Servis arama hatası:", error);
-                shopList.innerHTML = '<p class="col-span-full text-center text-red-500">Servisler yüklenirken bir hata oluştu.</p>';
-            }
-
             // --- Fetch and Display Parts Providers ---
             partsProviderList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
             partsProviderContainer.classList.remove('hidden');
 
             try {
+                // Fetch Services
+                const serviceResponse = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}&shop_type=service`);
+                if (!serviceResponse.ok) throw new Error("Servisler alınamadı.");
+                const serviceShops = await serviceResponse.json();
+
+                // Render Service Shops
+                shopList.innerHTML = '';
+                if (serviceShops.length > 0) {
+                    serviceShops.forEach(shop => shopList.innerHTML += createShopCard(shop));
+                } else {
+                    shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu kriterlere uygun servis bulunamadı.</p>';
+                }
+
+            } catch (error) {
+                console.error("Servis arama hatası:", error);
+                shopList.innerHTML = `<p class="col-span-full text-center text-red-500">${error.message}</p>`;
+            }
+
+            try {
+                // Fetch Parts Providers
                 const partsResponse = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}&shop_type=parts_provider`);
                 if (!partsResponse.ok) throw new Error("Parça sağlayıcıları alınamadı.");
                 const partsProviderShops = await partsResponse.json();
+
+                // Render Parts Providers
                 partsProviderList.innerHTML = '';
                 if (partsProviderShops.length > 0) {
-                    partsProviderShops.forEach(shop => {
-                        const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
-                        const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
-                        let requestButtonHtml = '';
-
-                        if (!currentUser || currentUser.userType !== 'business') {
-                            requestButtonHtml = `<button class="request-parts-offer-btn bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 col-span-2" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">Parça Teklifi İste</button>`;
-                        }
-
-                        const providerCard = `
-                            <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
-                                <div>
-                                    <h4 class="font-bold text-lg">${shop.name}</h4>
-                                    <div class="mt-2">${ratingHtml}</div>
-                                </div>
-                                <div class="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
-                                    <a href="${phoneUrl}" class="col-span-2 text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
-                                    ${requestButtonHtml}
-                                </div>
-                            </div>`;
-                        partsProviderList.innerHTML += providerCard;
-                    });
+                    partsProviderContainer.classList.remove('hidden');
+                    partsProviderShops.forEach(shop => partsProviderList.innerHTML += createShopCard(shop));
                 } else {
-                     partsProviderList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu şehirde, seçtiğiniz marka için kayıtlı bir parça sağlayıcı bulunamadı.</p>';
+                    partsProviderContainer.classList.add('hidden');
                 }
             } catch(error) {
-                console.error("Parça sağlayıcı arama hatası:", error);
-                partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
+                 console.error("Parça sağlayıcı arama hatası:", error);
+                 partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
             }
 
             // Re-add event listeners
-            document.querySelectorAll('.request-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
-            document.querySelectorAll('.request-parts-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestPartsOffer));
+            document.querySelectorAll('.request-offer-btn, .request-parts-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
+        }
+
+        function createShopCard(shop) {
+             const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
+            const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
+            const websiteUrl = shop.website;
+
+            const ratingHtml = shop.rating ? `<div class="flex items-center gap-2"><span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span><div class="flex items-center">${generateStarRating(shop.rating)}</div><span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span></div>` : '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
+            
+            let reviewsHtml = '';
+            if (shop.reviews && shop.reviews.length > 0) {
+                reviewsHtml += '<div class="mt-4 border-t pt-4 space-y-3">';
+                shop.reviews.forEach(review => {
+                    reviewsHtml += `<div class="text-xs text-gray-600"><p class="font-semibold">${review.author_name}</p><p class="italic">"${review.text.substring(0, 80)}..."</p></div>`;
+                });
+                reviewsHtml += '</div>';
+            }
+
+            let mapContent = shop.google_place_id && shop.shop_type === 'service' ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${window.googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
+            
+            let isRequestActive = false;
+            if (currentUser && currentUser.userType === 'owner') {
+                isRequestActive = activeUserRequests.some(req =>
+                    req.shop_user_id == shop.shop_user_id &&
+                    req.vehicle_brand === brandSelect.value &&
+                    req.vehicle_model === modelSelect.value &&
+                    req.maintenance_km == currentMaintenanceKm
+                );
+            }
+            
+            let requestButtonHtml = '';
+            if (!currentUser || currentUser.userType !== 'business') {
+                const btnClass = shop.shop_type === 'service' ? 'request-offer-btn bg-green-600 hover:bg-green-700' : 'request-parts-offer-btn bg-orange-500 hover:bg-orange-600';
+                const btnText = shop.shop_type === 'service' ? 'Servis Teklifi İste' : 'Parça Teklifi İste';
+
+                if (isRequestActive) {
+                     requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed w-full" disabled>Talep Mevcut</button>`;
+                } else {
+                     requestButtonHtml = `<button class="${btnClass} text-white font-bold py-2 px-4 rounded-lg w-full" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">${btnText}</button>`;
+                }
+            }
+
+            return `
+                <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
+                    <div>
+                        <h4 class="font-bold text-lg">${shop.name}</h4>
+                        <div class="mt-2">${ratingHtml}</div>
+                        ${reviewsHtml}
+                        ${mapContent}
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
+                        <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
+                        <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
+                        ${websiteUrl ? `<a href="${websiteUrl}" target="_blank" class="col-span-2 text-center bg-gray-800 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-black"><i class="fas fa-globe mr-1"></i>Web Sitesi</a>` : ''}
+                        ${requestButtonHtml ? `<div class="col-span-2">${requestButtonHtml}</div>` : ''}
+                    </div>
+                </div>`;
         }
 
         function generateStarRating(rating) {
@@ -891,9 +890,16 @@
 
             const { isValid, selectedParts } = validateAndGetSelectedParts();
             if (!isValid) {
-                showToast('Lütfen seçili her parça için bir marka belirtin.', 'error');
+                showToast('Lütfen teklif istediğiniz her parça için bir marka seçin.', 'error');
                 button.disabled = false;
-                button.textContent = 'Teklif İste';
+                button.textContent = button.classList.contains('request-parts-offer-btn') ? 'Parça Teklifi İste' : 'Servis Teklifi İste';
+                return;
+            }
+            
+            if (Object.keys(selectedParts).length === 0) {
+                showToast('Lütfen en az bir parça seçin.', 'error');
+                button.disabled = false;
+                button.textContent = button.classList.contains('request-parts-offer-btn') ? 'Parça Teklifi İste' : 'Servis Teklifi İste';
                 return;
             }
 
@@ -921,8 +927,8 @@
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description);
                 button.textContent = 'Talep İletildi!';
-                button.classList.replace('bg-green-600', 'bg-gray-400');
-                button.classList.replace('hover:bg-green-700', 'cursor-not-allowed');
+                button.classList.replace(button.classList.contains('bg-green-600') ? 'bg-green-600' : 'bg-orange-500', 'bg-gray-400');
+                button.classList.replace(button.classList.contains('hover:bg-green-700') ? 'hover:bg-green-700' : 'hover:bg-orange-600', 'cursor-not-allowed');
 
                 activeUserRequests.push({
                     shop_user_id: parseInt(button.dataset.shopId),
@@ -935,78 +941,10 @@
             } catch(error) {
                 showToast(`Hata: ${error.message}`, 'error');
                 button.disabled = false;
-                button.textContent = 'Teklif İste';
+                 button.textContent = button.classList.contains('request-parts-offer-btn') ? 'Parça Teklifi İste' : 'Servis Teklifi İste';
             }
         }
 
-        async function handleRequestPartsOffer(e) {
-            if (!currentUser) {
-                showToast('Teklif istemek için lütfen giriş yapın.', 'error');
-                showLoginView();
-                authModal.classList.remove('hidden');
-                return;
-            }
-            const button = e.currentTarget;
-            button.disabled = true;
-            button.textContent = 'İletiliyor...';
-
-            const { isValid, selectedParts } = validateAndGetSelectedParts();
-            if (!isValid) {
-                showToast('Lütfen teklif istediğiniz her parça için bir marka seçin.', 'error');
-                button.disabled = false;
-                button.textContent = 'Parça Teklifi İste';
-                return;
-            }
-            
-            if (Object.keys(selectedParts).length === 0) {
-                showToast('Lütfen en az bir parça seçin.', 'error');
-                button.disabled = false;
-                button.textContent = 'Parça Teklifi İste';
-                return;
-            }
-
-            try {
-                const payload = {
-                    shop_user_id: button.dataset.shopId,
-                    shop_google_place_id: button.dataset.shopPlaceId,
-                    vehicle: {
-                        brand: brandSelect.value,
-                        series: seriesSelect.value,
-                        year: yearSelect.value,
-                        fuel: fuelSelect.value,
-                        model: modelSelect.value,
-                        km: parseInt(kmInput.value)
-                    },
-                    city: citySelect.value,
-                    maintenance_km: currentMaintenanceKm,
-                    selected_parts: selectedParts
-                };
-
-                const response = await fetch('/api/requests', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.description);
-                button.textContent = 'Talep İletildi!';
-                button.classList.replace('bg-orange-500', 'bg-gray-400');
-                button.classList.replace('hover:bg-orange-600', 'cursor-not-allowed');
-
-                activeUserRequests.push({
-                    shop_user_id: parseInt(button.dataset.shopId),
-                    vehicle_brand: brandSelect.value,
-                    vehicle_model: modelSelect.value,
-                    maintenance_km: currentMaintenanceKm
-                });
-                
-                showToast('Parça teklif talebiniz başarıyla iletildi!');
-            } catch(error) {
-                showToast(`Hata: ${error.message}`, 'error');
-                button.disabled = false;
-                button.textContent = 'Parça Teklifi İste';
-            }
-        }
         
         function displayAuthMessage(container, message, type) {
             const existingMessage = container.querySelector('.message-box');
@@ -1084,8 +1022,9 @@
         logoutBtnDesktop.addEventListener('click', logoutHandler);
         logoutBtnMobile.addEventListener('click', logoutHandler);
         
-        showRegister.addEventListener('click', (e) => { e.preventDefault(); showRegisterView(); });
-        document.querySelectorAll('#showLogin').forEach(el => el.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); }));
+        registerView.querySelector('#showLogin').addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+        loginView.querySelector('#showRegister').addEventListener('click', (e) => { e.preventDefault(); showRegisterView(); });
+
         showForgotPassword.addEventListener('click', (e) => { e.preventDefault(); showForgotPasswordView(); });
         backToLoginFromForgot.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
         backToLoginFromReset.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
@@ -1242,7 +1181,7 @@
             const messageContainer = document.getElementById('googleCompleteMessageContainer');
             messageContainer.innerHTML = ''; 
             if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) {
-                displayAuthMessage(messageContainer, 'Telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
+                displayAuthMessage(googleCompleteProfileForm, 'Telefon numarası 0 ile başlamalı ve 11 haneli olmalıdır.', 'error');
                 return;
             }
             
@@ -1268,7 +1207,7 @@
                     checkAuthStatus();
                 }
             } catch (error) {
-                displayAuthMessage(messageContainer, error.message, 'error');
+                displayAuthMessage(googleCompleteProfileForm, error.message, 'error');
             } finally {
                 submitButton.disabled = false; submitButton.textContent = 'Kaydı Tamamla';
             }
@@ -1407,3 +1346,4 @@
 </script>
 </body>
 </html>
+
