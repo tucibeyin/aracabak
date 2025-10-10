@@ -857,6 +857,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Araç</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Talep Tarihi</th>
             ${isOwner && isPartsList ? '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teslim Tarihi</th>' : ''}
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fiyat</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
         </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
 
@@ -870,11 +871,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? new Date(req.delivery_date).toLocaleDateString('tr-TR') 
                 : '---';
             
+            let priceText = '---';
+            let priceColorClass = 'text-gray-700';
+            if (req.quote) {
+                if (req.quote.last_offer_by === 'owner' && req.quote.owner_proposed_cost) {
+                    priceText = `${formatCurrency(req.quote.owner_proposed_cost)} TL`;
+                    priceColorClass = 'text-purple-700';
+                } else if (req.quote.total_cost) {
+                    priceText = `${formatCurrency(req.quote.total_cost)} TL`;
+                    priceColorClass = 'text-green-700';
+                }
+            }
+
             tableHtml += `<tr class="cursor-pointer hover:bg-gray-50 ${rowClass}" data-request-id="${req.id}">
                 <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm ${isOwner && quotedOrNegotiating(req) ? 'text-green-700' : 'text-gray-900'}">${name}</div></td>
                 <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${vehicleModel}</div></td>
                 <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700">${date}</div></td>
                 ${isOwner && isPartsList ? `<td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-700 font-medium">${deliveryDate}</div></td>` : ''}
+                <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-bold ${priceColorClass}">${priceText}</div></td>
                 <td class="px-6 py-4 whitespace-nowrap">${statusSpan}</td>
             </tr>`;
 
@@ -899,6 +913,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="mobile-label">Teslim Tarihi:</span>
                         <span class="mobile-value font-bold text-green-700">${deliveryDate}</span>
                     </div>` : ''}
+                     <div class="mobile-card-item">
+                        <span class="mobile-label">Fiyat:</span>
+                        <span class="mobile-value font-bold ${priceColorClass}">${priceText}</span>
+                    </div>
                 </div>`;
         });
 
