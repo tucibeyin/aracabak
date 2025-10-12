@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import psycopg2.extras
-from psycopg2 import pool 
+from psycopg2 import pool
 from psycopg2 import errors as psycopg2_errors
 import logging
 import re
@@ -9,7 +9,7 @@ import json
 import math
 import traceback
 import base64
-from flask import Flask, jsonify, request, session, redirect, url_for, g
+from flask import Flask, jsonify, request, session, redirect, url_for, g, render_template
 from flask_session import Session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -22,8 +22,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-import secrets 
-import string 
+import secrets
+import string
+
+# YENİ EKLENDİ: Admin API Blueprint'ini import et
+from admin_api import admin_bp
 
 # --- Yapılandırma ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s')
@@ -43,7 +46,9 @@ BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
 all_vehicle_data = []
 
 # --- Flask Uygulaması ve Oturum Yapılandırması ---
-app = Flask(__name__)
+# template_folder'ı HTML dosyalarının olduğu yere yönlendiriyoruz
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, '..', 'pages'))
+
 
 # --- Veritabanı Bağlantı Havuzu (Connection Pooling) ---
 try:
@@ -90,6 +95,9 @@ try:
 except (redis.exceptions.ConnectionError, Exception) as e:
     logging.warning(f"Redis'e bağlanılamadı, rate limiter bellek üzerinde çalışacak: {e}")
 
+# YENİ EKLENDİ: Admin API Blueprint'ini uygulamaya kaydet
+app.register_blueprint(admin_bp)
+
 # --- Helper Fonksiyonlar ve Veritabanı ---
 
 def get_db_connection():
@@ -117,6 +125,8 @@ def init_db():
         )
         cursor = conn.cursor()
 
+        # ... (Diğer CREATE TABLE ifadeleriniz burada kalacak) ...
+        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Admins (
                 id SERIAL PRIMARY KEY,
@@ -126,6 +136,17 @@ def init_db():
             )
         ''')
 
+        # YENİ EKLENDİ: Admin panelinin ihtiyaç duyduğu PageViews tablosu
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS PageViews (
+                id SERIAL PRIMARY KEY,
+                ip_address TEXT,
+                country TEXT,
+                city TEXT,
+                timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Users (
                 id SERIAL PRIMARY KEY,
@@ -272,6 +293,7 @@ def init_db():
         if conn:
             conn.close()
 
+# ... (Diğer tüm helper fonksiyonlarınız burada kalacak: add_column_if_not_exists, load_vehicle_data, vb.) ...
 
 def add_column_if_not_exists(cursor, table_name, column_name, column_def):
     table_name = table_name.lower()
@@ -464,6 +486,35 @@ with app.app_context():
     init_db()
 
 # --- API Endpoint'leri ---
+
+# YENİ EKLENDİ: Ziyaretçi takibi için endpoint
+@app.route('/api/track_visit', methods=['POST'])
+@limiter.limit("60 per minute")
+def track_visit():
+    ip_address = request.remote_addr
+    country, city = "Bilinmiyor", "Bilinmiyor"
+    try:
+        response = requests.get(f'http://ip-api.com/json/{ip_address}', timeout=2)
+        if response.status_code == 200:
+            data = response.json()
+            if data['status'] == 'success':
+                country = data.get('country', 'Bilinmiyor')
+                city = data.get('city', 'Bilinmiyor')
+    except requests.exceptions.RequestException as e:
+        logging.warning(f"IP lokasyon servisine ulaşılamadı: {e}")
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO PageViews (ip_address, country, city) VALUES (%s, %s, %s)', (ip_address, country, city))
+        conn.commit()
+    except Exception as e:
+        get_db_connection().rollback()
+        logging.error(f"Ziyaretçi verisi kaydedilirken hata: {e}")
+    
+    return jsonify({"status": "tracked"}), 201
+
+# ... (Diğer tüm API Endpoint'leriniz burada kalacak) ...
 @app.route('/api/auth/status')
 def auth_status():
     if 'user_id' in session:
@@ -1234,7 +1285,7 @@ def manage_appointment(appointment_id):
         is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
 
         if not (is_owner or is_business):
-                   return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
+                      return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
 
         if request.method == 'PUT':
             if not is_business:
@@ -1598,7 +1649,7 @@ def account_details():
                 website = data.get('website')
 
                 if shop_phone and not validate_phone_number(shop_phone):
-                       return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
+                            return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
                 if shop_type and shop_type not in ['service', 'parts_provider']:
                     return jsonify({"description": "Geçersiz işletme türü."}), 400
 
@@ -1816,6 +1867,27 @@ def google_auth():
     except Exception as e:
         logging.error(f"Google auth sırasında hata: {e}")
         return jsonify({"description": "Sunucu hatası veya geçersiz token."}), 500
+
+# --- HTML SAYFALARINI SUNMAK İÇİN YENİ EKLENEN KISIM ---
+@app.route('/')
+@app.route('/index.html')
+def index_page():
+    return render_template('index.html')
+
+@app.route('/account.html')
+def account_page():
+    if 'user_id' not in session:
+        return redirect(url_for('index_page'))
+    return render_template('account.html')
+
+@app.route('/admin.html')
+def admin_page():
+    return render_template('admin.html')
+
+@app.route('/gizlilik.html')
+def privacy_page():
+    return render_template('gizlilik.html')
+
 
 # --- Uygulama Başlangıcı ---
 if __name__ == '__main__':
