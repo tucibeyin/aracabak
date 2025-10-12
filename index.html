@@ -226,7 +226,7 @@
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Lütfen hesap türünüzü seçin:</label>
                     <div id="userTypeSelector" class="flex items-center justify-around bg-gray-200 rounded-lg p-1">
-                         <label class="w-1/2 text-center cursor-pointer">
+                          <label class="w-1/2 text-center cursor-pointer">
                             <input type="radio" name="google_user_type" value="owner" class="sr-only peer" checked>
                             <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Araç Sahibiyim</span>
                         </label>
@@ -283,7 +283,7 @@
                             <label for="registerName" class="block text-sm font-medium text-gray-700 mb-2">Ad Soyad</label>
                             <input type="text" id="registerName" name="name" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         </div>
-                         <div class="mb-4">
+                          <div class="mb-4">
                             <label for="registerPhone" class="block text-sm font-medium text-gray-700 mb-2">Telefon Numarası</label>
                             <input type="tel" id="registerPhone" name="phone_number" placeholder="0XXXXXXXXXX" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required pattern="0[0-9]{10}">
                         </div>
@@ -323,7 +323,7 @@
                         </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Kayıt Ol</button>
                     </form>
-                     <div class="my-4 text-center text-gray-500">veya</div>
+                       <div class="my-4 text-center text-gray-500">veya</div>
                     <div id="googleSignInButtonRegister" class="flex justify-center"></div>
                     <p class="mt-6 text-center text-sm">Zaten hesabın var mı? <a href="#" id="showLogin" class="text-blue-500 hover:underline">Giriş Yap</a></p>
                 </div>
@@ -350,7 +350,7 @@
                     <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Yeni Şifre Belirle</h2>
                     <p class="text-center text-gray-600 mb-6">E-postanıza gönderilen 6 haneli kodu ve yeni şifrenizi girin.</p>
                     <form id="resetPasswordForm">
-                         <div class="mb-4">
+                          <div class="mb-4">
                             <label for="resetCode" class="block text-sm font-medium text-gray-700 mb-2">Sıfırlama Kodu</label>
                             <input type="text" id="resetCode" name="code" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required maxlength="6">
                         </div>
@@ -360,7 +360,7 @@
                         </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Şifreyi Yenile</button>
                     </form>
-                     <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromReset" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
+                       <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromReset" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
                 </div>
             </div>
         </div>
@@ -369,17 +369,13 @@
     <div id="toast-container"></div>
 
 <script>
-    // This is the full, unmodified script from the user's provided file,
-    // with the Android SSO fix and other new features integrated.
     document.addEventListener('DOMContentLoaded', () => {
         let currentUser = null;
         let activeUserRequests = [];
         let currentMaintenanceKm = null;
         
-        // Global API keys will be populated by fetchAndSetConfig
         window.googleMapsApiKey = null;
         
-        // Selectors for Maintenance Form
         const brandSelect = document.getElementById('brand');
         const seriesSelect = document.getElementById('series');
         const yearSelect = document.getElementById('year');
@@ -389,12 +385,10 @@
         const kmInput = document.getElementById('kmInput');
         const findMaintenanceBtn = document.getElementById('findMaintenanceBtn');
         
-        // Selectors for Maintenance Flow
         const maintenanceFlowContainer = document.getElementById('maintenanceFlowContainer');
         const confirmationSection = document.getElementById('confirmationSection');
         const maintenanceResult = document.getElementById('maintenanceResult');
         
-        // Selectors for Auth (Desktop)
         const authContainer = document.getElementById('auth-container');
         const loginBtn = document.getElementById('loginBtn');
         const signupBtn = document.getElementById('signupBtn');
@@ -402,7 +396,6 @@
         const userTypeMessageDesktop = document.getElementById('userTypeMessageDesktop');
         const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
         
-        // Selectors for Auth (Mobile)
         const loginBtnMobile = document.getElementById('loginBtnMobile');
         const signupBtnMobile = document.getElementById('signupBtnMobile');
         const welcomeMessageMobile = document.getElementById('welcomeMessageMobile');
@@ -410,14 +403,12 @@
         const welcomeContainerMobileWrapper = document.getElementById('welcomeContainerMobileWrapper');
         const logoutBtnMobile = document.getElementById('logoutBtnMobile');
 
-        // Selectors for Modal
         const authModal = document.getElementById('authModal');
         const closeModal = document.getElementById('closeModal');
         const standardAuthForms = document.getElementById('standardAuthForms');
         const googleCompleteProfileForm = document.getElementById('googleCompleteProfileForm');
         const phoneNumberInput = document.getElementById('google_phone_number');
         
-        // Selectors for Manual Auth Forms in Modal
         const loginView = document.getElementById('loginView');
         const registerView = document.getElementById('registerView');
         const showRegister = document.getElementById('showRegister');
@@ -425,7 +416,6 @@
         const registerForm = document.getElementById('registerForm');
         const loginForm = document.getElementById('loginForm');
 
-        // Other selectors
         const registeredVehicleSelector = document.getElementById('registeredVehicleSelector');
         const vehicleSelector = document.getElementById('vehicleSelector');
         let maintenanceOptions = null; 
@@ -478,7 +468,6 @@
             }
         }
         
-        // Make it globally accessible for Google's callback
         window.handleGoogleCredentialResponse = handleGoogleCredentialResponse;
 
         function initializeGoogleSignIn(clientId) {
@@ -495,14 +484,14 @@
                     client_id: clientId,
                     callback: handleGoogleCredentialResponse,
                     ux_mode: uxMode,
-                    login_uri: 'https://aracabak.com/api/auth/google' // Yönlendirme modu için backend endpoint'i
+                    login_uri: isWebView ? 'https://aracabak.com/api/auth/google' : undefined
                 });
 
                 google.accounts.id.renderButton(
                     document.getElementById("googleSignInButtonLogin"),
                     { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "350" }
                 );
-                 google.accounts.id.renderButton(
+                  google.accounts.id.renderButton(
                     document.getElementById("googleSignInButtonRegister"),
                     { theme: "outline", size: "large", text: "signup_with", shape: "rectangular", width: "350" }
                 );
@@ -641,7 +630,7 @@
         }
 
         async function findAndDisplayShops() {
-            if (!window.googleMapsApiKey) {
+              if (!window.googleMapsApiKey) {
                 console.error("Google Maps API key not loaded. Shops cannot be displayed.");
                 document.getElementById('shopResultsContainer').classList.add('hidden');
                 return;
@@ -696,8 +685,8 @@
                     partsProviderContainer.classList.add('hidden');
                 }
             } catch(error) {
-                 console.error("Parça sağlayıcı arama hatası:", error);
-                 partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
+                  console.error("Parça sağlayıcı arama hatası:", error);
+                  partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
             }
 
             // Re-add event listeners
@@ -705,7 +694,7 @@
         }
 
         function createShopCard(shop) {
-             const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
+              const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
             const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
             const websiteUrl = shop.website;
 
@@ -738,13 +727,11 @@
                 const btnText = shop.shop_type === 'service' ? 'Servis Teklifi İste' : 'Parça Teklifi İste';
 
                 if (isRequestActive) {
-                     requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed w-full" disabled>Talep Mevcut</button>`;
+                      requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed w-full" disabled>Talep Mevcut</button>`;
                 } else {
-                     requestButtonHtml = `<button class="${btnClass} text-white font-bold py-2 px-4 rounded-lg w-full" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">${btnText}</button>`;
+                      requestButtonHtml = `<button class="${btnClass} text-white font-bold py-2 px-4 rounded-lg w-full" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">${btnText}</button>`;
                 }
             }
-
-            let gridCols = (phoneUrl && phoneUrl !== '#') && (directionsUrl && directionsUrl !== '#') ? 'grid-cols-2' : 'grid-cols-1';
 
             return `
                 <div class="bg-white p-5 rounded-lg shadow flex flex-col justify-between">
@@ -754,9 +741,9 @@
                         ${reviewsHtml}
                         ${mapContent}
                     </div>
-                    <div class="mt-4 grid ${gridCols} gap-2 border-t pt-4">
-                        <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed hidden' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
-                        <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed hidden' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
+                    <div class="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
+                        <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
+                        <a href="${directionsUrl}" target="_blank" class="text-center bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-600 ${!directionsUrl || directionsUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-directions mr-1"></i>Yol Tarifi</a>
                         ${websiteUrl ? `<a href="${websiteUrl}" target="_blank" class="col-span-2 text-center bg-gray-800 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-black"><i class="fas fa-globe mr-1"></i>Web Sitesi</a>` : ''}
                         ${requestButtonHtml ? `<div class="col-span-2">${requestButtonHtml}</div>` : ''}
                     </div>
@@ -947,7 +934,7 @@
             } catch(error) {
                 showToast(`Hata: ${error.message}`, 'error');
                 button.disabled = false;
-                 button.textContent = button.classList.contains('request-parts-offer-btn') ? 'Parça Teklifi İste' : 'Servis Teklifi İste';
+                  button.textContent = button.classList.contains('request-parts-offer-btn') ? 'Parça Teklifi İste' : 'Servis Teklifi İste';
             }
         }
 
@@ -1108,7 +1095,7 @@
                         authModal.classList.add('hidden');
                     }
                 } else {
-                     displayAuthMessage(loginView, body.description || 'E-posta veya şifre hatalı.', 'error');
+                      displayAuthMessage(loginView, body.description || 'E-posta veya şifre hatalı.', 'error');
                 }
             })
             .catch(error => {
@@ -1195,6 +1182,8 @@
             if (!googleUserData) return;
             const userType = document.querySelector('input[name="google_user_type"]:checked').value;
             const phoneNumber = phoneNumberInput.value;
+            const urlParams = new URLSearchParams(window.location.search);
+            const isWebView = urlParams.get('client_type') === 'android';
             
             const messageContainer = document.getElementById('googleCompleteMessageContainer');
             messageContainer.innerHTML = ''; 
@@ -1220,9 +1209,13 @@
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.');
                 if (result.status === 'login_success') {
-                    showToast('Kaydınız başarıyla tamamlandı!');
-                    authModal.classList.add('hidden');
-                    checkAuthStatus();
+                    if(isWebView) {
+                        window.location.href = "https://aracabak.com?client_type=android";
+                    } else {
+                        showToast('Kaydınız başarıyla tamamlandı!');
+                        authModal.classList.add('hidden');
+                        checkAuthStatus();
+                    }
                 }
             } catch (error) {
                 displayAuthMessage(googleCompleteProfileForm, error.message, 'error');
@@ -1253,7 +1246,7 @@
         });
 
         async function fetchAndSetConfig() {
-           try {
+             try {
                 const response = await fetch('/api/config');
                 if (!response.ok) throw new Error('Yapılandırma alınamadı.');
                 const config = await response.json();
@@ -1271,11 +1264,24 @@
             }
         }
 
+        // --- ZİYARETÇİ TAKİBİ (YENİ EKLENDİ) ---
+        async function trackPageVisit() {
+            try {
+                // Backend'e ziyaret bilgisini gönderiyoruz.
+                await fetch('/api/track_visit', { method: 'POST' });
+            } catch (error) {
+                // Bu işlemin başarısız olması sitenin çalışmasını engellememeli,
+                // bu yüzden hatayı sadece konsola yazdırıyoruz.
+                console.error('Ziyaretçi takibi başarısız:', error);
+            }
+        }
+
         // --- Sayfa Yüklendiğinde Başlatılan İşlemler ---
         checkAuthStatus();
         populateSelect(brandSelect, '/api/brands', 'Marka Seçin', null, false);
         fetchAndDisplayFuelPrices();
         fetchAndSetConfig();
+        trackPageVisit(); // Her sayfa yüklendiğinde ziyaretçiyi sayan fonksiyonu çağır.
 
         const allDropdowns = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
         allDropdowns.forEach((currentSelect, currentIndex) => {
