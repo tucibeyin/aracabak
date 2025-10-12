@@ -118,6 +118,15 @@ def init_db():
         cursor = conn.cursor()
 
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Admins (
+                id SERIAL PRIMARY KEY,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS Users (
                 id SERIAL PRIMARY KEY,
                 google_id TEXT UNIQUE,
