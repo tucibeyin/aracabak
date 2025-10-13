@@ -122,7 +122,7 @@
     </header>
 
     <!-- Main Content -->
-    <main class="container mx-auto p-4 md:p-8 flex-grow flex justify-center">
+    <main class="container mx-auto p-4 md:p-8 flex-grow flex flex-col items-center">
         <div class="w-full max-w-6xl mt-4 sm:mt-8">
             <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
                 <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-2">Periyodik Bakım Sihirbazı</h1>
@@ -198,6 +198,15 @@
             </div>
         </div>
     </main>
+
+    <!-- HARİTA BÖLÜMÜ -->
+    <section class="container mx-auto p-4 md:p-8">
+        <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
+            <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Yakındaki Servis ve Şarj İstasyonları</h2>
+            <div id="map" class="w-full h-96 rounded-lg bg-gray-200"></div>
+            <p id="map-error" class="text-center text-red-500 mt-4 hidden">Harita yüklenemedi. Lütfen konum izinlerinizi kontrol edin veya sayfayı yenileyin.</p>
+        </div>
+    </section>
     
     <footer class="text-center py-8 mt-auto pb-20">
         <p class="text-xs text-gray-500">®vovDigital, bu sayfa bilgilendirme amaçlıdır.</p>
@@ -323,7 +332,7 @@
                         </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Kayıt Ol</button>
                     </form>
-                       <div class="my-4 text-center text-gray-500">veya</div>
+                      <div class="my-4 text-center text-gray-500">veya</div>
                     <div id="googleSignInButtonRegister" class="flex justify-center"></div>
                     <p class="mt-6 text-center text-sm">Zaten hesabın var mı? <a href="#" id="showLogin" class="text-blue-500 hover:underline">Giriş Yap</a></p>
                 </div>
@@ -360,7 +369,7 @@
                         </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Şifreyi Yenile</button>
                     </form>
-                       <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromReset" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
+                      <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromReset" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
                 </div>
             </div>
         </div>
@@ -369,12 +378,109 @@
     <div id="toast-container"></div>
 
 <script>
+    // --- MAP SCRIPT BAŞLANGIÇ ---
+    let map;
+    let infowindow;
+
+    // Harita üzerinde işaretçi (marker) oluşturan fonksiyon
+    function createMarker(place, iconUrl) {
+        if (!place.geometry || !place.geometry.location) return;
+
+        const marker = new google.maps.Marker({
+            map: map,
+            position: place.geometry.location,
+            icon: iconUrl, // İşaretçi ikonu (kırmızı veya yeşil nokta)
+            title: place.name // İşaretçinin üzerine gelince görünecek başlık
+        });
+
+        // İşaretçiye tıklandığında bilgi penceresi aç
+        google.maps.event.addListener(marker, "click", () => {
+            const content = `<div><strong>${place.name}</strong><br>${place.vicinity || ''}</div>`;
+            infowindow.setContent(content);
+            infowindow.open(map, marker);
+        });
+    }
+
+    // Backend'deki önbellekli endpoint'i kullanarak yakındaki yerleri arayan fonksiyon
+    async function searchNearbyPlaces(location, keyword, iconUrl) {
+        try {
+            const response = await fetch(`/api/nearby_places?lat=${location.lat}&lng=${location.lng}&keyword=${encodeURIComponent(keyword)}`);
+            if (!response.ok) {
+                console.error(`'${keyword}' için yakındaki yerler alınamadı.`);
+                return;
+            }
+            const data = await response.json();
+            // Backend'den gelen 'results' dizisini kontrol et
+            if (data.results) {
+                for (let i = 0; i < data.results.length; i++) {
+                    createMarker(data.results[i], iconUrl);
+                }
+            }
+        } catch (error) {
+            console.error('Yakındaki yerler aranırken hata:', error);
+        }
+    }
+    
+    // Haritayı başlatan ana fonksiyon (Google Maps script'i tarafından çağrılır)
+    window.initMap = function() {
+        const mapElement = document.getElementById('map');
+        const mapErrorElement = document.getElementById('map-error');
+        const ankara = { lat: 39.925533, lng: 32.866287 }; // Varsayılan konum: Ankara
+
+        // Tarayıcının konum servisini kullanmayı dene
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    // Konum başarıyla alındıysa haritayı bu konumla kur
+                    const userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                    };
+                    setupMap(userLocation);
+                },
+                () => {
+                    // Konum alınamazsa, Ankara'yı kullanarak haritayı kur
+                    mapErrorElement.textContent = 'Konum alınamadı. Ankara merkezli sonuçlar gösteriliyor.';
+                    mapErrorElement.classList.remove('hidden');
+                    setupMap(ankara);
+                }
+            );
+        } else {
+            // Tarayıcı konum servisini desteklemiyorsa, Ankara'yı kullanarak haritayı kur
+            mapErrorElement.textContent = 'Tarayıcınız konum servisini desteklemiyor. Ankara merkezli sonuçlar gösteriliyor.';
+            mapErrorElement.classList.remove('hidden');
+            setupMap(ankara);
+        }
+    }
+
+    // Haritayı kuran ve aramaları başlatan fonksiyon
+    async function setupMap(location) {
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: location,
+            zoom: 13,
+        });
+
+        infowindow = new google.maps.InfoWindow();
+        
+        // Backend'deki önbellekli endpoint'e anahtar kelime bazlı sorgu gönderiyoruz.
+        await searchNearbyPlaces(location, 'car repair', 'https://maps.google.com/mapfiles/ms/icons/red-dot.png');
+        await searchNearbyPlaces(location, 'charging station', 'https://maps.google.com/mapfiles/ms/icons/green-dot.png');
+    }
+
+    // Google Maps script'ini sayfaya dinamik olarak ekleyen fonksiyon
+    function loadGoogleMapsScript(apiKey) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
+        script.async = true;
+        document.head.appendChild(script);
+    }
+    // --- MAP SCRIPT BİTİŞ ---
+
+
     document.addEventListener('DOMContentLoaded', () => {
         let currentUser = null;
         let activeUserRequests = [];
         let currentMaintenanceKm = null;
-        
-        window.googleMapsApiKey = null;
         
         const brandSelect = document.getElementById('brand');
         const seriesSelect = document.getElementById('series');
@@ -630,11 +736,6 @@
         }
 
         async function findAndDisplayShops() {
-              if (!window.googleMapsApiKey) {
-                console.error("Google Maps API key not loaded. Shops cannot be displayed.");
-                document.getElementById('shopResultsContainer').classList.add('hidden');
-                return;
-            }
             const brand = brandSelect.value;
             const city = citySelect.value;
 
@@ -685,8 +786,8 @@
                     partsProviderContainer.classList.add('hidden');
                 }
             } catch(error) {
-                  console.error("Parça sağlayıcı arama hatası:", error);
-                  partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
+                console.error("Parça sağlayıcı arama hatası:", error);
+                partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
             }
 
             // Re-add event listeners
@@ -694,7 +795,7 @@
         }
 
         function createShopCard(shop) {
-              const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
+            const directionsUrl = shop.url || (shop.google_place_id ? `https://www.google.com/maps/search/?api=1&query_place_id=${shop.google_place_id}` : '#');
             const phoneUrl = shop.phone ? `tel:${shop.phone}` : '#';
             const websiteUrl = shop.website;
 
@@ -709,7 +810,7 @@
                 reviewsHtml += '</div>';
             }
 
-            let mapContent = shop.google_place_id && shop.shop_type === 'service' ? `<iframe class="mt-4 w-full h-48 rounded-lg border" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${window.googleMapsApiKey}&q=place_id:${shop.google_place_id}"></iframe>` : '';
+            let mapContent = ''; // Harita iframe'i kaldırıldı, ana harita yeterli
             
             let isRequestActive = false;
             if (currentUser && currentUser.userType === 'owner') {
@@ -727,9 +828,9 @@
                 const btnText = shop.shop_type === 'service' ? 'Servis Teklifi İste' : 'Parça Teklifi İste';
 
                 if (isRequestActive) {
-                      requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed w-full" disabled>Talep Mevcut</button>`;
+                    requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed w-full" disabled>Talep Mevcut</button>`;
                 } else {
-                      requestButtonHtml = `<button class="${btnClass} text-white font-bold py-2 px-4 rounded-lg w-full" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">${btnText}</button>`;
+                    requestButtonHtml = `<button class="${btnClass} text-white font-bold py-2 px-4 rounded-lg w-full" data-shop-id="${shop.shop_user_id}" data-shop-place-id="${shop.google_place_id || ''}">${btnText}</button>`;
                 }
             }
 
@@ -934,7 +1035,7 @@
             } catch(error) {
                 showToast(`Hata: ${error.message}`, 'error');
                 button.disabled = false;
-                  button.textContent = button.classList.contains('request-parts-offer-btn') ? 'Parça Teklifi İste' : 'Servis Teklifi İste';
+                button.textContent = button.classList.contains('request-parts-offer-btn') ? 'Parça Teklifi İste' : 'Servis Teklifi İste';
             }
         }
 
@@ -1095,7 +1196,7 @@
                         authModal.classList.add('hidden');
                     }
                 } else {
-                      displayAuthMessage(loginView, body.description || 'E-posta veya şifre hatalı.', 'error');
+                    displayAuthMessage(loginView, body.description || 'E-posta veya şifre hatalı.', 'error');
                 }
             })
             .catch(error => {
@@ -1246,7 +1347,7 @@
         });
 
         async function fetchAndSetConfig() {
-             try {
+            try {
                 const response = await fetch('/api/config');
                 if (!response.ok) throw new Error('Yapılandırma alınamadı.');
                 const config = await response.json();
@@ -1256,7 +1357,15 @@
                 } else {
                     throw new Error("Google Client ID bulunamadı.");
                 }
-                window.googleMapsApiKey = config.googleMapsApiKey;
+
+                if (config.googleMapsApiKey) {
+                    loadGoogleMapsScript(config.googleMapsApiKey);
+                } else {
+                    console.error("Google Maps API anahtarı yapılandırmada bulunamadı.");
+                    const mapError = document.getElementById('map-error');
+                    mapError.textContent = 'Harita yapılandırması yüklenemedi.';
+                    mapError.classList.remove('hidden');
+                }
 
             } catch(error) {
                 console.error("Config yüklenirken hata:", error);
@@ -1370,3 +1479,4 @@
 </script>
 </body>
 </html>
+
