@@ -525,24 +525,22 @@ def track_visit():
     
     return jsonify({"status": "tracked"}), 201
 
-# YENİ EKLENDİ: Google Places API için önbellekli proxy endpoint'i
+# GÜNCELLENDİ: Google Places API için önbellekli proxy endpoint'i
 @app.route('/api/nearby_places')
 @limiter.limit("100 per minute")
 def nearby_places():
     lat = request.args.get('lat')
     lng = request.args.get('lng')
-    place_type = request.args.get('type')
+    keyword = request.args.get('keyword') # 'type' yerine 'keyword' kullanılıyor
 
-    if not all([lat, lng, place_type]):
-        return jsonify({"error": "Eksik parametreler: lat, lng ve type gereklidir."}), 400
+    if not all([lat, lng, keyword]):
+        return jsonify({"error": "Eksik parametreler: lat, lng ve keyword gereklidir."}), 400
 
     try:
         # Sorgu için benzersiz bir hash oluştur
-        # Konumu daha genel bir alana yuvarlayarak önbellek isabet oranını artırabiliriz
-        # Örneğin, 3 ondalık basamak yaklaşık 111 metrelik bir hassasiyet sağlar.
         rounded_lat = round(float(lat), 3)
         rounded_lng = round(float(lng), 3)
-        query_string = f"{rounded_lat}:{rounded_lng}:{place_type}"
+        query_string = f"{rounded_lat}:{rounded_lng}:{keyword}" # hash için keyword kullanılıyor
         query_hash = hashlib.sha256(query_string.encode('utf-8')).hexdigest()
 
         conn = get_db_connection()
@@ -565,7 +563,7 @@ def nearby_places():
         logging.info(f"Google Places API çağrılıyor: {query_string}")
         api_url = (
             f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-            f"?location={lat},{lng}&radius=5000&type={place_type}"
+            f"?location={lat},{lng}&radius=5000&keyword={keyword}" # 'type' yerine 'keyword' parametresi kullanılıyor
             f"&key={GOOGLE_PLACES_API_KEY}&language=tr"
         )
         response = requests.get(api_url, timeout=10)
@@ -592,7 +590,7 @@ def nearby_places():
         logging.error(f"Google Places API'ye ulaşılamadı: {e}")
         return jsonify({"error": "Harici servise ulaşılamadı."}), 503
     except Exception as e:
-        conn.rollback()
+        get_db_connection().rollback()
         logging.error(f"Yakındaki yerler aranırken hata: {e}\n{traceback.format_exc()}")
         return jsonify({"error": "Sunucu hatası."}), 500
 
