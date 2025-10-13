@@ -24,6 +24,7 @@ import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 import secrets
 import string
+import hashlib # YENİ EKLENDİ: Önbellekleme için hash oluşturma
 
 # YENİ EKLENDİ: Admin API Blueprint'ini import et
 from admin_api import admin_bp
@@ -282,6 +283,16 @@ def init_db():
                 is_active BOOLEAN NOT NULL DEFAULT true
             )
         ''')
+        
+        # YENİ EKLENDİ: Google Places API sonuçları için önbellek tablosu
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS CachedPlaces (
+                id SERIAL PRIMARY KEY,
+                query_hash TEXT NOT NULL UNIQUE,
+                results_json TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
 
         conn.commit()
         logging.info("Veritabanı başarıyla kontrol edildi.")
@@ -513,6 +524,78 @@ def track_visit():
         logging.error(f"Ziyaretçi verisi kaydedilirken hata: {e}")
     
     return jsonify({"status": "tracked"}), 201
+
+# YENİ EKLENDİ: Google Places API için önbellekli proxy endpoint'i
+@app.route('/api/nearby_places')
+@limiter.limit("100 per minute")
+def nearby_places():
+    lat = request.args.get('lat')
+    lng = request.args.get('lng')
+    place_type = request.args.get('type')
+
+    if not all([lat, lng, place_type]):
+        return jsonify({"error": "Eksik parametreler: lat, lng ve type gereklidir."}), 400
+
+    try:
+        # Sorgu için benzersiz bir hash oluştur
+        # Konumu daha genel bir alana yuvarlayarak önbellek isabet oranını artırabiliriz
+        # Örneğin, 3 ondalık basamak yaklaşık 111 metrelik bir hassasiyet sağlar.
+        rounded_lat = round(float(lat), 3)
+        rounded_lng = round(float(lng), 3)
+        query_string = f"{rounded_lat}:{rounded_lng}:{place_type}"
+        query_hash = hashlib.sha256(query_string.encode('utf-8')).hexdigest()
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Önbelleği kontrol et
+        cursor.execute(
+            "SELECT results_json, created_at FROM CachedPlaces WHERE query_hash = %s",
+            (query_hash,)
+        )
+        cached_result = cursor.fetchone()
+
+        if cached_result:
+            cache_age = datetime.now(timezone.utc) - cached_result['created_at']
+            if cache_age < timedelta(days=1):
+                logging.info(f"Önbellekten sunuluyor: {query_string}")
+                return jsonify(json.loads(cached_result['results_json']))
+
+        # Önbellek boş veya eski, Google API'ye git
+        logging.info(f"Google Places API çağrılıyor: {query_string}")
+        api_url = (
+            f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+            f"?location={lat},{lng}&radius=5000&type={place_type}"
+            f"&key={GOOGLE_PLACES_API_KEY}&language=tr"
+        )
+        response = requests.get(api_url, timeout=10)
+        response.raise_for_status()
+        results = response.json()
+
+        # Sonuçları veritabanına kaydet/güncelle
+        results_json = json.dumps(results)
+        cursor.execute(
+            """
+            INSERT INTO CachedPlaces (query_hash, results_json, created_at)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (query_hash) DO UPDATE SET
+                results_json = EXCLUDED.results_json,
+                created_at = EXCLUDED.created_at;
+            """,
+            (query_hash, results_json, datetime.now(timezone.utc))
+        )
+        conn.commit()
+
+        return jsonify(results)
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Google Places API'ye ulaşılamadı: {e}")
+        return jsonify({"error": "Harici servise ulaşılamadı."}), 503
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Yakındaki yerler aranırken hata: {e}\n{traceback.format_exc()}")
+        return jsonify({"error": "Sunucu hatası."}), 500
+
 
 # ... (Diğer tüm API Endpoint'leriniz burada kalacak) ...
 @app.route('/api/auth/status')
@@ -1285,7 +1368,7 @@ def manage_appointment(appointment_id):
         is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
 
         if not (is_owner or is_business):
-                      return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
+                          return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
 
         if request.method == 'PUT':
             if not is_business:
@@ -1649,7 +1732,7 @@ def account_details():
                 website = data.get('website')
 
                 if shop_phone and not validate_phone_number(shop_phone):
-                            return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
+                                return jsonify({"description": "Geçersiz işletme telefonu no."}), 400
                 if shop_type and shop_type not in ['service', 'parts_provider']:
                     return jsonify({"description": "Geçersiz işletme türü."}), 400
 
