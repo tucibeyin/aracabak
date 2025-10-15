@@ -1,6 +1,123 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+    <!-- Yapay Usta Chatbot Stil Başlangıcı -->
+<style>
+    #yapayusta-chat-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #1f2937; /* Koyu Gri */
+        color: white;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 999;
+        transition: transform 0.2s ease;
+    }
+    #yapayusta-chat-button:hover {
+        transform: scale(1.1);
+    }
+    #yapayusta-chat-window {
+        position: fixed;
+        bottom: 90px;
+        right: 20px;
+        width: 350px;
+        max-width: 90vw;
+        height: 500px;
+        max-height: 70vh;
+        background-color: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+        z-index: 998;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transform: scale(0.95) translateY(20px);
+        opacity: 0;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+        pointer-events: none;
+    }
+    #yapayusta-chat-window.open {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .yapayusta-header {
+        background-color: #1f2937;
+        color: white;
+        padding: 15px;
+        font-weight: bold;
+        text-align: center;
+        font-size: 1.1rem;
+    }
+    .yapayusta-messages {
+        flex-grow: 1;
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .yapayusta-message {
+        padding: 10px 15px;
+        border-radius: 20px;
+        max-width: 85%;
+        line-height: 1.4;
+        word-wrap: break-word;
+    }
+    .user-message {
+        background-color: #3b82f6; /* Mavi */
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 5px;
+    }
+    .ai-message {
+        background-color: #e5e7eb; /* Açık Gri */
+        color: #1f2937;
+        align-self: flex-start;
+        border-bottom-left-radius: 5px;
+    }
+    .yapayusta-input-area {
+        border-top: 1px solid #e5e7eb;
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+        background-color: #f9fafb;
+    }
+    #yapayusta-input {
+        flex-grow: 1;
+        border: 1px solid #d1d5db;
+        padding: 10px 15px;
+        border-radius: 20px;
+        outline: none;
+        font-size: 14px;
+    }
+    #yapayusta-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    #yapayusta-send-btn {
+        background-color: #1f2937;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+<!-- Yapay Usta Chatbot Stil Bitişi -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>aracabak - Premium Bakım Servisi</title>
@@ -62,7 +179,110 @@
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+    <!-- Yapay Usta Chatbot Başlangıcı -->
+    <div id="yapayusta-chat-button" title="Yapay Usta'ya Sor">
+        <i class="fas fa-robot"></i> <!-- FontAwesome ikon kütüphanesini kullandığınızı varsayıyorum -->
+    </div>
+    <div id="yapayusta-chat-window">
+        <div class="yapayusta-header">Yapay Usta</div>
+            <div class="yapayusta-messages" id="yapayusta-messages">
+            <div class="yapayusta-message ai-message">Merhaba! Ben Yapay Usta. Araçlarla ilgili her konuda sana yardımcı olabilirim. Ne öğrenmek istersin?</div>
+        </div>
+        <div class="yapayusta-input-area">
+            <input type="text" id="yapayusta-input" placeholder="Sorunuzu yazın..." autocomplete="off">
+            <button id="yapayusta-send-btn" title="Gönder"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+    <!-- Yapay Usta Chatbot Bitişi -->
+<!-- Yapay Usta Chatbot Script Başlangıcı (Düzeltilmiş Hali) -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatButton = document.getElementById('yapayusta-chat-button');
+        const chatWindow = document.getElementById('yapayusta-chat-window');
+        const messagesContainer = document.getElementById('yapayusta-messages');
+        const inputField = document.getElementById('yapayusta-input');
+        const sendButton = document.getElementById('yapayusta-send-btn');
 
+        // Sohbet penceresini aç/kapat
+        chatButton.addEventListener('click', () => {
+            chatWindow.classList.toggle('open');
+            if (chatWindow.classList.contains('open')) {
+                inputField.focus();
+            }
+        });
+
+        // Mesaj gönderme fonksiyonu
+        const sendMessage = async () => {
+            const prompt = inputField.value.trim();
+            if (!prompt) return;
+
+            addMessage(prompt, 'user');
+            inputField.value = '';
+            inputField.disabled = true;
+            sendButton.disabled = true;
+            
+            // "Yazıyor..." göstergesi ekle
+            addMessage('Yapay Usta yazıyor...', 'ai', true); // 'isTyping' flag'i eklendi
+
+            // "Yazıyor..." göstergesini güvenli bir şekilde kaldıran fonksiyon
+            const removeTypingIndicator = () => {
+                const indicator = messagesContainer.querySelector('.typing-indicator');
+                if (indicator) {
+                    messagesContainer.removeChild(indicator);
+                }
+            };
+
+            try {
+                // Backend'deki yeni API endpoint'imize istek atıyoruz
+                const response = await fetch('/api/yapayusta/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                removeTypingIndicator(); // HATA DÜZELTMESİ: Göstergeyi kaldır
+
+                if (!response.ok) {
+                    throw new Error('Sunucudan bir hata alındı.');
+                }
+                const data = await response.json();
+                addMessage(data.text, 'ai');
+
+            } catch (error) {
+                removeTypingIndicator(); // HATA DÜZELTMESİ: Hata durumunda da göstergeyi kaldır
+                addMessage('Üzgünüm, bir hata oluştu. Lütfen daha sonra tekrar deneyin.', 'ai');
+            } finally {
+                inputField.disabled = false;
+                sendButton.disabled = false;
+                inputField.focus();
+            }
+        };
+
+        // Mesajları ekrana ekleyen yardımcı fonksiyon (güncellendi)
+        const addMessage = (text, sender, isTyping = false) => {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('yapayusta-message', `${sender}-message`);
+            // HATA DÜZELTMESİ: "Yazıyor..." mesajına özel bir class ekliyoruz
+            if (isTyping) {
+                messageElement.classList.add('typing-indicator');
+            }
+            messageElement.innerText = text;
+            messagesContainer.appendChild(messageElement);
+            // En alta kaydır
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return messageElement;
+        };
+
+        // Butona tıklayınca veya Enter'a basınca mesaj gönder
+        sendButton.addEventListener('click', sendMessage);
+        inputField.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    });
+</script>
+<!-- Yapay Usta Chatbot Script Bitişi -->
     <!-- Header -->
     <header class="bg-white shadow-md sticky top-0 z-40">
         <!-- MASAÜSTÜ NAV BAR (sm: ekranlar ve üzeri) -->
