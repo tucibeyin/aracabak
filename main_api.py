@@ -9,7 +9,7 @@ import json
 import math
 import traceback
 import base64
-from flask import Flask, jsonify, request, session, redirect, url_for, g, render_template
+from flask import Flask, jsonify, request, session, redirect, url_for, g, render_template, Blueprint
 from flask_session import Session
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -19,15 +19,15 @@ from dotenv import load_dotenv
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from werkzeug.security import generate_password_hash, check_password_hash
-from yapayusta_api import yapayusta_bp
 import requests
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 import secrets
 import string
-import hashlib # YENİ EKLENDİ: Önbellekleme için hash oluşturma
+import hashlib
+import google.generativeai as genai
 
-# YENİ EKLENDİ: Admin API Blueprint'ini import et
+# Admin API Blueprint'ini import et
 from admin_api import admin_bp
 
 # --- Yapılandırma ---
@@ -45,12 +45,11 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
+YAPAYUSTA_API_KEY = os.getenv("YAPAYUSTA_API_KEY")
 all_vehicle_data = []
 
 # --- Flask Uygulaması ve Oturum Yapılandırması ---
-# template_folder'ı HTML dosyalarının olduğu yere yönlendiriyoruz
 app = Flask(__name__, template_folder=os.path.join(BASE_DIR, '..', 'pages'))
-
 
 # --- Veritabanı Bağlantı Havuzu (Connection Pooling) ---
 try:
@@ -97,9 +96,39 @@ try:
 except (redis.exceptions.ConnectionError, Exception) as e:
     logging.warning(f"Redis'e bağlanılamadı, rate limiter bellek üzerinde çalışacak: {e}")
 
-# YENİ EKLENDİ: Admin API Blueprint'ini uygulamaya kaydet
+# Yapay Usta için Blueprint
+yapayusta_bp = Blueprint('yapayusta_api', __name__)
+
+if YAPAYUSTA_API_KEY:
+    genai.configure(api_key=YAPAYUSTA_API_KEY)
+
+@yapayusta_bp.route('/generate', methods=['POST'])
+def generate_text():
+    if 'user_id' not in session:
+        if 'turn_count' not in session:
+            session['turn_count'] = 0
+        session['turn_count'] += 1
+        if session['turn_count'] > 2:
+            return jsonify({"text": "Daha fazla soru sormak için lütfen giriş yapın.", "login_required": True})
+
+    prompt = request.json.get('prompt')
+    if not prompt:
+        return jsonify({"error": "Prompt is required."}), 400
+
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        response = model.generate_content(prompt)
+        return jsonify({"text": response.text})
+    except Exception as e:
+        logging.error(f"Yapay Usta API hatası: {e}")
+        return jsonify({"error": "Model üretimi sırasında bir hata oluştu."}), 500
+
 app.register_blueprint(admin_bp)
-app.register_blueprint(yapayusta_bp)
+
+# Chatbot için yeni kısıtlar
+@limiter.limit("100/day")
+@limiter.limit("10/minute")
+app.register_blueprint(yapayusta_bp, url_prefix='/api/yapayusta')
 
 # --- Helper Fonksiyonlar ve Veritabanı ---
 
