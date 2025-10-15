@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from werkzeug.security import generate_password_hash, check_password_hash
+from yapayusta_api import yapayusta_bp
 import requests
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
@@ -98,6 +99,7 @@ except (redis.exceptions.ConnectionError, Exception) as e:
 
 # YENİ EKLENDİ: Admin API Blueprint'ini uygulamaya kaydet
 app.register_blueprint(admin_bp)
+app.register_blueprint(yapayusta_bp)
 
 # --- Helper Fonksiyonlar ve Veritabanı ---
 
