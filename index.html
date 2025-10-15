@@ -395,7 +395,20 @@
 
         // İşaretçiye tıklandığında bilgi penceresi aç
         google.maps.event.addListener(marker, "click", () => {
-            const content = `<div><strong>${place.name}</strong><br>${place.vicinity || ''}</div>`;
+            // Bilgi penceresi içeriğini oluştur
+            const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination_place_id=${place.place_id}`;
+            const detailsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}`;
+
+            const content = `
+                <div class="p-2">
+                    <strong class="text-base">${place.name}</strong><br>
+                    <p class="text-sm text-gray-600">${place.vicinity || ''}</p>
+                    <div class="mt-3">
+                        <a href="${directionsUrl}" target="_blank" class="text-blue-600 font-semibold hover:underline mr-4">Yol Tarifi</a>
+                        <a href="${detailsUrl}" target="_blank" class="text-blue-600 font-semibold hover:underline">Detaylar & Ara</a>
+                    </div>
+                </div>`;
+
             infowindow.setContent(content);
             infowindow.open(map, marker);
         });
@@ -1479,4 +1492,3 @@
 </script>
 </body>
 </html>
-
