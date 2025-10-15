@@ -116,6 +116,30 @@
         align-items: center;
         justify-content: center;
     }
+    /* YENİ EKLENEN STİLLER */
+    .yapayusta-login-btn, .yapayusta-signup-btn {
+        flex-grow: 1;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .yapayusta-login-btn {
+        background-color: #3b82f6;
+        color: white;
+    }
+    .yapayusta-login-btn:hover {
+        background-color: #2563eb;
+    }
+    .yapayusta-signup-btn {
+        background-color: #d1d5db;
+        color: #1f2937;
+    }
+     .yapayusta-signup-btn:hover {
+        background-color: #9ca3af;
+    }
 </style>
 <!-- Yapay Usta Chatbot Stil Bitişi -->
     <meta charset="UTF-8">
@@ -194,95 +218,6 @@
         </div>
     </div>
     <!-- Yapay Usta Chatbot Bitişi -->
-<!-- Yapay Usta Chatbot Script Başlangıcı (Düzeltilmiş Hali) -->
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const chatButton = document.getElementById('yapayusta-chat-button');
-        const chatWindow = document.getElementById('yapayusta-chat-window');
-        const messagesContainer = document.getElementById('yapayusta-messages');
-        const inputField = document.getElementById('yapayusta-input');
-        const sendButton = document.getElementById('yapayusta-send-btn');
-
-        // Sohbet penceresini aç/kapat
-        chatButton.addEventListener('click', () => {
-            chatWindow.classList.toggle('open');
-            if (chatWindow.classList.contains('open')) {
-                inputField.focus();
-            }
-        });
-
-        // Mesaj gönderme fonksiyonu
-        const sendMessage = async () => {
-            const prompt = inputField.value.trim();
-            if (!prompt) return;
-
-            addMessage(prompt, 'user');
-            inputField.value = '';
-            inputField.disabled = true;
-            sendButton.disabled = true;
-            
-            // "Yazıyor..." göstergesi ekle
-            addMessage('Yapay Usta yazıyor...', 'ai', true); // 'isTyping' flag'i eklendi
-
-            // "Yazıyor..." göstergesini güvenli bir şekilde kaldıran fonksiyon
-            const removeTypingIndicator = () => {
-                const indicator = messagesContainer.querySelector('.typing-indicator');
-                if (indicator) {
-                    messagesContainer.removeChild(indicator);
-                }
-            };
-
-            try {
-                // Backend'deki yeni API endpoint'imize istek atıyoruz
-                const response = await fetch('/api/yapayusta/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt })
-                });
-
-                removeTypingIndicator(); // HATA DÜZELTMESİ: Göstergeyi kaldır
-
-                if (!response.ok) {
-                    throw new Error('Sunucudan bir hata alındı.');
-                }
-                const data = await response.json();
-                addMessage(data.text, 'ai');
-
-            } catch (error) {
-                removeTypingIndicator(); // HATA DÜZELTMESİ: Hata durumunda da göstergeyi kaldır
-                addMessage('Üzgünüm, bir hata oluştu. Lütfen daha sonra tekrar deneyin.', 'ai');
-            } finally {
-                inputField.disabled = false;
-                sendButton.disabled = false;
-                inputField.focus();
-            }
-        };
-
-        // Mesajları ekrana ekleyen yardımcı fonksiyon (güncellendi)
-        const addMessage = (text, sender, isTyping = false) => {
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('yapayusta-message', `${sender}-message`);
-            // HATA DÜZELTMESİ: "Yazıyor..." mesajına özel bir class ekliyoruz
-            if (isTyping) {
-                messageElement.classList.add('typing-indicator');
-            }
-            messageElement.innerText = text;
-            messagesContainer.appendChild(messageElement);
-            // En alta kaydır
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            return messageElement;
-        };
-
-        // Butona tıklayınca veya Enter'a basınca mesaj gönder
-        sendButton.addEventListener('click', sendMessage);
-        inputField.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-    });
-</script>
-<!-- Yapay Usta Chatbot Script Bitişi -->
     <!-- Header -->
     <header class="bg-white shadow-md sticky top-0 z-40">
         <!-- MASAÜSTÜ NAV BAR (sm: ekranlar ve üzeri) -->
@@ -711,6 +646,17 @@
 
 
     document.addEventListener('DOMContentLoaded', () => {
+        // --- DEĞİŞİKLİK: TÜM SAYFA SCRIPTLERİ BU BLOK İÇİNDE BİRLEŞTİRİLDİ ---
+
+        // --- YAPAY USTA CHATBOT DEĞİŞKENLERİ ---
+        const chatButton = document.getElementById('yapayusta-chat-button');
+        const chatWindow = document.getElementById('yapayusta-chat-window');
+        const messagesContainer = document.getElementById('yapayusta-messages');
+        const inputField = document.getElementById('yapayusta-input');
+        const sendButton = document.getElementById('yapayusta-send-btn');
+        let isChatLocked = false;
+
+        // --- ANA SAYFA DEĞİŞKENLERİ ---
         let currentUser = null;
         let activeUserRequests = [];
         let currentMaintenanceKm = null;
@@ -769,6 +715,137 @@
         const backToLoginFromForgot = document.getElementById('backToLoginFromForgot');
         const backToLoginFromReset = document.getElementById('backToLoginFromReset');
 
+        // --- MODAL GÖRÜNÜM FONKSİYONLARI ---
+        function showLoginView() {
+            googleCompleteProfileForm.classList.add('hidden');
+            forgotPasswordFlow.classList.add('hidden'); 
+            standardAuthForms.classList.remove('hidden');
+            registerView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+        }
+
+        function showRegisterView() {
+            googleCompleteProfileForm.classList.add('hidden');
+            forgotPasswordFlow.classList.add('hidden'); 
+            standardAuthForms.classList.remove('hidden');
+            loginView.classList.add('hidden');
+            registerView.classList.remove('hidden');
+        }
+        
+        function showForgotPasswordView() {
+            standardAuthForms.classList.add('hidden');
+            googleCompleteProfileForm.classList.add('hidden');
+            forgotPasswordFlow.classList.remove('hidden');
+            resetPasswordView.classList.add('hidden');
+            forgotPasswordView.classList.remove('hidden');
+        }
+        
+        function showResetPasswordView() {
+            forgotPasswordView.classList.add('hidden');
+            resetPasswordView.classList.remove('hidden');
+        }
+
+        // --- YAPAY USTA CHATBOT FONKSİYONLARI ---
+        chatButton.addEventListener('click', () => {
+            chatWindow.classList.toggle('open');
+            if (chatWindow.classList.contains('open') && !isChatLocked) {
+                inputField.focus();
+            }
+        });
+
+        const sendMessage = async () => {
+            const prompt = inputField.value.trim();
+            if (!prompt || isChatLocked) return;
+
+            addMessage(prompt, 'user');
+            inputField.value = '';
+            inputField.disabled = true;
+            sendButton.disabled = true;
+            
+            addMessage('Yapay Usta yazıyor...', 'ai', true); 
+
+            const removeTypingIndicator = () => {
+                const indicator = messagesContainer.querySelector('.typing-indicator');
+                if (indicator) {
+                    messagesContainer.removeChild(indicator);
+                }
+            };
+
+            try {
+                const response = await fetch('/api/yapayusta/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                removeTypingIndicator();
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 429 || response.status === 503) {
+                        addMessage(data.error, 'ai', false, true);
+                        isChatLocked = true;
+                        inputField.disabled = true;
+                        sendButton.disabled = true;
+                        return;
+                    }
+                    throw new Error(data.error || 'Sunucudan bir hata alındı.');
+                }
+                addMessage(data.text, 'ai');
+
+            } catch (error) {
+                removeTypingIndicator();
+                addMessage(error.message || 'Üzgünüm, bir hata oluştu. Lütfen daha sonra tekrar deneyin.', 'ai');
+            } finally {
+                if (!isChatLocked) {
+                    inputField.disabled = false;
+                    sendButton.disabled = false;
+                    inputField.focus();
+                }
+            }
+        };
+
+        const addMessage = (text, sender, isTyping = false, isLimitMessage = false) => {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('yapayusta-message', `${sender}-message`);
+            
+            if (isTyping) {
+                messageElement.classList.add('typing-indicator');
+                messageElement.innerText = text;
+            } 
+            else if (isLimitMessage) {
+                messageElement.innerHTML = `
+                    <p>${text}</p>
+                    <div class="mt-3 flex gap-2">
+                        <button class="yapayusta-login-btn">Giriş Yap</button>
+                        <button class="yapayusta-signup-btn">Kayıt Ol</button>
+                    </div>
+                `;
+                messageElement.querySelector('.yapayusta-login-btn').addEventListener('click', () => {
+                    showLoginView();
+                    authModal.classList.remove('hidden');
+                });
+                messageElement.querySelector('.yapayusta-signup-btn').addEventListener('click', () => {
+                    showRegisterView();
+                    authModal.classList.remove('hidden');
+                });
+            }
+            else {
+                messageElement.innerText = text;
+            }
+
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return messageElement;
+        };
+
+        sendButton.addEventListener('click', sendMessage);
+        inputField.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+
+        // --- ANA SAYFA FONKSİYONLARI ---
         async function handleGoogleCredentialResponse(response) {
             try {
                 const res = await fetch('/api/auth/google', {
@@ -977,40 +1054,31 @@
             const partsProviderContainer = document.getElementById('partsProviderContainer');
             const partsProviderList = document.getElementById('partsProviderList');
 
-            // --- Fetch and Display Services ---
             shopList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
             shopContainer.classList.remove('hidden');
             
-            // --- Fetch and Display Parts Providers ---
             partsProviderList.innerHTML = `<div class="col-span-full text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div></div>`;
             partsProviderContainer.classList.remove('hidden');
 
             try {
-                // Fetch Services
                 const serviceResponse = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}&shop_type=service`);
                 if (!serviceResponse.ok) throw new Error("Servisler alınamadı.");
                 const serviceShops = await serviceResponse.json();
-
-                // Render Service Shops
                 shopList.innerHTML = '';
                 if (serviceShops.length > 0) {
                     serviceShops.forEach(shop => shopList.innerHTML += createShopCard(shop));
                 } else {
                     shopList.innerHTML = '<p class="col-span-full text-center text-gray-500">Bu kriterlere uygun servis bulunamadı.</p>';
                 }
-
             } catch (error) {
                 console.error("Servis arama hatası:", error);
                 shopList.innerHTML = `<p class="col-span-full text-center text-red-500">${error.message}</p>`;
             }
 
             try {
-                // Fetch Parts Providers
                 const partsResponse = await fetch(`/api/find_shops?city=${encodeURIComponent(city)}&brand=${encodeURIComponent(brand)}&shop_type=parts_provider`);
                 if (!partsResponse.ok) throw new Error("Parça sağlayıcıları alınamadı.");
                 const partsProviderShops = await partsResponse.json();
-
-                // Render Parts Providers
                 partsProviderList.innerHTML = '';
                 if (partsProviderShops.length > 0) {
                     partsProviderContainer.classList.remove('hidden');
@@ -1023,7 +1091,6 @@
                 partsProviderList.innerHTML = '<p class="col-span-full text-center text-red-500">Parça sağlayıcıları yüklenirken bir hata oluştu.</p>';
             }
 
-            // Re-add event listeners
             document.querySelectorAll('.request-offer-btn, .request-parts-offer-btn').forEach(btn => btn.addEventListener('click', handleRequestOffer));
         }
 
@@ -1043,8 +1110,6 @@
                 reviewsHtml += '</div>';
             }
 
-            let mapContent = ''; // Harita iframe'i kaldırıldı, ana harita yeterli
-            
             let isRequestActive = false;
             if (currentUser && currentUser.userType === 'owner') {
                 isRequestActive = activeUserRequests.some(req =>
@@ -1073,7 +1138,6 @@
                         <h4 class="font-bold text-lg">${shop.name}</h4>
                         <div class="mt-2">${ratingHtml}</div>
                         ${reviewsHtml}
-                        ${mapContent}
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
                         <a href="${phoneUrl}" class="text-center bg-gray-200 text-gray-800 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 ${!phoneUrl || phoneUrl === '#' ? 'opacity-50 cursor-not-allowed' : ''}"><i class="fas fa-phone mr-1"></i>Ara</a>
@@ -1304,35 +1368,7 @@
             }
         }
         
-        function showLoginView() {
-            googleCompleteProfileForm.classList.add('hidden');
-            forgotPasswordFlow.classList.add('hidden'); 
-            standardAuthForms.classList.remove('hidden');
-            registerView.classList.add('hidden');
-            loginView.classList.remove('hidden');
-        }
-
-        function showRegisterView() {
-            googleCompleteProfileForm.classList.add('hidden');
-            forgotPasswordFlow.classList.add('hidden'); 
-            standardAuthForms.classList.remove('hidden');
-            loginView.classList.add('hidden');
-            registerView.classList.remove('hidden');
-        }
         
-        function showForgotPasswordView() {
-            standardAuthForms.classList.add('hidden');
-            googleCompleteProfileForm.classList.add('hidden');
-            forgotPasswordFlow.classList.remove('hidden');
-            resetPasswordView.classList.add('hidden');
-            forgotPasswordView.classList.remove('hidden');
-        }
-        
-        function showResetPasswordView() {
-            forgotPasswordView.classList.add('hidden');
-            resetPasswordView.classList.remove('hidden');
-        }
-
         loginBtn.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
         signupBtn.addEventListener('click', () => { showRegisterView(); authModal.classList.remove('hidden'); });
         loginBtnMobile.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
@@ -1480,7 +1516,7 @@
             submitButton.disabled = true;
             submitButton.textContent = 'Yenileniyor...';
             
-            const email = document.getElementById('forgotEmail').value; // E-postayı ilk formdan alıyoruz
+            const email = document.getElementById('forgotEmail').value;
             const code = document.getElementById('resetCode').value;
             const new_password = document.getElementById('newPassword').value;
 
@@ -1544,7 +1580,7 @@
                 if (!response.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.');
                 if (result.status === 'login_success') {
                     if(isWebView) {
-                        window.location.href = "https://aracabak.com?client_type=android";
+                        window.location.href = "https://aracabak.com/?client_type=android";
                     } else {
                         showToast('Kaydınız başarıyla tamamlandı!');
                         authModal.classList.add('hidden');
@@ -1606,24 +1642,20 @@
             }
         }
 
-        // --- ZİYARETÇİ TAKİBİ (YENİ EKLENDİ) ---
         async function trackPageVisit() {
             try {
-                // Backend'e ziyaret bilgisini gönderiyoruz.
                 await fetch('/api/track_visit', { method: 'POST' });
             } catch (error) {
-                // Bu işlemin başarısız olması sitenin çalışmasını engellememeli,
-                // bu yüzden hatayı sadece konsola yazdırıyoruz.
                 console.error('Ziyaretçi takibi başarısız:', error);
             }
         }
 
-        // --- Sayfa Yüklendiğinde Başlatılan İşlemler ---
+        // --- SAYFA YÜKLEME İŞLEMLERİ ---
         checkAuthStatus();
         populateSelect(brandSelect, '/api/brands', 'Marka Seçin', null, false);
         fetchAndDisplayFuelPrices();
         fetchAndSetConfig();
-        trackPageVisit(); // Her sayfa yüklendiğinde ziyaretçiyi sayan fonksiyonu çağır.
+        trackPageVisit();
 
         const allDropdowns = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
         allDropdowns.forEach((currentSelect, currentIndex) => {
