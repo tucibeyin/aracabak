@@ -1811,7 +1811,15 @@ def get_cities():
 @app.route('/api/brands')
 def get_brands():
     load_vehicle_data()
-    return jsonify(sorted(list(set(item['marka'] for item in all_vehicle_data))))
+    brands = sorted(list(set(item['marka'] for item in all_vehicle_data)))
+    # Marka adını ve logo yolunu içeren bir liste oluştur
+    brands_with_logos = []
+    for brand in brands:
+        # Logo dosya adını marka adından türet (örneğin, "Volkswagen.png")
+        logo_filename = f"{brand.replace(' ', '')}.png"
+        logo_path = f"/logolar/markalar/{logo_filename}"
+        brands_with_logos.append({"name": brand, "logo": logo_path})
+    return jsonify(brands_with_logos)
 
 @app.route('/api/series')
 def get_series():
