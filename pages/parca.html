@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parça Arama Sonuçları - aracabak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card-light { background-color: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(200, 200, 200, 0.2); }
+        .loader { border-top-color: #3498db; /* Mavi */ }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        /* Header, Footer, Modal ve Toast stilleri index.html'den alınabilir */
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.7); }
+        .modal { width: 90%; max-width: 420px; }
+        #auth-container.logged-in #user-menu-desktop { display: flex; }
+        #auth-container.logged-in #guest-menu { display: none; }
+        #auth-container #user-menu-desktop { display: none; }
+        #auth-container-mobile.logged-in #user-menu-mobile { display: flex; } /* Mobil kullanıcı menüsü için */
+        #auth-container-mobile.logged-in #guest-menu-mobile { display: none; } /* Mobil misafir menüsünü gizle */
+        #auth-container-mobile.logged-in #welcomeContainerMobileWrapperHeader { display: block; }
+
+        .message-box { padding: 12px; margin-bottom: 16px; border-radius: 8px; font-weight: 500; }
+        .message-success { background-color: #d1fae5; color: #065f46; }
+        .message-error { background-color: #fee2e2; color: #991b1b; }
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; padding: 1rem 1.5rem;
+            border-radius: 0.5rem; color: white; font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transform: translateY(100px);
+            opacity: 0; transition: transform 0.5s ease, opacity 0.5s ease; z-index: 100;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast-success { background-color: #28a745; }
+        .toast-error { background-color: #dc3545; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <nav class="container mx-auto px-4 sm:px-6 py-3 hidden sm:flex justify-between items-center">
+            <a href="/">
+                <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
+            </a>
+            <div id="auth-container" class="flex items-center space-x-4">
+                <div id="guest-menu" class="flex items-center space-x-2 sm:space-x-4">
+                    <button id="loginBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Giriş Yap</button>
+                    <button id="signupBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Kayıt Ol</button>
+                </div>
+                <div id="user-menu-desktop" class="hidden items-center space-x-2 sm:space-x-4">
+                    <div class="text-right">
+                        <span id="welcomeMessageHeader" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
+                        <span id="userTypeMessageHeader" class="text-xs text-gray-500 block capitalize"></span>
+                    </div>
+                    <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <button id="logoutBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+        </nav>
+        <div id="auth-container-mobile" class="container mx-auto px-4 sm:hidden">
+            <div class="py-3 flex justify-center items-center">
+                 <a href="/">
+                    <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 w-auto">
+                </a>
+            </div>
+            <div class="py-2 border-t border-gray-200 flex justify-center items-center space-x-2">
+                 <div id="guest-menu-mobile" class="flex items-center space-x-2">
+                    <button id="loginBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Giriş Yap</button>
+                    <button id="signupBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Kayıt Ol</button>
+                </div>
+                <div id="user-menu-mobile" class="hidden flex items-center space-x-2">
+                     <a href="/" class="bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg hover:bg-blue-700">Anasayfa</a>
+                     <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <button id="logoutBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+             <div id="welcomeContainerMobileWrapperHeader" class="pb-3 hidden">
+                <div class="text-center pt-2 border-t border-gray-200">
+                    <span id="welcomeMessageMobileHeader" class="font-semibold block text-gray-800 text-sm"></span>
+                    <span id="userTypeMessageMobileHeader" class="text-xs text-gray-500 block capitalize"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8 flex-grow">
+        <div class="w-full max-w-6xl mx-auto mt-4 sm:mt-8">
+            <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
+                <h1 class="text-2xl sm:text-3xl font-bold mb-4">Parça Arama Sonuçları</h1>
+                <p id="selectedVehicleInfo" class="text-md text-gray-700 mb-6 bg-gray-100 p-3 rounded-lg border border-gray-200"></p>
+
+                <div id="partsListContainer">
+                    <div id="loadingIndicator" class="text-center py-10">
+                        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto animate-spin"></div>
+                        <p class="text-gray-600">Uygun parçalar aranıyor...</p>
+                    </div>
+
+                    <div id="errorMessage" class="hidden text-center py-10 px-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3 text-red-500"></i>
+                        <p id="errorText" class="font-semibold"></p>
+                    </div>
+
+                    <div id="partsGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        </div>
+
+                    <div id="noResultsMessage" class="hidden text-center py-10 px-4 bg-yellow-50 text-yellow-700 rounded-lg border border-yellow-200">
+                        <i class="fas fa-info-circle fa-2x mb-3 text-yellow-500"></i>
+                        <p class="font-semibold">Seçtiğiniz araca uygun parça bulunamadı.</p>
+                        <p class="text-sm mt-1">Lütfen ana sayfaya dönüp farklı bir araç seçerek tekrar deneyin.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-8 mt-auto">
+         <p class="text-xs text-gray-500">®vovDigital, bu sayfa bilgilendirme amaçlıdır.</p>
+        <p class="text-xs text-gray-500 mt-1">Sorularınız için info.aracabak@gmail.com adresine mail atabilirsiniz</p>
+    </footer>
+
+    <div id="authModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+            <button id="closeModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
+
+            <div id="googleCompleteProfileFormHeader" class="hidden">
+                 </div>
+
+            <div id="standardAuthForms">
+                <div id="loginView">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Giriş Yap</h2>
+                    <form id="loginFormHeader">
+                        <div class="mb-4">
+                            <label for="loginEmailHeader" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label>
+                            <input type="email" id="loginEmailHeader" name="email" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="loginPasswordHeader" class="block text-sm font-medium text-gray-700 mb-2">Şifre</label>
+                            <input type="password" id="loginPasswordHeader" name="password" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <p class="text-right text-sm mb-4"><a href="#" id="showForgotPasswordHeader" class="text-blue-500 hover:underline">Şifremi unuttum</a></p>
+                        <div class="message-box hidden"></div> <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Giriş Yap</button>
+                    </form>
+                    <div class="my-4 text-center text-gray-500">veya</div>
+                    <div id="googleSignInButtonLoginHeader" class="flex justify-center"></div>
+                    <p class="mt-6 text-center text-sm">Hesabın yok mu? <a href="#" id="showRegisterHeader" class="text-blue-500 hover:underline">Kayıt Ol</a></p>
+                </div>
+
+                <div id="registerView" class="hidden">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Hesap Oluştur</h2>
+                    <form id="registerFormHeader">
+                        <div class="mb-4"><label for="registerNameHeader" class="block text-sm font-medium text-gray-700 mb-2">Ad Soyad</label><input type="text" id="registerNameHeader" name="name" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required></div>
+                        <div class="mb-4"><label for="registerPhoneHeader" class="block text-sm font-medium text-gray-700 mb-2">Telefon</label><input type="tel" id="registerPhoneHeader" name="phone_number" placeholder="0XXXXXXXXXX" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required pattern="0[0-9]{10}"></div>
+                        <div class="mb-4"><label for="registerEmailHeader" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label><input type="email" id="registerEmailHeader" name="email" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required></div>
+                        <div class="mb-4"><label for="registerPasswordHeader" class="block text-sm font-medium text-gray-700 mb-2">Şifre</label><input type="password" id="registerPasswordHeader" name="password" minlength="6" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required></div>
+                        <div class="mb-4"><span class="block text-sm font-medium text-gray-700 mb-2">Hesap Tipi</span><div class="flex items-center justify-around bg-gray-200 rounded-lg p-1"><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="userTypeHeader" value="owner" class="sr-only peer" checked><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Araç Sahibiyim</span></label><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="userTypeHeader" value="business" class="sr-only peer"><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">İşletmeyim</span></label></div></div>
+                        <div id="shopTypeSelectionHeader" class="mb-4 hidden"><label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türü</label><div class="flex items-center justify-around bg-gray-200 rounded-lg p-1"><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="shopTypeHeader" value="service" class="sr-only peer" checked><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Servis</span></label><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="shopTypeHeader" value="parts_provider" class="sr-only peer"><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Parça Sağlayıcı</span></label></div></div>
+                        <div class="message-box hidden"></div> <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Kayıt Ol</button>
+                    </form>
+                    <div class="my-4 text-center text-gray-500">veya</div>
+                    <div id="googleSignInButtonRegisterHeader" class="flex justify-center"></div>
+                    <p class="mt-6 text-center text-sm">Zaten hesabın var mı? <a href="#" id="showLoginHeader" class="text-blue-500 hover:underline">Giriş Yap</a></p>
+                </div>
+            </div>
+
+            <div id="forgotPasswordFlowHeader" class="hidden">
+                <div id="forgotPasswordViewHeader">
+                     <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Şifreni Sıfırla</h2>
+                     <p class="text-center text-gray-600 mb-6">Hesabınıza ait e-posta adresini girin.</p>
+                     <form id="forgotPasswordFormHeader">
+                         <div class="mb-4"><label for="forgotEmailHeader" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label><input type="email" id="forgotEmailHeader" name="email" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required></div>
+                         <div class="message-box hidden"></div> <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Sıfırlama Kodu Gönder</button>
+                    </form>
+                     <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromForgotHeader" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
+                </div>
+                 <div id="resetPasswordViewHeader" class="hidden">
+                    <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Yeni Şifre Belirle</h2>
+                    <p class="text-center text-gray-600 mb-6">E-postanıza gelen kodu ve yeni şifrenizi girin.</p>
+                    <form id="resetPasswordFormHeader">
+                          <div class="mb-4"><label for="resetCodeHeader" class="block text-sm font-medium text-gray-700 mb-2">Sıfırlama Kodu</label><input type="text" id="resetCodeHeader" name="code" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required maxlength="6"></div>
+                          <div class="mb-6"><label for="newPasswordHeader" class="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre</label><input type="password" id="newPasswordHeader" name="new_password" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required minlength="6"></div>
+                          <div class="message-box hidden"></div> <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Şifreyi Yenile</button>
+                    </form>
+                      <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromResetHeader" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="toast-container"></div> <script>
+document.addEventListener('DOMContentLoaded', async () => {
+    // === Element Referansları ===
+    const selectedVehicleInfoEl = document.getElementById('selectedVehicleInfo');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const errorMessageEl = document.getElementById('errorMessage');
+    const errorTextEl = document.getElementById('errorText');
+    const partsGrid = document.getElementById('partsGrid');
+    const noResultsMessage = document.getElementById('noResultsMessage');
+
+    // --- Header Auth Elementleri ---
+    const authContainerHeader = document.getElementById('auth-container'); // Desktop Ana Konteyner
+    const guestMenuHeader = document.getElementById('guest-menu');
+    const userMenuDesktopHeader = document.getElementById('user-menu-desktop');
+    const welcomeMessageHeader = document.getElementById('welcomeMessageHeader');
+    const userTypeMessageHeader = document.getElementById('userTypeMessageHeader');
+    const loginBtnHeader = document.getElementById('loginBtnHeader');
+    const signupBtnHeader = document.getElementById('signupBtnHeader');
+    const logoutBtnHeader = document.getElementById('logoutBtnHeader');
+
+    const authContainerMobileHeader = document.getElementById('auth-container-mobile'); // Mobil Ana Konteyner
+    const guestMenuMobileHeader = document.getElementById('guest-menu-mobile');
+    const userMenuMobileHeader = document.getElementById('user-menu-mobile');
+    const welcomeContainerMobileWrapperHeader = document.getElementById('welcomeContainerMobileWrapperHeader');
+    const welcomeMessageMobileHeader = document.getElementById('welcomeMessageMobileHeader');
+    const userTypeMessageMobileHeader = document.getElementById('userTypeMessageMobileHeader');
+    const loginBtnMobileHeader = document.getElementById('loginBtnMobileHeader');
+    const signupBtnMobileHeader = document.getElementById('signupBtnMobileHeader');
+    const logoutBtnMobileHeader = document.getElementById('logoutBtnMobileHeader');
+
+    // --- Modal Elementleri ---
+    const authModal = document.getElementById('authModal');
+    const closeModal = authModal.querySelector('#closeModal');
+    const standardAuthForms = authModal.querySelector('#standardAuthForms');
+    const googleCompleteProfileFormHeader = authModal.querySelector('#googleCompleteProfileFormHeader'); // Eğer varsa
+    const loginView = authModal.querySelector('#loginView');
+    const registerView = authModal.querySelector('#registerView');
+    const loginFormHeader = authModal.querySelector('#loginFormHeader');
+    const registerFormHeader = authModal.querySelector('#registerFormHeader');
+    const showRegisterHeader = authModal.querySelector('#showRegisterHeader');
+    const showLoginHeader = authModal.querySelector('#showLoginHeader');
+    const shopTypeSelectionHeader = authModal.querySelector('#shopTypeSelectionHeader'); // Kayıt formundaysa
+    const forgotPasswordFlowHeader = authModal.querySelector('#forgotPasswordFlowHeader');
+    const forgotPasswordViewHeader = authModal.querySelector('#forgotPasswordViewHeader');
+    const resetPasswordViewHeader = authModal.querySelector('#resetPasswordViewHeader');
+    const forgotPasswordFormHeader = authModal.querySelector('#forgotPasswordFormHeader');
+    const resetPasswordFormHeader = authModal.querySelector('#resetPasswordFormHeader');
+    const showForgotPasswordHeader = authModal.querySelector('#showForgotPasswordHeader');
+    const backToLoginFromForgotHeader = authModal.querySelector('#backToLoginFromForgotHeader');
+    const backToLoginFromResetHeader = authModal.querySelector('#backToLoginFromResetHeader');
+
+    let googleClientId = null; // Google Client ID'yi saklamak için
+    let googleUserData = null; // Google ile giriş yapan ama profili tamamlanmamış kullanıcı verisi
+
+    // === Helper Fonksiyonlar ===
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        if (!container) return; // Konteyner yoksa çık
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        // Anında görünür yap ve animasyonu başlat
+        requestAnimationFrame(() => {
+             toast.classList.add('show');
+        });
+        // 3 saniye sonra kaldır
+        setTimeout(() => {
+            toast.classList.remove('show');
+            // Animasyon bittikten sonra DOM'dan kaldır
+            toast.addEventListener('transitionend', () => {
+                 if (container.contains(toast)) {
+                     container.removeChild(toast);
+                 }
+            }, { once: true });
+        }, 3000);
+    }
+
+    function displayAuthMessage(container, message, type) {
+        if (!container) return;
+        const messageBox = container.querySelector('.message-box');
+        if (!messageBox) { // Eğer message-box yoksa, oluştur (opsiyonel)
+            console.warn("displayAuthMessage: Mesaj kutusu bulunamadı.", container);
+            return;
+        }
+        messageBox.textContent = message;
+        messageBox.className = `message-box message-${type}`; // Önceki sınıfları temizler
+        messageBox.classList.remove('hidden'); // Görünür yap
+    }
+
+    function clearAuthMessages() {
+         authModal.querySelectorAll('.message-box').forEach(box => {
+             box.textContent = '';
+             box.classList.add('hidden');
+         });
+    }
+
+    // --- Modal Görünüm Fonksiyonları ---
+    function showLoginView() {
+        clearAuthMessages();
+        if(googleCompleteProfileFormHeader) googleCompleteProfileFormHeader.classList.add('hidden');
+        if(forgotPasswordFlowHeader) forgotPasswordFlowHeader.classList.add('hidden');
+        if(standardAuthForms) standardAuthForms.classList.remove('hidden');
+        if(registerView) registerView.classList.add('hidden');
+        if(loginView) loginView.classList.remove('hidden');
+    }
+
+    function showRegisterView() {
+        clearAuthMessages();
+        if(googleCompleteProfileFormHeader) googleCompleteProfileFormHeader.classList.add('hidden');
+        if(forgotPasswordFlowHeader) forgotPasswordFlowHeader.classList.add('hidden');
+        if(standardAuthForms) standardAuthForms.classList.remove('hidden');
+        if(loginView) loginView.classList.add('hidden');
+        if(registerView) registerView.classList.remove('hidden');
+    }
+
+    function showForgotPasswordView() {
+        clearAuthMessages();
+        if(standardAuthForms) standardAuthForms.classList.add('hidden');
+        if(googleCompleteProfileFormHeader) googleCompleteProfileFormHeader.classList.add('hidden');
+        if(forgotPasswordFlowHeader) forgotPasswordFlowHeader.classList.remove('hidden');
+        if(resetPasswordViewHeader) resetPasswordViewHeader.classList.add('hidden');
+        if(forgotPasswordViewHeader) forgotPasswordViewHeader.classList.remove('hidden');
+    }
+
+    function showResetPasswordView() {
+        clearAuthMessages();
+        if(forgotPasswordViewHeader) forgotPasswordViewHeader.classList.add('hidden');
+        if(resetPasswordViewHeader) resetPasswordViewHeader.classList.remove('hidden');
+    }
+
+
+    // --- Header Authentication Logic ---
+    async function checkAuthStatusHeader() {
+        try {
+            const response = await fetch('/api/auth/status');
+            const data = await response.json();
+            updateLoginStateHeader(data.loggedIn ? data : null);
+        } catch (error) {
+            console.error("Oturum durumu kontrol edilemedi:", error);
+            updateLoginStateHeader(null); // Hata durumunda çıkış yapmış gibi göster
+        }
+    }
+
+     function updateLoginStateHeader(userData) {
+        const isLoggedIn = userData && userData.loggedIn;
+
+        // Desktop
+        if (authContainerHeader) {
+            authContainerHeader.classList.toggle('logged-in', isLoggedIn);
+        }
+        if(guestMenuHeader) guestMenuHeader.style.display = isLoggedIn ? 'none' : 'flex';
+        if (userMenuDesktopHeader) {
+            userMenuDesktopHeader.style.display = isLoggedIn ? 'flex' : 'none';
+            if (isLoggedIn && welcomeMessageHeader && userTypeMessageHeader) {
+                welcomeMessageHeader.textContent = `Hoşgeldin, ${userData.userName}!`;
+                userTypeMessageHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+            }
+        }
+
+        // Mobile
+        if (authContainerMobileHeader) {
+             authContainerMobileHeader.classList.toggle('logged-in', isLoggedIn);
+        }
+        if(guestMenuMobileHeader) guestMenuMobileHeader.style.display = isLoggedIn ? 'none' : 'flex';
+        if (userMenuMobileHeader) {
+             userMenuMobileHeader.style.display = isLoggedIn ? 'flex' : 'none';
+        }
+         if (welcomeContainerMobileWrapperHeader) {
+             welcomeContainerMobileWrapperHeader.style.display = isLoggedIn ? 'block' : 'none';
+             if (isLoggedIn && welcomeMessageMobileHeader && userTypeMessageMobileHeader) {
+                 welcomeMessageMobileHeader.textContent = `Hoşgeldin, ${userData.userName}!`;
+                 userTypeMessageMobileHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi';
+             }
+         }
+    }
+
+    async function handleLogoutHeader() {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            updateLoginStateHeader(null); // Header'ı hemen güncelle
+            showToast('Başarıyla çıkış yapıldı.');
+            // İsteğe bağlı: Anasayfaya yönlendirme
+            // window.location.href = '/';
+        } catch (error) {
+             console.error("Çıkış yapılırken hata:", error);
+             showToast("Çıkış yapılırken bir hata oluştu.", "error");
+        }
+    }
+
+    // --- Google Sign-In Functions ---
+    async function handleGoogleCredentialResponse(response) {
+         try {
+             const res = await fetch('/api/auth/google', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ token: response.credential })
+             });
+             const result = await res.json();
+             if (!res.ok) throw new Error(result.description || "Google ile giriş başarısız.");
+
+             if (result.status === 'login_success') {
+                 authModal.classList.add('hidden'); // Modalı kapat
+                 await checkAuthStatusHeader();     // Header'ı güncelle
+                 showToast(`Hoşgeldin, ${result.userName}!`);
+             } else if (result.status === 'complete_profile') {
+                // Google profil tamamlama formu bu sayfada yoksa hata ver veya index'e yönlendir
+                console.error("Google profil tamamlama formu parca.html'de bulunmuyor.");
+                showToast("Giriş başarılı, ancak profilinizi tamamlamak için ana sayfaya yönlendiriliyorsunuz.", "success");
+                setTimeout(() => window.location.href = '/', 2000); // Anasayfaya yönlendir
+             }
+         } catch (error) {
+             console.error("Google auth yanıtı işlenirken hata:", error);
+             displayAuthMessage(loginView, error.message || "Google ile giriş sırasında bir hata oluştu.", 'error');
+         }
+    }
+    window.handleGoogleCredentialResponse = handleGoogleCredentialResponse; // Callback'i global yap
+
+    function initializeGoogleSignIn(clientId) {
+        if (!clientId || typeof google === 'undefined' || !google.accounts) {
+            console.error("Google Identity Services yüklenemedi veya Client ID eksik.");
+            // Google butonlarını gizle veya hata mesajı göster
+            document.getElementById("googleSignInButtonLoginHeader").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile giriş yapılamıyor.</p>`;
+             document.getElementById("googleSignInButtonRegisterHeader").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile kayıt yapılamıyor.</p>`;
+            return;
+        }
+        try {
+            google.accounts.id.initialize({
+                client_id: clientId,
+                callback: handleGoogleCredentialResponse,
+                ux_mode: 'popup' // Bu sayfada popup daha uygun olabilir
+            });
+            // Sadece modal içindeki butonları render et
+            google.accounts.id.renderButton( document.getElementById("googleSignInButtonLoginHeader"),
+                { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "300" } ); // Biraz daha dar olabilir
+            google.accounts.id.renderButton( document.getElementById("googleSignInButtonRegisterHeader"),
+                { theme: "outline", size: "large", text: "signup_with", shape: "rectangular", width: "300" } );
+        } catch (error) {
+            console.error("Google SSO başlatma hatası:", error);
+             document.getElementById("googleSignInButtonLoginHeader").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile giriş hatası.</p>`;
+             document.getElementById("googleSignInButtonRegisterHeader").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile kayıt hatası.</p>`;
+        }
+    }
+
+    // --- Config Yükleme ---
+    async function fetchAndSetConfig() {
+        try {
+            const response = await fetch('/api/config');
+            if (!response.ok) throw new Error('Yapılandırma alınamadı.');
+            const config = await response.json();
+            googleClientId = config.googleClientId; // Client ID'yi değişkene ata
+            initializeGoogleSignIn(googleClientId); // Google Sign-In'i başlat
+        } catch(error) {
+            console.error("Config yüklenirken hata:", error);
+             // Google butonları için hata göster
+             document.getElementById("googleSignInButtonLoginHeader").innerHTML = `<p class="text-red-500 text-center text-sm">Giriş yapılandırması yüklenemedi.</p>`;
+             document.getElementById("googleSignInButtonRegisterHeader").innerHTML = `<p class="text-red-500 text-center text-sm">Kayıt yapılandırması yüklenemedi.</p>`;
+        }
+    }
+
+
+    // === Sayfa Yükleme ve Parça Arama Mantığı ===
+    const urlParams = new URLSearchParams(window.location.search);
+    const marka = urlParams.get('marka');
+    const seri = urlParams.get('seri');
+    const yil = urlParams.get('yil');
+    const yakit = urlParams.get('yakit');
+    const model = urlParams.get('model'); // Bu aslında 'engine'
+
+    // Gerekli parametreler var mı kontrolü
+    if (!marka || !seri || !yil || !yakit || !model) {
+        showError("Arama yapmak için gerekli araç bilgileri eksik. Lütfen ana sayfaya dönüp tekrar deneyin.");
+        loadingIndicator.classList.add('hidden');
+    } else {
+        // Seçilen araç bilgisini göster
+        selectedVehicleInfoEl.textContent = `${marka} ${seri} (${yil}) - ${yakit} - ${model}`;
+
+        // API'den parçaları çek
+        try {
+            // API endpoint'ini blueprint prefix'i ile birlikte kullan
+            const apiUrl = `/api/parca/bul?marka=${encodeURIComponent(marka)}&seri=${encodeURIComponent(seri)}&yil=${encodeURIComponent(yil)}&yakit=${encodeURIComponent(yakit)}&model=${encodeURIComponent(model)}`;
+            const response = await fetch(apiUrl);
+
+            // Yanıt durumunu kontrol et
+            if (!response.ok) {
+                let errorMsg = `Sunucu hatası: ${response.status}`;
+                try {
+                     const errorData = await response.json();
+                     errorMsg = errorData.error || errorMsg;
+                } catch(e) { /* JSON parse edilemezse varsayılan mesaj kalır */ }
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+
+            loadingIndicator.classList.add('hidden'); // Yükleniyor... gizle
+
+            if (data.parcalar && data.parcalar.length > 0) {
+                renderParts(data.parcalar);
+                partsGrid.classList.remove('hidden'); // Grid'i göster
+            } else {
+                noResultsMessage.classList.remove('hidden'); // Sonuç yok mesajını göster
+            }
+
+        } catch (error) {
+            console.error("Parça arama hatası:", error);
+            showError(`Parçalar yüklenirken bir hata oluştu: ${error.message}`);
+            loadingIndicator.classList.add('hidden');
+        }
+    }
+
+    // === Yardımcı Fonksiyonlar ===
+    function showError(message) {
+        if(errorTextEl) errorTextEl.textContent = message;
+        if(errorMessageEl) errorMessageEl.classList.remove('hidden');
+    }
+
+    function renderParts(parts) {
+        if (!partsGrid) return; // Grid yoksa çık
+        partsGrid.innerHTML = ''; // Önceki sonuçları temizle
+        parts.forEach(part => {
+            // Fiyat formatlama (Null veya geçersizse N/A göster)
+            let priceFormatted = 'N/A';
+            if (part.price !== null && typeof part.price === 'number') {
+                 priceFormatted = part.price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+            }
+             // Güvenli URL oluşturma (XSS önlemi olarak temel kontrol)
+            const safeUrl = (part.url && part.url.startsWith('http')) ? part.url : '#';
+            const safeImageUrl = (part.image_url && part.image_url.startsWith('http')) ? part.image_url : '/logolar/placeholder.png'; // Varsayılan placeholder yolu
+
+            const partCard = `
+                <div class="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col justify-between transition-shadow hover:shadow-md">
+                    <a href="${safeUrl}" target="_blank" class="block group">
+                        <div class="w-full h-32 mb-3 overflow-hidden rounded flex items-center justify-center bg-gray-100">
+                             <img src="${safeImageUrl}" alt="${part.name || 'Parça Resmi'}" class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-200" onerror="this.src='/logolar/placeholder.png'; this.onerror=null;">
+                        </div>
+                        <h4 class="font-semibold text-sm mb-1 h-10 overflow-hidden text-gray-800 group-hover:text-blue-600">${part.name || 'İsimsiz Parça'}</h4>
+                    </a>
+                    <div class="mt-auto pt-2 border-t border-gray-100 text-xs text-gray-500">
+                        <p class="mb-1 truncate">Marka: <span class="font-medium text-gray-700">${part.brand || 'Belirtilmemiş'}</span></p>
+                        <p class="mb-2 truncate">Stok Kodu: <span class="font-medium text-gray-700">${part.stock_code}</span></p>
+                        <div class="flex justify-between items-center mt-1">
+                            <p class="text-base font-bold text-blue-600">${priceFormatted}</p>
+                             <a href="${safeUrl}" target="_blank" class="bg-gray-800 text-white text-xs font-bold py-1 px-3 rounded hover:bg-black transition-colors">
+                                Detay <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            partsGrid.insertAdjacentHTML('beforeend', partCard); // innerHTML += yerine daha performanslı
+        });
+    }
+
+    // === Event Listener'lar ===
+
+    // Header Butonları
+    loginBtnHeader?.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
+    signupBtnHeader?.addEventListener('click', () => { showRegisterView(); authModal.classList.remove('hidden'); });
+    loginBtnMobileHeader?.addEventListener('click', () => { showLoginView(); authModal.classList.remove('hidden'); });
+    signupBtnMobileHeader?.addEventListener('click', () => { showRegisterView(); authModal.classList.remove('hidden'); });
+    logoutBtnHeader?.addEventListener('click', handleLogoutHeader);
+    logoutBtnMobileHeader?.addEventListener('click', handleLogoutHeader);
+
+    // Modal Kapatma
+    closeModal?.addEventListener('click', () => authModal.classList.add('hidden'));
+    // Modal dışına tıklayınca kapatma (opsiyonel)
+    authModal?.addEventListener('click', (e) => {
+         if (e.target === authModal) { // Sadece overlay'e tıklandıysa
+             authModal.classList.add('hidden');
+         }
+    });
+
+    // Modal Form Geçişleri
+    showRegisterHeader?.addEventListener('click', (e) => { e.preventDefault(); showRegisterView(); });
+    showLoginHeader?.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+    showForgotPasswordHeader?.addEventListener('click', (e) => { e.preventDefault(); showForgotPasswordView(); });
+    backToLoginFromForgotHeader?.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+    backToLoginFromResetHeader?.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
+
+     // Kayıt Formu - İşletme Türü Gösterme/Gizleme
+     authModal.querySelectorAll('input[name="userTypeHeader"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (shopTypeSelectionHeader) {
+                 shopTypeSelectionHeader.classList.toggle('hidden', e.target.value !== 'business');
+            }
+        });
+    });
+
+    // Modal Form Gönderimleri (index.html'den kopyalanıp uyarlanacak)
+    loginFormHeader?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = loginFormHeader.querySelector('button[type="submit"]');
+        submitButton.disabled = true; submitButton.textContent = 'Giriş Yapılıyor...';
+        displayAuthMessage(loginView, '', 'success'); // Önceki mesajı temizle
+
+        const formData = new FormData(loginFormHeader);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch('/api/auth/login', { /* ... */ body: JSON.stringify(data) });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.description || 'Giriş başarısız.');
+            if (result.status === 'login_success') {
+                 authModal.classList.add('hidden');
+                 await checkAuthStatusHeader();
+                 showToast('Giriş başarılı!');
+            }
+        } catch (error) { displayAuthMessage(loginView, error.message, 'error');
+        } finally { submitButton.disabled = false; submitButton.textContent = 'Giriş Yap'; }
+    });
+
+    registerFormHeader?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = registerFormHeader.querySelector('button[type="submit"]');
+        submitButton.disabled = true; submitButton.textContent = 'Kaydediliyor...';
+         displayAuthMessage(registerView, '', 'success');
+
+        const formData = new FormData(registerFormHeader);
+        const data = Object.fromEntries(formData.entries());
+        data.user_type = data.userTypeHeader; // Formdaki name'e göre
+         if (data.user_type === 'business') { data.shop_type = data.shopTypeHeader; }
+         // Gereksiz alanları sil
+         delete data.userTypeHeader;
+         delete data.shopTypeHeader;
+
+
+        try {
+            const response = await fetch('/api/auth/register', { /* ... */ body: JSON.stringify(data) });
+            const result = await response.json();
+             if (!response.ok) throw new Error(result.description || 'Kayıt başarısız.');
+             if (result.status === 'login_success') {
+                 authModal.classList.add('hidden');
+                 await checkAuthStatusHeader();
+                 showToast('Kayıt başarılı! Giriş yapıldı.');
+             }
+        } catch (error) { displayAuthMessage(registerView, error.message, 'error');
+        } finally { submitButton.disabled = false; submitButton.textContent = 'Kayıt Ol'; }
+    });
+
+     forgotPasswordFormHeader?.addEventListener('submit', async (e) => {
+         e.preventDefault();
+         const submitButton = forgotPasswordFormHeader.querySelector('button[type="submit"]');
+         // ... (index.html'deki logic, showResetPasswordView() çağrısı ile) ...
+         const email = forgotPasswordFormHeader.querySelector('input[name="email"]').value;
+         // ... fetch call ...
+         // Başarılıysa: showResetPasswordView();
+     });
+
+    resetPasswordFormHeader?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = resetPasswordFormHeader.querySelector('button[type="submit"]');
+        // ... (index.html'deki logic, showLoginView() çağrısı ile) ...
+        const email = forgotPasswordFormHeader.querySelector('input[name="email"]').value; // Önceki formdan alınmalı
+        const code = resetPasswordFormHeader.querySelector('input[name="code"]').value;
+        const new_password = resetPasswordFormHeader.querySelector('input[name="new_password"]').value;
+        // ... fetch call ...
+        // Başarılıysa: showLoginView();
+    });
+
+
+    // === İlk Yükleme İşlemleri ===
+    await checkAuthStatusHeader(); // Sayfa yüklenince header auth durumunu kontrol et
+    await fetchAndSetConfig();     // Google Client ID'yi al ve Google Sign-In'i başlat
+
+});
+</script>
+
+</body>
+</html>
