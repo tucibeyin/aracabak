@@ -6,21 +6,65 @@
     <title>Admin Paneli - aracabak</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .tab-button.active { border-color: #3b82f6; color: #3b82f6; }
-        .loader { border-top-color: #3498db; }
+        .tab-button.active { 
+            border-color: #3b82f6; 
+            color: #3b82f6; 
+            background-color: #eff6ff;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .loader { 
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        th.sortable:hover { cursor: pointer; background-color: #f9fafb; }
+        th.sortable::after {
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            content: "\f0dc";
+            float: right;
+            color: #d1d5db;
+        }
+        th.sorted-asc::after { content: "\f0de"; color: #3b82f6;}
+        th.sorted-desc::after { content: "\f0dd"; color: #3b82f6;}
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #2196F3; }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .toast {
+            position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem;
+            border-radius: 0.5rem; color: white; font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transform: translateY(-100px);
+            opacity: 0; transition: transform 0.5s ease, opacity 0.5s ease; z-index: 1000;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast-success { background-color: #28a745; }
+        .toast-error { background-color: #dc3545; }
     </style>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body class="bg-gray-100">
 
-    <!-- Giriş Formu Konteyneri -->
+    <div id="toast-container"></div>
+
     <div id="login-container" class="flex items-center justify-center min-h-screen">
         <div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-lg">
-            <div class="text-center mb-8">
-                <h2 class="mt-4 text-2xl font-bold text-gray-800">Admin Paneli Girişi</h2>
-            </div>
+            <div class="text-center mb-8"><h2 class="mt-4 text-2xl font-bold text-gray-800">Admin Paneli Girişi</h2></div>
             <div id="googleSignInButton" class="flex justify-center"></div>
             <div id="password-section" class="mt-6 hidden">
                 <p id="google-user-info" class="text-center text-sm text-gray-600 mb-4"></p>
@@ -34,7 +78,6 @@
         </div>
     </div>
 
-    <!-- Admin Paneli (Dashboard) Konteyneri -->
     <div id="admin-dashboard" class="hidden">
         <header class="bg-white shadow-md">
             <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
@@ -47,49 +90,83 @@
         </header>
 
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <!-- Tab Butonları -->
             <div class="border-b border-gray-200 mb-6">
                 <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="ziyaretci-tab">
-                        Ziyaretçi İstatistikleri
-                    </button>
-                    <!-- Gelecekte yeni tablar buraya eklenebilir -->
+                    <button class="tab-button active whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm" data-tab="ziyaretci-tab"><i class="fas fa-users mr-2"></i>Ziyaretçi İstatistikleri</button>
+                    <button class="tab-button whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm" data-tab="yapayusta-tab"><i class="fas fa-robot mr-2"></i>Yapay Usta Analizi</button>
+                    <button class="tab-button whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm" data-tab="lisanslar-tab"><i class="fas fa-certificate mr-2"></i>Lisans Yönetimi</button>
                 </nav>
             </div>
 
-            <!-- Tab İçerikleri -->
-            <div id="ziyaretci-tab" class="tab-content">
-                <!-- İstatistik Kartları -->
+            <div id="ziyaretci-tab" class="tab-content active">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-gray-500">Günlük Ziyaret</h3><p id="daily-views" class="text-3xl font-bold">0</p></div>
                     <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-gray-500">Haftalık Ziyaret</h3><p id="weekly-views" class="text-3xl font-bold">0</p></div>
                     <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-gray-500">Yıllık Ziyaret</h3><p id="yearly-views" class="text-3xl font-bold">0</p></div>
                 </div>
-
-                <!-- Veri Tabloları -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-semibold">Lokasyon Bazlı Ziyaretçiler</h3>
-                            <button id="refresh-stats" class="text-blue-500 hover:text-blue-700 text-sm font-medium">Yenile</button>
-                        </div>
+                        <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold">Lokasyon Bazlı Ziyaretçiler</h3><button id="refresh-stats" class="text-blue-500 hover:text-blue-700 text-sm font-medium">Yenile</button></div>
                         <div class="overflow-y-auto h-80">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ülke</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Şehir</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sayı</th></tr></thead>
-                                <tbody id="locations-table" class="bg-white divide-y divide-gray-200">
-                                    <!-- Veriler JS ile buraya eklenecek -->
-                                </tbody>
-                            </table>
+                            <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ülke</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Şehir</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sayı</th></tr></thead><tbody id="locations-table" class="bg-white divide-y divide-gray-200"></tbody></table>
                         </div>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <h3 class="text-lg font-semibold mb-4">Son Kayıt Olan Kullanıcılar</h3>
-                        <div class="overflow-y-auto h-80">
-                            <ul id="latest-users-list" class="divide-y divide-gray-200">
-                                <!-- Veriler JS ile buraya eklenecek -->
-                            </ul>
-                        </div>
+                        <h3 class="text-lg font-semibold mb-4">Son Kayıt Olan Kullanıcılar</h3><div class="overflow-y-auto h-80"><ul id="latest-users-list" class="divide-y divide-gray-200"></ul></div>
                     </div>
+                </div>
+            </div>
+
+            <div id="yapayusta-tab" class="tab-content">
+                <div class="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap items-end gap-4">
+                    <div><label for="ai-start-date" class="block text-sm font-medium text-gray-700">Başlangıç</label><input type="date" id="ai-start-date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"></div>
+                    <div><label for="ai-end-date" class="block text-sm font-medium text-gray-700">Bitiş</label><input type="date" id="ai-end-date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"></div>
+                    <button id="ai-filter-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700">Filtrele</button>
+                    <button id="ai-refresh-btn" class="bg-gray-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-700">Yenile</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-gray-500">Toplam Tahmini Maliyet</h3><p id="ai-total-cost" class="text-3xl font-bold">$0.00</p></div>
+                    <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-gray-500">Toplam Soru</h3><p id="ai-total-requests" class="text-3xl font-bold">0</p></div>
+                    <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-gray-500">Tekil Kullanıcı</h3><p id="ai-unique-users" class="text-3xl font-bold">0</p></div>
+                    <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-gray-500">Toplam Token</h3><p id="ai-total-tokens" class="text-3xl font-bold">0</p></div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow mb-8"><h3 class="text-lg font-semibold mb-4">Günlük Kullanım Grafiği</h3><canvas id="aiUsageChart" height="100"></canvas></div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold">Kullanım Detayları (Son 100)</h3><input type="text" id="ai-log-filter" placeholder="Tabloda ara..." class="border-gray-300 rounded-md shadow-sm p-2"></div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase sortable" data-sort="timestamp">Tarih</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase sortable" data-sort="user_identifier">Kullanıcı</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Soru</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase sortable" data-sort="total_tokens">Token</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase sortable" data-sort="cost">Maliyet</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase sortable" data-sort="is_from_cache">Önbellek</th></tr></thead><tbody id="ai-logs-table" class="bg-white divide-y divide-gray-200"></tbody></table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="lisanslar-tab" class="tab-content">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">Bekleyen Başvurular (Lisans Anahtarı Girmemiş İşletmeler)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">İşletme Adı</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sahip Adı</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">İletişim</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Başvuru Tarihi</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Eylemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-businesses-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow mt-8">
+                    <h3 class="text-lg font-semibold mb-4">Kayıtlı İşletmeler</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6 flex flex-wrap items-end gap-4">
+                        <div><label for="shop-name-filter" class="block text-sm font-medium text-gray-700">İşletme/Sahip Adı</label><input type="text" id="shop-name-filter" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"></div>
+                        <div><label for="shop-city-filter" class="block text-sm font-medium text-gray-700">Şehir</label><select id="shop-city-filter" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"><option value="">Tümü</option></select></div>
+                        <div><label for="shop-type-filter" class="block text-sm font-medium text-gray-700">İşletme Türü</label><select id="shop-type-filter" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"><option value="">Tümü</option><option value="service">Servis</option><option value="parts_provider">Parça Sağlayıcı</option></select></div>
+                        <button id="filter-businesses-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700">Filtrele</button>
+                    </div>
+                    <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">İşletme Adı</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sahip</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">İletişim</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Şehir</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kayıt Tarihi</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aktif</th></tr></thead><tbody id="businesses-table-body" class="bg-white divide-y divide-gray-200"></tbody></table></div>
                 </div>
             </div>
         </main>
@@ -97,50 +174,35 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Element Referansları ---
-    const loginContainer = document.getElementById('login-container');
-    const dashboardContainer = document.getElementById('admin-dashboard');
-    const passwordSection = document.getElementById('password-section');
-    const googleUserInfo = document.getElementById('google-user-info');
-    const adminPasswordField = document.getElementById('adminPassword');
-    const submitBtn = document.getElementById('submitAdminLogin');
-    const messageContainer = document.getElementById('message-container');
-    const refreshBtn = document.getElementById('refresh-stats');
-    let googleAuthToken = null;
+    const loginContainer = document.getElementById('login-container'), dashboardContainer = document.getElementById('admin-dashboard'), passwordSection = document.getElementById('password-section'), googleUserInfo = document.getElementById('google-user-info'), adminPasswordField = document.getElementById('adminPassword'), submitBtn = document.getElementById('submitAdminLogin'), messageContainer = document.getElementById('message-container'), refreshBtn = document.getElementById('refresh-stats');
+    let googleAuthToken = null, aiUsageChart = null, allAiLogs = [], currentSort = { column: 'timestamp', direction: 'desc' };
 
-    // --- Mesaj Gösterme Fonksiyonu ---
-    function displayMessage(message, type = 'error') {
-        messageContainer.innerHTML = `<p class="font-semibold ${type === 'error' ? 'text-red-600' : 'text-green-600'}">${message}</p>`;
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 100);
+        setTimeout(() => { toast.classList.remove('show'); setTimeout(() => container.removeChild(toast), 500); }, 3000);
     }
-
-    // --- Google Token'ını İşleme ---
+    function displayMessage(message, type = 'error') { messageContainer.innerHTML = `<p class="font-semibold ${type === 'error' ? 'text-red-600' : 'text-green-600'}">${message}</p>`; }
     window.handleGoogleCredentialResponse = (response) => {
         googleAuthToken = response.credential;
         try {
             const payload = JSON.parse(atob(googleAuthToken.split('.')[1]));
-            googleUserInfo.textContent = `${payload.name} (${payload.email}) olarak devam ediyorsunuz. Lütfen admin şifrenizi girin.`;
+            googleUserInfo.textContent = `${payload.name} (${payload.email}) olarak devam ediyorsunuz.`;
             document.getElementById('googleSignInButton').classList.add('hidden');
             passwordSection.classList.remove('hidden');
             adminPasswordField.focus();
-        } catch (e) {
-            displayMessage('Google bilgileri alınamadı.', 'error');
-        }
+        } catch (e) { displayMessage('Google bilgileri alınamadı.', 'error'); }
     };
-
-    // --- Google Giriş Butonunu Başlatma ---
     function initializeGoogleSignIn(clientId) {
         try {
             google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredentialResponse });
-            google.accounts.id.renderButton(
-                document.getElementById("googleSignInButton"),
-                { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "350" }
-            );
-        } catch (error) {
-            displayMessage('Google ile giriş geçici olarak devre dışı.', 'error');
-        }
+            google.accounts.id.renderButton(document.getElementById("googleSignInButton"), { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "350" });
+        } catch (error) { displayMessage('Google ile giriş geçici olarak devre dışı.', 'error'); }
     }
-
-    // --- API İstekleri ---
     async function apiFetch(url, options = {}) {
         const response = await fetch(url, options);
         if (!response.ok) {
@@ -149,61 +211,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return response.json();
     }
-
-    // --- Sayfa Düzeni Fonksiyonları ---
     async function showLogin() {
         dashboardContainer.classList.add('hidden');
         loginContainer.classList.remove('hidden');
         try {
             const config = await apiFetch('/api/config');
-            if (config.googleClientId) {
-                initializeGoogleSignIn(config.googleClientId);
-            } else {
-                throw new Error("Google Client ID bulunamadı.");
-            }
-        } catch(error) {
-            displayMessage('Giriş yapılandırması yüklenemedi: ' + error.message, 'error');
-        }
+            if (config.googleClientId) initializeGoogleSignIn(config.googleClientId);
+            else throw new Error("Google Client ID bulunamadı.");
+        } catch(error) { displayMessage('Giriş yapılandırması yüklenemedi: ' + error.message, 'error'); }
     }
-
     function showDashboard(adminData) {
         loginContainer.classList.add('hidden');
         dashboardContainer.classList.remove('hidden');
-        if (adminData && adminData.name) {
-            document.getElementById('adminWelcomeMessage').textContent = `Hoşgeldin, ${adminData.name}`;
-        }
+        if (adminData && adminData.name) document.getElementById('adminWelcomeMessage').textContent = `Hoşgeldin, ${adminData.name}`;
         fetchDashboardStats();
     }
-
-    // --- Veri Çekme ve Gösterme ---
     async function fetchDashboardStats() {
-        refreshBtn.disabled = true;
-        refreshBtn.textContent = 'Yenileniyor...';
+        refreshBtn.disabled = true; refreshBtn.textContent = 'Yenileniyor...';
         try {
             const data = await apiFetch('/api/admin/dashboard_stats');
             renderDashboardData(data);
-        } catch (error) {
-            alert(`İstatistikler yüklenemedi: ${error.message}`);
-        } finally {
-            refreshBtn.disabled = false;
-            refreshBtn.textContent = 'Yenile';
-        }
+        } catch (error) { alert(`İstatistikler yüklenemedi: ${error.message}`);
+        } finally { refreshBtn.disabled = false; refreshBtn.textContent = 'Yenile'; }
     }
-
     function renderDashboardData(data) {
-        // Kartlar
         document.getElementById('daily-views').textContent = data.daily_views || 0;
         document.getElementById('weekly-views').textContent = data.weekly_views || 0;
         document.getElementById('yearly-views').textContent = data.yearly_views || 0;
-
-        // Lokasyonlar
         const locationsTable = document.getElementById('locations-table');
         locationsTable.innerHTML = data.locations.length ? '' : '<tr><td colspan="3" class="text-center p-4 text-gray-500">Veri bulunamadı.</td></tr>';
-        data.locations.forEach(loc => {
-            locationsTable.innerHTML += `<tr><td class="px-4 py-3 text-sm">${loc.country}</td><td class="px-4 py-3 text-sm">${loc.city}</td><td class="px-4 py-3 text-sm font-medium">${loc.count}</td></tr>`;
-        });
-
-        // Son Kullanıcılar
+        data.locations.forEach(loc => { locationsTable.innerHTML += `<tr><td class="px-4 py-3 text-sm">${loc.country}</td><td class="px-4 py-3 text-sm">${loc.city}</td><td class="px-4 py-3 text-sm font-medium">${loc.count}</td></tr>`; });
         const latestUsersList = document.getElementById('latest-users-list');
         latestUsersList.innerHTML = data.latest_users.length ? '' : '<li class="p-4 text-center text-gray-500">Veri bulunamadı.</li>';
         data.latest_users.forEach(user => {
@@ -211,53 +248,171 @@ document.addEventListener('DOMContentLoaded', () => {
             latestUsersList.innerHTML += `<li class="py-3 flex justify-between items-center"><div class="text-sm"><p class="font-medium text-gray-800">${user.name}</p><p class="text-gray-500">${user.email}</p></div><span class="text-xs text-gray-400">${date}</span></li>`;
         });
     }
-
-    // --- Olay Dinleyicileri ---
+    async function fetchAiStats() {
+        const startDate = document.getElementById('ai-start-date').value, endDate = document.getElementById('ai-end-date').value;
+        let url = '/api/admin/ai_stats';
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        if (params.toString()) url += `?${params.toString()}`;
+        try {
+            const data = await apiFetch(url);
+            renderAiStats(data);
+        } catch (error) { alert(`Yapay Usta istatistikleri alınamadı: ${error.message}`); }
+    }
+    function renderAiStats(data) {
+        document.getElementById('ai-total-cost').textContent = `$${data.summary.estimated_cost.toFixed(4)}`;
+        document.getElementById('ai-total-requests').textContent = data.summary.total_requests;
+        document.getElementById('ai-unique-users').textContent = data.summary.unique_users;
+        document.getElementById('ai-total-tokens').textContent = data.summary.total_tokens.toLocaleString('tr-TR');
+        const ctx = document.getElementById('aiUsageChart').getContext('2d');
+        if (aiUsageChart) aiUsageChart.destroy();
+        aiUsageChart = new Chart(ctx, { type: 'bar', data: { labels: data.time_series.map(d => d.period).reverse(), datasets: [ { label: 'Soru Sayısı', data: data.time_series.map(d => d.count).reverse(), backgroundColor: 'rgba(59, 130, 246, 0.5)', yAxisID: 'y' }, { label: 'Maliyet ($)', data: data.time_series.map(d => d.cost).reverse(), backgroundColor: 'rgba(239, 68, 68, 0.5)', yAxisID: 'y1', type: 'line' } ] }, options: { scales: { y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Soru Sayısı'} }, y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'Maliyet ($)'}, grid: { drawOnChartArea: false } } } } });
+        allAiLogs = data.usage_logs;
+        renderAiLogsTable();
+    }
+    function renderAiLogsTable() {
+        const filterText = document.getElementById('ai-log-filter').value.toLowerCase();
+        let filteredLogs = allAiLogs.filter(log => Object.values(log).some(val => String(val).toLowerCase().includes(filterText)));
+        filteredLogs.sort((a, b) => { const valA = a[currentSort.column], valB = b[currentSort.column]; let c = (valA > valB) ? 1 : ((valA < valB) ? -1 : 0); return currentSort.direction === 'desc' ? -c : c; });
+        const logsTable = document.getElementById('ai-logs-table');
+        logsTable.innerHTML = '';
+        if(filteredLogs.length === 0){ logsTable.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">Filtreye uygun veri bulunamadı.</td></tr>`; return; }
+        filteredLogs.forEach(log => {
+            const cost = log.cost > 0 ? `$${log.cost.toFixed(6)}` : '-';
+            const cacheIcon = log.is_from_cache ? '<i class="fas fa-check-circle text-green-500" title="Evet"></i>' : '<i class="fas fa-times-circle text-red-500" title="Hayır"></i>';
+            logsTable.innerHTML += `<tr class="hover:bg-gray-50"><td class="px-4 py-3 text-sm text-gray-600">${log.timestamp}</td><td class="px-4 py-3 text-sm text-gray-800 font-medium">${log.user_identifier}</td><td class="px-4 py-3 text-sm text-gray-600 max-w-xs truncate" title="${log.prompt}">${log.prompt}</td><td class="px-4 py-3 text-sm">${log.total_tokens}</td><td class="px-4 py-3 text-sm">${cost}</td><td class="px-4 py-3 text-center">${cacheIcon}</td></tr>`;
+        });
+    }
+    async function fetchPendingBusinesses() {
+        const tableBody = document.getElementById('pending-businesses-table-body');
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4"><div class="loader"></div></td></tr>`;
+        try {
+            const data = await apiFetch('/api/admin/pending_businesses');
+            renderPendingBusinessesTable(data);
+        } catch (error) { tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">Bekleyen başvurular alınamadı: ${error.message}</td></tr>`; }
+    }
+    function renderPendingBusinessesTable(pending) {
+        const tableBody = document.getElementById('pending-businesses-table-body');
+        tableBody.innerHTML = '';
+        if (!pending || pending.length === 0) { tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-500">Bekleyen başvuru yok.</td></tr>`; return; }
+        pending.forEach(biz => {
+            const date = new Date(biz.created_at).toLocaleDateString('tr-TR');
+            tableBody.innerHTML += `<tr id="pending-row-${biz.user_id}"><td class="px-4 py-3 text-sm font-medium">${biz.shop_name}</td><td class="px-4 py-3 text-sm">${biz.name}</td><td class="px-4 py-3 text-sm"><div>${biz.email}</div><div>${biz.phone_number}</div></td><td class="px-4 py-3 text-sm">${date}</td><td class="px-4 py-3 text-sm"><button class="reject-btn bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs" data-id="${biz.user_id}">Reddet/Sil</button></td></tr>`;
+        });
+    }
+    async function handleRejectBusiness(e) {
+        const target = e.target;
+        if (!target.classList.contains('reject-btn')) return;
+        if (!confirm('Bu işletme kaydını kalıcı olarak silmek istediğinizden emin misiniz?')) return;
+        const userId = target.dataset.id;
+        target.disabled = true; target.textContent = '...';
+        try {
+            await apiFetch('/api/admin/reject_business', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId }) });
+            document.getElementById(`pending-row-${userId}`).remove();
+            showToast('İşletme kaydı silindi.', 'success');
+        } catch (error) {
+            showToast(`İşlem hatası: ${error.message}`, 'error');
+            target.disabled = false; target.textContent = 'Reddet/Sil';
+        }
+    }
+    async function fetchBusinesses() {
+        const tableBody = document.getElementById('businesses-table-body');
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-4"><div class="loader"></div></td></tr>`;
+        const params = new URLSearchParams({ name: document.getElementById('shop-name-filter').value, city: document.getElementById('shop-city-filter').value, shop_type: document.getElementById('shop-type-filter').value });
+        try {
+            const data = await apiFetch(`/api/admin/businesses?${params.toString()}`);
+            renderBusinessesTable(data);
+        } catch (error) { tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-red-500">İşletmeler alınamadı: ${error.message}</td></tr>`; }
+    }
+    function renderBusinessesTable(businesses) {
+        const tableBody = document.getElementById('businesses-table-body');
+        tableBody.innerHTML = '';
+        if (!businesses || businesses.length === 0) { tableBody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-gray-500">Filtreye uygun işletme bulunamadı.</td></tr>`; return; }
+        businesses.forEach(shop => {
+            const date = new Date(shop.created_at).toLocaleDateString('tr-TR');
+            const checked = shop.is_active ? 'checked' : '';
+            const toggle_disabled = shop.is_active === null ? 'disabled' : '';
+            const title_text = shop.is_active === null ? 'Bu işletmenin aktif edilebilmesi için profilinden bir Google Place ID (Lisans Anahtarı) girmesi gerekir.' : '';
+            tableBody.innerHTML += `<tr id="business-row-${shop.user_id}"><td class="px-4 py-3 text-sm font-medium">${shop.shop_name}</td><td class="px-4 py-3 text-sm">${shop.owner_name}</td><td class="px-4 py-3 text-sm"><div>${shop.email}</div><div>${shop.phone_number}</div></td><td class="px-4 py-3 text-sm">${shop.city}</td><td class="px-4 py-3 text-sm">${shop.shop_type === 'service' ? 'Servis' : 'Parça Sağlayıcı'}</td><td class="px-4 py-3 text-sm">${date}</td><td class="px-4 py-3 text-sm" title="${title_text}"><label class="switch"><input type="checkbox" class="is-active-toggle" data-shop-id="${shop.shop_id}" ${checked} ${toggle_disabled}><span class="slider"></span></label></td></tr>`;
+        });
+    }
+    async function handleBusinessStatusChange(e) {
+        const checkbox = e.target;
+        if (!checkbox.classList.contains('is-active-toggle')) return;
+        const shopId = checkbox.dataset.shopId, isActive = checkbox.checked;
+        checkbox.disabled = true;
+        try {
+            const response = await apiFetch('/api/admin/update_business_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: shopId, is_active: isActive }) });
+            if (response.status === 'no_license_found') {
+                showToast(response.description, 'error');
+            } else {
+                showToast('Durum güncellendi.', 'success');
+            }
+        } catch (error) {
+            showToast(`Durum güncellenemedi: ${error.message}`, 'error');
+            checkbox.checked = !isActive;
+        } finally {
+            checkbox.disabled = false;
+        }
+    }
+    async function populateCityFilter() {
+        try {
+            const cities = await apiFetch('/api/cities');
+            const cityFilter = document.getElementById('shop-city-filter');
+            cities.forEach(city => {
+                cityFilter.innerHTML += `<option value="${city}">${city}</option>`;
+            });
+        } catch (error) { console.error("Şehirler yüklenemedi:", error); }
+    }
     submitBtn.addEventListener('click', async () => {
         const password = adminPasswordField.value;
-        if (!password || !googleAuthToken) {
-            return displayMessage('Lütfen tüm alanları doldurun.', 'error');
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Doğrulanıyor...';
-        displayMessage('', 'success');
-
+        if (!password || !googleAuthToken) return displayMessage('Lütfen alanları doldurun.', 'error');
+        submitBtn.disabled = true; submitBtn.textContent = 'Doğrulanıyor...'; displayMessage('', 'success');
         try {
-            await apiFetch('/api/admin/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: googleAuthToken, password })
-            });
-            window.location.reload(); // Başarılı girişte sayfayı yenile
-        } catch (error) {
-            displayMessage(error.message, 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Giriş Yap';
-        }
+            await apiFetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: googleAuthToken, password }) });
+            window.location.reload();
+        } catch (error) { displayMessage(error.message, 'error'); submitBtn.disabled = false; submitBtn.textContent = 'Giriş Yap'; }
     });
-    
-    document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
-        await apiFetch('/api/auth/logout', { method: 'POST' });
-        window.location.reload();
-    });
-
+    document.getElementById('adminLogoutBtn').addEventListener('click', async () => { await apiFetch('/api/auth/logout', { method: 'POST' }); window.location.reload(); });
     refreshBtn.addEventListener('click', fetchDashboardStats);
-
-    // --- Başlangıç Fonksiyonu ---
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const tabId = button.dataset.tab;
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            button.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            if (tabId === 'yapayusta-tab' && !allAiLogs.length) fetchAiStats();
+            if (tabId === 'lisanslar-tab') { fetchPendingBusinesses(); fetchBusinesses(); }
+        });
+    });
+    document.getElementById('ai-filter-btn').addEventListener('click', fetchAiStats);
+    document.getElementById('ai-refresh-btn').addEventListener('click', fetchAiStats);
+    document.getElementById('ai-log-filter').addEventListener('input', renderAiLogsTable);
+    document.querySelectorAll('#yapayusta-tab th.sortable').forEach(header => {
+        header.addEventListener('click', () => {
+            const column = header.dataset.sort;
+            if (currentSort.column === column) { currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc'; } else { currentSort.column = column; currentSort.direction = 'desc'; }
+            document.querySelectorAll('#yapayusta-tab th.sortable').forEach(th => th.classList.remove('sorted-asc', 'sorted-desc'));
+            header.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            renderAiLogsTable();
+        });
+    });
+    document.getElementById('pending-businesses-table-body').addEventListener('click', handleRejectBusiness);
+    document.getElementById('filter-businesses-btn').addEventListener('click', fetchBusinesses);
+    document.getElementById('businesses-table-body').addEventListener('change', handleBusinessStatusChange);
     async function initialize() {
         try {
             const data = await apiFetch('/api/admin/status');
             if (data.loggedIn) {
                 showDashboard(data);
+                populateCityFilter();
             } else {
                 showLogin();
             }
-        } catch (error) {
-            showLogin();
-        }
+        } catch (error) { showLogin(); }
     }
-
     initialize();
 });
 </script>
