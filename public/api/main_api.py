@@ -28,6 +28,8 @@ import hashlib # YENİ EKLENDİ: Önbellekleme için hash oluşturma
 
 # YENİ EKLENDİ: Admin API Blueprint'ini import et
 from admin_api import admin_bp
+from parca_api import parca_bp
+from yapayusta_api import yapayusta_bp
 
 # --- Yapılandırma ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s')
@@ -98,6 +100,8 @@ except (redis.exceptions.ConnectionError, Exception) as e:
 
 # YENİ EKLENDİ: Admin API Blueprint'ini uygulamaya kaydet
 app.register_blueprint(admin_bp)
+app.register_blueprint(parca_bp)
+app.register_blueprint(yapayusta_bp)
 
 # --- Helper Fonksiyonlar ve Veritabanı ---
 
