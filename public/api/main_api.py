@@ -437,7 +437,7 @@ def send_welcome_email(user_name, user_email, user_type):
 
     html_content = base_template.format(**email_vars)
 
-    sender = {"name": "aracabak", "email": "info.aracabak@gmail.com"}
+    sender = {"name": "aracabak", "email": "info@aracabak.com"}
     to = [{"email": user_email, "name": user_name}]
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(to=to, html_content=html_content, sender=sender, subject=subject)
 
@@ -486,7 +486,7 @@ def send_reset_code_email(user_name, user_email, reset_code):
     </html>
     """
     
-    sender = {"name": "aracabak Destek", "email": "info.aracabak@gmail.com"}
+    sender = {"name": "aracabak Destek", "email": "info@aracabak.com"}
     to = [{"email": user_email, "name": user_name}]
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(to=to, html_content=html_content, sender=sender, subject=subject)
 
