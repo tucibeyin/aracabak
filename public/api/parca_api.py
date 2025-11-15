@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
+import decimal # YENİ: Fiyat dönüşümü için decimal
 
 # Loglama ayarları (main_api.py'deki gibi olabilir)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s')
@@ -16,7 +17,7 @@ if not os.path.exists(dotenv_path):
     # Alternatif yol (betik api klasöründeyse bir üst dizine çıkıp private/secrets'e bakar)
     dotenv_path_alt = os.path.join(os.path.dirname(__file__), '..', '..', 'private', 'secrets', '.env')
     if os.path.exists(dotenv_path_alt):
-         dotenv_path = dotenv_path_alt
+        dotenv_path = dotenv_path_alt
     else:
         logging.critical(f"parca_api: .env dosyası bulunamadı! Kontrol edilen yollar: '{dotenv_path}', '{dotenv_path_alt}'")
         # .env olmadan veritabanına bağlanılamaz, bu yüzden hata vermek mantıklı olabilir
@@ -113,8 +114,27 @@ def find_parts():
         # Sonuçları al (DictCursor sayesinde liste içinde sözlükler olarak gelir)
         parts_data = cursor.fetchall()
 
+        # --- GÜNCELLEME BAŞLANGICI ---
         # Sonuçları JSON uyumlu hale getir (DictRow'dan standart dict'e çevir)
-        result_list = [dict(row) for row in parts_data]
+        # VE 'price' alanını (Decimal/string) 'float' (sayı) tipine çevir.
+        result_list = []
+        for row in parts_data:
+            part_dict = dict(row) # Önce DictRow'u normale çevir
+            
+            # 'price' (Decimal) tipini float'a çevir. 
+            # Eğer price NULL (None) ise, None olarak kalır.
+            try:
+                if part_dict['price'] is not None:
+                    # Önce Decimal'i float'a çevir
+                    part_dict['price'] = float(part_dict['price'])
+                # else: None olarak kalır, JS tarafı (part.price !== null) bunu yakalar
+            except (ValueError, TypeError, decimal.InvalidOperation):
+                # Fiyat float'a çevrilemezse (örn. geçersiz bir string ise), 
+                # null olarak ayarlayalım ki JS tarafı "Fiyat Yok" göstersin.
+                part_dict['price'] = None 
+            
+            result_list.append(part_dict)
+        # --- GÜNCELLEME SONU ---
 
         logging.info(f"Parça arama: {brand} {series} {year} {fuel} {engine} için {len(result_list)} adet parça bulundu.")
         
