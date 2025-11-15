@@ -26,11 +26,6 @@ import secrets
 import string
 import hashlib # YENİ EKLENDİ: Önbellekleme için hash oluşturma
 
-# YENİ EKLENDİ: Admin API Blueprint'ini import et
-from admin_api import admin_bp
-from parca_api import parca_bp
-from yapayusta_api import yapayusta_bp
-
 # --- Yapılandırma ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s')
 dotenv_path = '/var/www/aracabak.com/private/secrets/.env'
@@ -82,6 +77,12 @@ app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_REDIS"] = redis.from_url("redis://127.0.0.1:6379")
 Session(app)
 
+# YENİ EKLENDİ: Admin API Blueprint'ini import et
+from admin_api import admin_bp
+from parca_api import parca_bp
+from yapayusta_api import yapayusta_bp
+from cart_api import cart_bp
+
 # --- Rate Limiter ---
 limiter = Limiter(
     get_remote_address,
@@ -102,6 +103,7 @@ except (redis.exceptions.ConnectionError, Exception) as e:
 app.register_blueprint(admin_bp)
 app.register_blueprint(parca_bp)
 app.register_blueprint(yapayusta_bp)
+app.register_blueprint(cart_bp)
 
 # --- Helper Fonksiyonlar ve Veritabanı ---
 
