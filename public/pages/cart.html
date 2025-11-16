@@ -62,6 +62,38 @@
         input[type='number'] {
             -moz-appearance: textfield;
         }
+        
+        /* YENİ: Liste Yönetimi Stilleri */
+        #cart-list-manager {
+            display: none; /* JS ile 'flex' yapılacak */
+        }
+        #cart-list-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3e%3cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd' /%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.25em 1.25em;
+            padding-right: 2.5rem;
+        }
+        /* YENİ: Liste Eylem Butonları Stili */
+        .list-action-btn {
+            @apply px-3 py-3 bg-gray-200 text-gray-600 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500;
+        }
+        .list-action-btn:first-of-type {
+            @apply rounded-l-lg;
+        }
+        .list-action-btn:last-of-type {
+            @apply rounded-r-lg;
+        }
+        /* YENİ: Özel Parça Ekleme Formu Stilleri */
+        #custom-item-inputs input {
+             @apply w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
+        }
+        #add-custom-item-btn {
+            @apply w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
@@ -183,6 +215,38 @@
                     </button>
                 </div>
 
+                <!-- YENİ: Liste Yönetim Bölümü -->
+                <div id="cart-list-manager" class="hidden flex-col sm:flex-row gap-4 mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <!-- Liste Seçim Dropdown ve Eylemler -->
+                    <div class="flex-grow">
+                        <label for="cart-list-select" class="block text-sm font-medium text-gray-700 mb-1">Aktif Sepet Listesi</label>
+                        <div class="flex">
+                            <select id="cart-list-select" class="w-full p-3 border border-gray-300 rounded-l-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <!-- Listeler JS ile dolacak -->
+                            </select>
+                            <!-- YENİ EYLEM BUTONLARI -->
+                            <button id="rename-list-btn" title="Listeyi Yeniden Adlandır" class="list-action-btn border-l border-t border-b border-gray-300">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button id="delete-list-btn" title="Listeyi Sil" class="list-action-btn border-l border-t border-b border-r border-gray-300 rounded-r-lg text-red-500 hover:bg-red-50">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Yeni Liste Oluşturma Alanı -->
+                    <div class="flex-shrink-0 w-full sm:w-auto">
+                        <label for="new-list-name" class="block text-sm font-medium text-gray-700 mb-1">Yeni Liste Oluştur</label>
+                        <div class="flex">
+                            <input type="text" id="new-list-name" placeholder="Örn: Bakım Listesi" class="w-full sm:w-auto p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button id="create-list-btn" class="bg-gray-800 text-white font-semibold px-4 py-3 rounded-r-lg hover:bg-gray-700">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Liste Yönetim Bölümü Sonu -->
+
+
                 <!-- Yükleniyor Göstergesi -->
                 <div id="loading-indicator" class="text-center py-10">
                     <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto animate-spin"></div>
@@ -202,10 +266,26 @@
                 <!-- Sepet İçeriği -->
                 <div id="cart-content" class="hidden grid grid-cols-1 md:grid-cols-3 gap-8">
                     
-                    <!-- Sol Taraf: Ürün Listesi -->
-                    <div id="cart-items-list" class="md:col-span-2 space-y-4">
-                        <!-- Sepet öğeleri JS ile buraya eklenecek -->
+                    <!-- Sol Taraf: Ürün Listesi ve Özel Ekleme -->
+                    <div class="md:col-span-2 space-y-4">
+                        <div id="cart-items-list" class="space-y-4">
+                            <!-- Sepet öğeleri JS ile buraya eklenecek -->
+                        </div>
+
+                        <!-- YENİ: Özel Parça Ekleme Formu -->
+                        <div id="custom-item-form-container" class="p-4 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
+                            <h3 class="font-semibold mb-3 text-gray-800">Özel Parça Ekle</h3>
+                            <div id="custom-item-inputs" class="grid grid-cols-1 sm:grid-cols-6 gap-3 items-center">
+                                <input type="text" id="custom-item-name" placeholder="Parça Adı (örn: Silecek)" class="sm:col-span-3">
+                                <input type="number" id="custom-item-price" placeholder="Fiyat (TL)" class="sm:col-span-1">
+                                <input type="number" id="custom-item-quantity" value="1" min="1" class="sm:col-span-1">
+                                <button id="add-custom-item-btn" class="sm:col-span-1">
+                                    <i class="fas fa-plus mr-1"></i> Ekle
+                                </button>
+                            </div>
+                        </div>
                     </div>
+
 
                     <!-- Sağ Taraf: Özet -->
                     <div class="md:col-span-1">
@@ -417,6 +497,21 @@
         const totalPrice = document.getElementById('total-price');
         const clearCartBtn = document.getElementById('clear-cart-btn');
         const requestQuoteBtn = document.getElementById('request-quote-btn');
+        
+        // YENİ: Liste Yönetim Elementleri
+        const cartListManager = document.getElementById('cart-list-manager');
+        const cartListSelect = document.getElementById('cart-list-select');
+        const newListNameInput = document.getElementById('new-list-name');
+        const createListBtn = document.getElementById('create-list-btn');
+        const renameListBtn = document.getElementById('rename-list-btn'); // YENİ
+        const deleteListBtn = document.getElementById('delete-list-btn'); // YENİ
+        
+        // YENİ: Özel Parça Ekleme Elementleri
+        const addCustomItemBtn = document.getElementById('add-custom-item-btn');
+        const customItemNameInput = document.getElementById('custom-item-name');
+        const customItemPriceInput = document.getElementById('custom-item-price');
+        const customItemQuantityInput = document.getElementById('custom-item-quantity');
+
 
         let googleClientId = null;
         let googleUserDataModal = null;
@@ -529,7 +624,7 @@
         }
 
         /**
-         * YENİ: Ana sepet sayfasını render eder
+         * Ana sepet sayfasını render eder
          */
         function renderCartPage(cartData) {
             loadingIndicator.classList.add('hidden');
@@ -564,13 +659,15 @@
                 // Ürün listesini doldur
                 cartItemsList.innerHTML = '';
                 items.forEach(item => {
+                    // YENİ: Özel parça olup olmadığını kontrol et
+                    const isCustom = item.is_custom === true;
                     const itemHtml = `
-                        <div class="flex items-center bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center ${isCustom ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-200'} border rounded-lg p-4 shadow-sm">
                             <img src="${item.image_url || '/logolar/placeholder.png'}" alt="${item.name}" class="w-16 h-16 object-contain rounded-md border border-gray-100 mr-4" onerror="this.onerror=null; this.src='/logolar/placeholder.png';">
                             <div class="flex-grow">
-                                <a href="${item.url || '#'}" target="_blank" class="font-semibold text-gray-800 hover:text-blue-600 truncate block" title="${item.name}">${item.name}</a>
-                                <p class="text-sm text-gray-500">Marka: ${item.brand || 'N/A'}</p>
-                                <p class="text-sm text-gray-500">Stok Kodu: ${item.stock_code || 'N/A'}</p>
+                                <a href="${item.url || '#'}" ${isCustom ? '' : 'target="_blank"'} class="font-semibold text-gray-800 hover:text-blue-600 truncate block" title="${item.name}">${item.name}</a>
+                                <p class="text-sm text-gray-500">Marka: ${item.brand || (isCustom ? 'Özel' : 'N/A')}</p>
+                                <p class="text-sm text-gray-500">Stok Kodu: ${item.stock_code || (isCustom ? 'ÖZEL' : 'N/A')}</p>
                                 <p class="text-sm font-medium text-blue-600">${(item.price || 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })} / adet</p>
                             </div>
                             <div class="flex flex-col items-end ml-4">
@@ -607,9 +704,36 @@
                 renderCartPage(null);
             }
         }
+        
+        // Sepet Listelerini Çeken Fonksiyon
+        async function fetchCartLists() {
+            if (currentUserType === 'guest' || !currentUserType) {
+                cartListManager.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch('/api/cart/lists');
+                if (!response.ok) throw new Error('Sepet listeleri alınamadı');
+                const data = await response.json();
+                
+                cartListSelect.innerHTML = '';
+                data.lists.forEach(list => {
+                    const option = new Option(`${list.name} (${list.item_count} ürün)`, list.name);
+                    if (list.name === data.active_list_name) {
+                        option.selected = true;
+                    }
+                    cartListSelect.add(option);
+                });
+                cartListManager.style.display = 'flex';
+                
+            } catch (error) {
+                console.error("Sepet listeleri yüklenirken hata:", error);
+                cartListManager.style.display = 'none';
+            }
+        }
 
         /**
-         * YENİ: API'ye miktar güncelleme isteği gönderir
+         * API'ye miktar güncelleme isteği gönderir
          */
         async function updateCartQuantity(productId, quantity) {
             try {
@@ -623,6 +747,7 @@
                 
                 updateCartUI(cartData);   // Header'ı güncelle
                 renderCartPage(cartData); // Sayfayı güncelle
+                await fetchCartLists(); // Liste özetini (ürün sayısı) güncelle
             } catch (error) {
                 showToast(error.message, 'error');
                 await fetchCart(); // Hata olursa sepeti yeniden senkronize et
@@ -630,7 +755,7 @@
         }
 
         /**
-         * YENİ: Input'tan veya butonlardan gelen miktar değişikliklerini yönetir
+         * Input'tan veya butonlardan gelen miktar değişikliklerini yönetir
          */
         function handleQuantityChange(target) {
             const productId = target.dataset.id;
@@ -656,7 +781,7 @@
         }
 
         /**
-         * YENİ: Ürün silme
+         * Ürün silme
          */
         async function handleRemoveItem(target) {
             const productId = target.dataset.id;
@@ -674,6 +799,7 @@
                 showToast('Ürün sepetten kaldırıldı.', 'success');
                 updateCartUI(cartData);
                 renderCartPage(cartData);
+                await fetchCartLists(); // Liste özetini (ürün sayısı) güncelle
             } catch (error) {
                 showToast(error.message, 'error');
             }
@@ -685,11 +811,11 @@
                 const response = await fetch('/api/auth/status'); 
                 const data = await response.json(); 
                 updateLoginStateHeader(data.loggedIn ? data : null); 
-                currentUserType = data.loggedIn ? data.userType : null;
+                currentUserType = data.loggedIn ? data.userType : 'guest';
             } catch (error) { 
                 console.error("Oturum durumu kontrol edilemedi:", error); 
                 updateLoginStateHeader(null); 
-                currentUserType = null;
+                currentUserType = 'guest';
             } 
         }
         function updateLoginStateHeader(userData) { const isLoggedIn = !!userData; authContainerHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageHeader) welcomeMessageHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageHeader) userTypeMessageHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } authContainerMobileHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageMobileHeader) welcomeMessageMobileHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageMobileHeader) userTypeMessageMobileHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } }
@@ -697,7 +823,9 @@
             try { 
                 await fetch('/api/auth/logout', { method: 'POST' }); 
                 updateLoginStateHeader(null); 
+                currentUserType = 'guest';
                 await fetchCart(); 
+                await fetchCartLists();
                 showToast('Başarıyla çıkış yapıldı.'); 
             } catch (error) { 
                 showToast("Çıkış yapılırken bir hata oluştu.", "error"); 
@@ -713,7 +841,8 @@
                 if (result.status === 'login_success') { 
                     authModal.classList.add('hidden'); 
                     await checkAuthStatusHeader(); 
-                    await fetchCart(); 
+                    await fetchCart();
+                    await fetchCartLists();
                     showToast(`Hoşgeldin, ${result.userName}!`); 
                 } else if (result.status === 'complete_profile') { 
                     googleUserDataModal = { name: result.name, email: result.email, google_id: result.google_id }; 
@@ -776,7 +905,7 @@
 
         // Sepeti Temizle Butonu
         clearCartBtn.addEventListener('click', async () => {
-            if (!confirm("Sepetinizdeki tüm ürünleri silmek istediğinize emin misiniz?")) return;
+            if (!confirm("Bu sepet listesindeki tüm ürünleri silmek istediğinize emin misiniz?")) return;
             try {
                 const response = await fetch('/api/cart/clear', { method: 'DELETE' });
                 const cartData = await response.json();
@@ -785,6 +914,7 @@
                 showToast('Sepetiniz başarıyla temizlendi.', 'success');
                 updateCartUI(cartData);
                 renderCartPage(cartData);
+                await fetchCartLists(); // Liste özetini (ürün sayısı) güncelle
             } catch (error) {
                 showToast(error.message, 'error');
             }
@@ -823,6 +953,166 @@
             }
         });
         
+        // --- YENİ: Liste Yönetim Event Listener'ları ---
+        
+        // Liste Değiştirme (DÜZELTİLDİ: 'undefined' hatası çözümü)
+        cartListSelect.addEventListener('change', async (e) => {
+            const listName = e.target.value;
+            if (!listName) return;
+            
+            try {
+                const response = await fetch('/api/cart/set-active', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ list_name: listName })
+                });
+                
+                const result = await response.json(); // API'den gelen {new_active_list_name, cart_details} objesi
+                if (!response.ok) throw new Error(result.error || 'Liste değiştirilemedi');
+
+                const cartData = result.cart_details;
+                const newListName = result.new_active_list_name; // Yanıttan gelen ismi kullan
+                
+                showToast(`'${newListName}' listesine geçildi`, 'success');
+                updateCartUI(cartData); // Header'ı güncelle
+                renderCartPage(cartData); // Sayfayı güncelle
+                await fetchCartLists(); // Dropdown'u tekrar doldur (aktif olanı seçmek için)
+                
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        });
+
+        // Yeni Liste Oluşturma (DÜZELTİLDİ: 'undefined' hatası çözümü)
+        createListBtn.addEventListener('click', async () => {
+            const listName = newListNameInput.value.trim();
+            if (!listName) {
+                showToast('Lütfen geçerli bir liste adı girin.', 'error');
+                return;
+            }
+            
+            createListBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/cart/lists/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ list_name: listName })
+                });
+                
+                const result = await response.json(); // API'den gelen {new_active_list_name, cart_details} objesi
+                if (!response.ok) throw new Error(result.error || 'Liste oluşturulamadı');
+
+                const newListName = result.new_active_list_name;
+                const cartData = result.cart_details;
+
+                showToast(`'${newListName}' isimli liste oluşturuldu`, 'success');
+                newListNameInput.value = '';
+                
+                updateCartUI(cartData); // Header'ı güncelle (yeni boş sepet)
+                renderCartPage(cartData); // Sayfayı güncelle (yeni boş sepet)
+                await fetchCartLists(); // Dropdown'u güncelle (yeni listeyi göstermek için)
+
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                createListBtn.disabled = false;
+            }
+        });
+        
+        // YENİ: Liste Yeniden Adlandırma
+        renameListBtn.addEventListener('click', async () => {
+            const oldName = cartListSelect.value;
+            if (oldName === 'default') {
+                showToast("'default' listesi yeniden adlandırılamaz.", 'error');
+                return;
+            }
+            const newName = prompt("Yeni liste adını girin:", oldName);
+            if (!newName || newName.trim() === "" || newName.trim() === oldName) {
+                showToast("İşlem iptal edildi veya isim değiştirilmedi.", 'info');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/cart/lists/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_name: oldName, new_name: newName.trim() })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+                
+                showToast(`'${oldName}' listesi '${newName.trim()}' olarak değiştirildi.`, 'success');
+                await fetchCartLists(); // Listeyi yenile (yeni ismi ve seçili olanı göstermek için)
+                // Aktif sepet değişmediği için fetchCart() çağırmaya gerek yok
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        });
+        
+        // YENİ: Liste Silme
+        deleteListBtn.addEventListener('click', async () => {
+            const listName = cartListSelect.value;
+            if (listName === 'default') {
+                showToast("'default' listesi silinemez.", 'error');
+                return;
+            }
+            if (!confirm(`'${listName}' listesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/cart/lists/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ list_name: listName })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                showToast(`'${listName}' listesi silindi.`, 'success');
+                await fetchCartLists(); // Listeyi yenile (artık 'default' seçili olmalı)
+                await fetchCart(); // 'default' sepetinin içeriğini yükle
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        });
+        
+        // YENİ: Özel Parça Ekleme
+        addCustomItemBtn.addEventListener('click', async () => {
+            const name = customItemNameInput.value.trim();
+            const price = parseFloat(customItemPriceInput.value);
+            const quantity = parseInt(customItemQuantityInput.value);
+            const brand = "Özel"; // Şimdilik marka sabit
+
+            if (!name || isNaN(price) || price < 0 || isNaN(quantity) || quantity <= 0) {
+                showToast("Lütfen geçerli parça adı, fiyat ve miktar girin.", 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/cart/add-custom', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, price, quantity, brand })
+                });
+                const cartData = await response.json();
+                if (!response.ok) throw new Error(cartData.error);
+
+                showToast(`'${name}' sepete eklendi.`, 'success');
+                customItemNameInput.value = '';
+                customItemPriceInput.value = '';
+                customItemQuantityInput.value = '1';
+                
+                updateCartUI(cartData);
+                renderCartPage(cartData);
+                await fetchCartLists(); // Liste özetini güncelle
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+            }
+        });
+
+        
         // --- Modal Event Listener'ları (parca.html'den kopyalandı) ---
         loginBtnHeader?.addEventListener('click', () => { showLoginViewModal(); authModal.classList.remove('hidden'); });
         signupBtnHeader?.addEventListener('click', () => { showRegisterViewModal(); authModal.classList.remove('hidden'); });
@@ -854,7 +1144,8 @@
                 if (!res.ok) throw new Error(result.description || 'Giriş başarısız.'); 
                 authModal.classList.add('hidden'); 
                 await checkAuthStatusHeader(); 
-                await fetchCart(); 
+                await fetchCart();
+                await fetchCartLists(); // YENİ
                 showToast('Giriş başarılı!'); 
             } catch (error) { 
                 displayMessage(loginViewModal, error.message, 'error'); 
@@ -878,7 +1169,8 @@
                 if (!res.ok) throw new Error(result.description || 'Kayıt başarısız.'); 
                 authModal.classList.add('hidden'); 
                 await checkAuthStatusHeader(); 
-                await fetchCart(); 
+                await fetchCart();
+                await fetchCartLists(); // YENİ
                 showToast('Kayıt başarılı! Giriş yapıldı.'); 
             } catch (error) { 
                 displayMessage(registerViewModal, error.message, 'error'); 
@@ -946,7 +1238,8 @@
                 if (!res.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.'); 
                 authModal.classList.add('hidden'); 
                 await checkAuthStatusHeader(); 
-                await fetchCart(); 
+                await fetchCart();
+                await fetchCartLists(); // YENİ
                 showToast('Kaydınız başarıyla tamamlandı!'); 
             } catch (error) { 
                 displayAuthMessage(googleCompleteProfileFormModal, error.message, 'error'); 
@@ -959,6 +1252,7 @@
         await checkAuthStatusHeader();
         await fetchAndSetConfig();
         await fetchCart(); // Sayfa yüklendiğinde sepeti çek ve render et
+        await fetchCartLists(); // YENİ: Sayfa yüklendiğinde sepet listelerini çek
 
     });
     </script>
