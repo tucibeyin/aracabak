@@ -66,6 +66,18 @@
             max-height: 400px; /* Maksimum yükseklik */
             overflow-y: auto; /* Gerektiğinde kaydırma */
         }
+        
+        /* YENİ: Liste Yönetimi Stili (cart.html'den kopyalandı) */
+        #cart-list-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3e%3cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd' /%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.25em 1.25em;
+            padding-right: 2.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
@@ -80,22 +92,26 @@
             <div id="auth-container" class="flex items-center space-x-4">
                 <div id="guest-menu" class="flex items-center space-x-2 sm:space-x-4">
                     
-                    <!-- Misafir Sepet Butonu -->
+                    <!-- YENİ: Misafir Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
-                        <a id="cartBtnHeaderGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 block">
+                        <a id="cartBtnHeaderGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 block"> <!-- 'block' eklendi -->
                             <i class="fas fa-shopping-cart"></i>
                             <span id="cartItemCountHeaderGuest" class="cart-item-count absolute -top-2 -right-2 hidden">0</span>
                         </a>
-                        <!-- Misafir Mini Sepet Popover -->
+                        <!-- YENİ: Misafir Mini Sepet Popover -->
                         <div id="cart-popover-desktop-guest" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-desktop-guest" class="divide-y divide-gray-100">
+                                <!-- Sepet içeriği JS ile buraya gelecek -->
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
                             </ul>
                             <div id="cart-popover-footer-desktop-guest" class="p-2 border-t border-gray-100 hidden">
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
+                        <!-- Popover sonu -->
                     </div>
+                    <!-- Wrapper sonu -->
+
                     <button id="loginBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Giriş Yap</button>
                     <button id="signupBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Kayıt Ol</button>
                 </div>
@@ -106,14 +122,14 @@
                     </div>
                     <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
                     
-                    <!-- Kullanıcı Sepet Butonu -->
+                    <!-- YENİ: Kullanıcı Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
                         <a id="cartBtnHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 flex items-center">
                             <i class="fas fa-shopping-cart mr-1 sm:mr-2"></i>
                             <span>Sepetim</span>
                             <span id="cartItemCountHeader" class="cart-item-count hidden">0</span>
                         </a>
-                        <!-- Kullanıcı Mini Sepet Popover -->
+                        <!-- YENİ: Kullanıcı Mini Sepet Popover -->
                         <div id="cart-popover-desktop" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-desktop" class="divide-y divide-gray-100">
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
@@ -122,7 +138,10 @@
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
+                        <!-- Popover sonu -->
                     </div>
+                    <!-- Wrapper sonu -->
+
                     <button id="logoutBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
@@ -137,11 +156,13 @@
             <div class="py-2 border-t border-gray-200 flex justify-center items-center space-x-2">
                 <div id="guest-menu-mobile" class="flex items-center space-x-2">
                     
+                    <!-- YENİ: Misafir Mobil Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
-                        <a id="cartBtnMobileGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 block">
+                        <a id="cartBtnMobileGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 block"> <!-- 'block' eklendi -->
                             <i class="fas fa-shopping-cart"></i>
                             <span id="cartItemCountMobileGuest" class="cart-item-count absolute -top-2 -right-2 hidden">0</span>
                         </a>
+                        <!-- YENİ: Misafir Mobil Mini Sepet Popover -->
                         <div id="cart-popover-mobile-guest" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-mobile-guest" class="divide-y divide-gray-100">
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
@@ -150,7 +171,10 @@
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
+                        <!-- Popover sonu -->
                     </div>
+                    <!-- Wrapper sonu -->
+
                     <button id="loginBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Giriş Yap</button>
                     <button id="signupBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Kayıt Ol</button>
                 </div>
@@ -158,11 +182,13 @@
                     <a href="/" class="bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg hover:bg-blue-700">Anasayfa</a>
                     <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Hesabım</a>
                     
+                    <!-- YENİ: Kullanıcı Mobil Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
                         <a id="cartBtnMobileHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 flex items-center">
                             <span>Sepetim</span>
                             <span id="cartItemCountMobile" class="cart-item-count hidden">0</span>
                         </a>
+                        <!-- YENİ: Kullanıcı Mobil Mini Sepet Popover -->
                         <div id="cart-popover-mobile" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-mobile" class="divide-y divide-gray-100">
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
@@ -171,7 +197,10 @@
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
+                        <!-- Popover sonu -->
                     </div>
+                    <!-- Wrapper sonu -->
+
                     <button id="logoutBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
@@ -185,11 +214,13 @@
     </header>
 
     <main class="container mx-auto p-4 md:p-8 flex-grow">
-        <div class="w-full max-w-7xl mx-auto mt-4 sm:mt-8">
+        <div class="w-full max-w-7xl mx-auto mt-4 sm:mt-8"> <!-- Max width genişletildi -->
             <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
                 <h1 class="text-2xl sm:text-3xl font-bold mb-4">Parça Arama Sonuçları</h1>
+                <!-- Seçilen Araç Bilgisi -->
                 <p id="selectedVehicleInfo" class="text-md text-gray-700 mb-6 bg-gray-100 p-3 rounded-lg border border-gray-200"></p>
 
+                <!-- Aracı Değiştir Alanı -->
                 <div class="mb-6 text-right">
                     <button id="toggleVehicleChangeBtn" class="bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600 text-sm">
                         <i class="fas fa-edit mr-1"></i> Aracı Değiştir
@@ -210,8 +241,21 @@
                         </button>
                     </div>
                 </div>
+                <!-- Aracı Değiştir Alanı Bitişi -->
 
+                <!-- YENİ: Aktif Liste Seçici -->
+                <div id="cart-list-manager" class="hidden mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <label for="cart-list-select" class="block text-sm font-medium text-gray-700 mb-1">Parçalar Eklenecek Aktif Liste:</label>
+                    <select id="cart-list-select" class="w-full max-w-xs p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <!-- JS ile dolacak -->
+                    </select>
+                </div>
+                <!-- Aktif Liste Seçici Bitişi -->
+
+
+                <!-- Kategori Kenar Çubuğu ve Parça Alanı -->
                 <div class="flex flex-col md:flex-row gap-8 mt-6">
+                    <!-- Sol Sütun: Kategoriler -->
                     <aside class="w-full md:w-1/4 lg:w-1/5">
                         <h3 class="text-lg font-semibold mb-4 border-b pb-2">Kategoriler</h3>
                         <div id="categoryList" class="space-y-1">
@@ -219,35 +263,45 @@
                         </div>
                     </aside>
 
+                    <!-- Sağ Sütun: Parça Listesi ve Sayfalama -->
                     <div class="w-full md:w-3/4 lg:w-4/5">
                         <div id="partsListContainer">
+                            <!-- Arama Çubuğu -->
                             <div class="mb-6 relative">
                                 <input type="text" id="partSearchInput" placeholder="Parça adı, marka veya stok kodu ile ara..." class="w-full p-3 pl-10 border rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                                 <button id="clearSearchBtn" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden text-xl">&times;</button>
                             </div>
+                            <!-- Arama Çubuğu Bitişi -->
 
+                            <!-- Yükleniyor Göstergesi -->
                             <div id="loadingIndicator" class="text-center py-10">
                                 <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto animate-spin"></div>
                                 <p class="text-gray-600">Uygun parçalar aranıyor...</p>
                             </div>
+                            <!-- Hata Mesajı Alanı -->
                             <div id="errorMessage" class="hidden text-center py-10 px-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
                                 <i class="fas fa-exclamation-triangle fa-2x mb-3 text-red-500"></i>
                                 <p id="errorText" class="font-semibold"></p>
                             </div>
+                            <!-- Parça Grid Alanı -->
                             <div id="partsGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
                                 <!-- Parça kartları buraya JS ile eklenecek -->
                             </div>
+                            <!-- Sonuç Yok Mesajı -->
                             <div id="noResultsMessage" class="hidden text-center py-10 px-4 bg-yellow-50 text-yellow-700 rounded-lg border border-yellow-200">
                                 <i class="fas fa-info-circle fa-2x mb-3 text-yellow-500"></i>
                                 <p class="font-semibold">Seçtiğiniz araca, kategoriye veya arama kriterine uygun parça bulunamadı.</p>
                                 <p class="text-sm mt-1">Lütfen farklı bir filtre deneyin veya ana sayfaya dönüp tekrar deneyin.</p>
                             </div>
+                            <!-- Sayfalama Kontrolleri Alanı -->
                             <div id="paginationControls" class="mt-8">
                             </div>
                         </div>
                     </div>
                 </div>
+                <!-- Kategori/Parça Alanı Bitişi -->
+
             </div>
         </div>
     </main>
@@ -312,7 +366,7 @@
                     <p class="mt-6 text-center text-sm">Hesabın yok mu? <a href="#" id="showRegisterModal" class="text-blue-500 hover:underline">Kayıt Ol</a></p>
                 </div>
 
-                <!-- Register Form -->
+                <!-- Register Form (DÜZELTİLDİ) -->
                 <div id="registerViewModal" class="hidden">
                     <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Hesap Oluştur</h2>
                     <form id="registerFormModal">
@@ -348,7 +402,7 @@
                     <p class="text-center text-gray-600 mb-6">E-postanıza gelen kodu ve yeni şifrenizi girin.</p>
                     <form id="resetPasswordFormModal">
                         <div class="mb-4"><label for="resetCodeModal" class="block text-sm font-medium text-gray-700 mb-2">Sıfırlama Kodu</label><input type="text" id="resetCodeModal" name="code" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required maxlength="6"></div>
-                        <div class="mb-6"><label for="newPasswordModal" class="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre</label><input type="password" id="newPasswordModal" name="new_password" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required minlength="6"></div>
+                        <div class="mb-6"><label for="newPasswordModal" class="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre</label><input type="password" id="newPasswordModal" name="new_password" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required minlength="6"></div>
                         <div class="message-box hidden"></div>
                         <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Şifreyi Yenile</button>
                     </form>
@@ -358,37 +412,6 @@
 
         </div>
     </div>
-    
-    <!-- *** YENİ (ADIM 6): Listeye Ekle Modalı *** -->
-    <div id="add-to-list-modal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
-        <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
-            <button id="close-add-to-list-modal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-            <h3 class="text-xl font-bold mb-4">Listeye Ekle</h3>
-            <p class="text-sm text-gray-600 mb-4">"<span id="add-to-list-part-name" class="font-semibold">...</span>" parçasını hangi listeye eklemek istersiniz?</p>
-            
-            <div id="add-to-list-loading" class="text-center text-gray-500 py-4">Listeler yükleniyor...</div>
-            <div id="add-to-list-container" class="hidden">
-                <div class="mb-4">
-                    <label for="cart-list-select" class="block text-sm font-medium text-gray-700 mb-2">Mevcut Liste Seç</label>
-                    <select id="cart-list-select" class="w-full p-3 border rounded-lg bg-white shadow-sm">
-                        <!-- Listeler buraya gelecek -->
-                    </select>
-                </div>
-                
-                <div class="my-4 text-center text-gray-500">veya</div>
-
-                <div class="mb-4">
-                    <label for="add-to-list-new-name" class="block text-sm font-medium text-gray-700 mb-2">Yeni Liste Oluştur</label>
-                    <input type="text" id="add-to-list-new-name" class="w-full p-3 border rounded-lg" placeholder="Örn: Hafta Sonu Projesi">
-                </div>
-            </div>
-            
-            <div id="add-to-list-message-container" class="message-box hidden"></div>
-            <button id="add-to-list-submit-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700" disabled>Ekle</button>
-        </div>
-    </div>
-    <!-- *** MODAL SONU *** -->
-
 
     <div id="toast-container"></div>
 
@@ -403,6 +426,7 @@
         const noResultsMessage = document.getElementById('noResultsMessage');
         const categoryListEl = document.getElementById('categoryList');
         const paginationControlsEl = document.getElementById('paginationControls');
+        // Yeni Araç Seçim Elementleri
         const toggleVehicleChangeBtn = document.getElementById('toggleVehicleChangeBtn');
         const vehicleChangeContainer = document.getElementById('vehicleChangeContainer');
         const changeBrandSelect = document.getElementById('change_brand');
@@ -411,8 +435,14 @@
         const changeFuelSelect = document.getElementById('change_fuel');
         const changeModelSelect = document.getElementById('change_model');
         const findNewPartsBtn = document.getElementById('findNewPartsBtn');
+        // Arama Elementleri
         const partSearchInput = document.getElementById('partSearchInput');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
+        
+        // YENİ: Liste Yönetim Elementleri
+        const cartListManager = document.getElementById('cart-list-manager');
+        const cartListSelect = document.getElementById('cart-list-select');
+
 
         // --- Header Auth Elementleri ---
         const authContainerHeader = document.getElementById('auth-container');
@@ -433,7 +463,7 @@
         const signupBtnMobileHeader = document.getElementById('signupBtnMobileHeader');
         const logoutBtnMobileHeader = document.getElementById('logoutBtnMobileHeader');
         
-        // Sepet Element Referansları
+        // YENİ: Sepet Element Referansları
         const cartBtnHeader = document.getElementById('cartBtnHeader');
         const cartItemCountHeader = document.getElementById('cartItemCountHeader');
         const cartBtnMobileHeader = document.getElementById('cartBtnMobileHeader');
@@ -443,7 +473,7 @@
         const cartBtnMobileGuest = document.getElementById('cartBtnMobileGuest');
         const cartItemCountMobileGuest = document.getElementById('cartItemCountMobileGuest');
 
-        // Mini Sepet Referansları
+        // *** YENİ: Mini Sepet Referansları ***
         const cartPopoverListDesktopGuest = document.getElementById('cart-popover-list-desktop-guest');
         const cartPopoverFooterDesktopGuest = document.getElementById('cart-popover-footer-desktop-guest');
         const cartPopoverListDesktop = document.getElementById('cart-popover-list-desktop');
@@ -453,7 +483,8 @@
         const cartPopoverListMobile = document.getElementById('cart-popover-list-mobile');
         const cartPopoverFooterMobile = document.getElementById('cart-popover-footer-mobile');
 
-        // Auth Modal Elementleri
+
+        // --- Modal Elementleri ---
         const authModal = document.getElementById('authModal');
         const closeModal = authModal.querySelector('#closeModal');
         const standardAuthFormsModal = authModal.querySelector('#standardAuthFormsModal');
@@ -477,39 +508,19 @@
         const googleShopTypeSelectionModal = authModal.querySelector('#googleShopTypeSelectionModal');
         const completeGoogleRegBtnModal = authModal.querySelector('#completeGoogleRegistrationBtnModal');
 
-        // *** YENİ (ADIM 6): Listeye Ekle Modal Referansları ***
-        const addToListModal = document.getElementById('add-to-list-modal');
-        const closeAddToListModalBtn = document.getElementById('close-add-to-list-modal');
-        const addToListLoading = document.getElementById('add-to-list-loading');
-        const addToListContainer = document.getElementById('add-to-list-container');
-        const addToListPartName = document.getElementById('add-to-list-part-name');
-        const cartListSelect = document.getElementById('cart-list-select');
-        const addToListNewName = document.getElementById('add-to-list-new-name');
-        const addToListSubmitBtn = document.getElementById('add-to-list-submit-btn');
-        const addToListMessageContainer = document.getElementById('add-to-list-message-container');
-        // *** YENİ REFERANS SONU ***
-
         let googleClientId = null;
-        let googleUserDataModal = null; 
+        let googleUserDataModal = null; // Modal için Google verisi
         
+        // *** YENİ: Kullanıcı tipini global olarak sakla ***
         let currentUserType = null;
-        let guestCartHasItems = false; 
-        
-        // *** YENİ (ADIM 6): Eklenecek parçayı geçici olarak sakla ***
-        let currentPartToAdd = {
-            id: null,
-            name: null
-        };
-        // *** YENİ (ADIM 6): Varsayılan sepetin ID'sini sakla ***
-        let defaultCartListId = null;
 
         // --- Parça verisi, filtreleme ve sayfalama durumu ---
-        let allPartsData = [];
-        let filteredPartsData = [];
+        let allPartsData = [];          // API'den gelen orijinal liste
+        let filteredPartsData = [];     // Kategori ve arama sonrası filtrelenmiş liste
         let categorizedParts = {};
         let currentCategory = 'Tümü';
         let currentPage = 1;
-        let currentSearchTerm = '';
+        let currentSearchTerm = '';     // Arama terimi
         const itemsPerPage = 20;
 
         // === Helper Fonksiyonlar ===
@@ -529,17 +540,8 @@
 
         function displayAuthMessage(container, message, type) {
             if (!container) return;
-            let messageBox = container;
-            if(typeof container === 'string') {
-                messageBox = document.getElementById(container);
-            }
-            if (!messageBox) return;
-
-            if(typeof container === 'string') {
-                let actualBox = messageBox.querySelector('.message-box');
-                if(actualBox) messageBox = actualBox;
-            }
-            
+            const messageBox = container.querySelector('.message-box');
+            if (!messageBox) { console.warn("Mesaj kutusu bulunamadı.", container); return; }
             messageBox.textContent = message;
             messageBox.className = `message-box message-${type}`;
             messageBox.classList.remove('hidden');
@@ -580,11 +582,17 @@
         function showResetPasswordViewModal() { if (forgotPasswordViewModal) forgotPasswordViewModal.classList.add('hidden'); if (resetPasswordViewModal) resetPasswordViewModal.classList.remove('hidden'); }
         function showGoogleCompleteProfileViewModal() { clearAuthMessages(); if (standardAuthFormsModal) standardAuthFormsModal.classList.add('hidden'); if (forgotPasswordFlowModal) forgotPasswordFlowModal.classList.add('hidden'); if (googleCompleteProfileFormModal) googleCompleteProfileFormModal.classList.remove('hidden'); }
         
-        // --- Sepet Fonksiyonları ---
+        // --- YENİ: Sepet Fonksiyonları ---
         
+        /**
+         * YENİ: Mini sepet listesini dolduran yardımcı fonksiyon
+         * @param {HTMLElement} listElement - Doldurulacak 'ul' elementi
+         * @param {HTMLElement} footerElement - Gösterilecek/gizlenecek 'div' (buton wrapper)
+         * @param {Array} items - Sepetteki ürünlerin listesi
+         */
         function populatePopoverList(listElement, footerElement, items) {
-            if (!listElement) return; 
-            listElement.innerHTML = ''; 
+            if (!listElement) return; // Element yoksa çık
+            listElement.innerHTML = ''; // Listeyi temizle
 
             if (items && items.length > 0) {
                 let subtotal = 0;
@@ -606,6 +614,7 @@
                     listElement.appendChild(li);
                 });
                 
+                // Toplam fiyatı ekle
                 const totalLi = document.createElement('li');
                 totalLi.className = 'flex justify-between items-center text-sm py-2 px-4 font-bold bg-gray-50';
                 totalLi.innerHTML = `
@@ -614,22 +623,25 @@
                 `;
                 listElement.appendChild(totalLi);
                 
-                if (footerElement) footerElement.classList.remove('hidden');
+                if (footerElement) footerElement.classList.remove('hidden'); // "Sepete Git" butonunu göster
             } else {
                 listElement.innerHTML = '<li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>';
-                if (footerElement) footerElement.classList.add('hidden');
+                if (footerElement) footerElement.classList.add('hidden'); // "Sepete Git" butonunu gizle
             }
         }
 
-        // *** DÜZELTME: updateCartUI artık "items" (içerik) ve "itemCount" (o listenin sayısı) alıyor ***
-        function updateCartUI(items, itemCount) { 
-            // DÜZELTME: Sayaç artık 'items' dizisini saymak yerine,
-            // doğrudan API'den gelen 'itemCount' (yani cartData.item_count) değerini kullanmalıdır.
-            const count = itemCount || 0;
-            const itemText = count.toString();
-            const show = count > 0;
+
+        /**
+        * GÜNCELLENDİ: Sepet sayaçlarını VE mini sepet listelerini günceller.
+        * @param {object | null} cartData - /api/cart/ yanıtı veya null
+        */
+        function updateCartUI(cartData) {
+            const itemCount = cartData ? (cartData.item_count || 0) : 0;
+            const items = cartData ? (cartData.items || []) : [];
+            const itemText = itemCount.toString();
+            const show = itemCount > 0;
             
-            // Sayaçları Güncelle (Artık sadece varsayılan sepetin sayısını gösterir)
+            // Sayaçları Güncelle (Mevcut kod)
             if (cartItemCountHeader) {
                 cartItemCountHeader.textContent = itemText;
                 cartItemCountHeader.classList.toggle('hidden', !show);
@@ -647,213 +659,99 @@
                 cartItemCountMobileGuest.classList.toggle('hidden', !show);
             }
 
-            // Mini Sepet Popover'larını Doldur (items -> varsayılan sepetin içeriği)
+            // *** YENİ: Mini Sepet Popover'larını Doldur ***
             populatePopoverList(cartPopoverListDesktopGuest, cartPopoverFooterDesktopGuest, items);
             populatePopoverList(cartPopoverListDesktop, cartPopoverFooterDesktop, items);
             populatePopoverList(cartPopoverListMobileGuest, cartPopoverFooterMobileGuest, items);
             populatePopoverList(cartPopoverListMobile, cartPopoverFooterMobile, items);
         }
 
-        // *** DÜZELTME: fetchCart artık 'cartData.items' ve 'cartData.item_count'u gönderiyor ***
+        /**
+        * Sayfa yüklendiğinde veya sepet değiştiğinde API'den sepeti çeker.
+        */
         async function fetchCart() {
             try {
-                const response = await fetch('/api/cart/'); // Bu, varsayılan sepeti VE (artık gerekmeyen) toplam sayacı çeker
+                const response = await fetch('/api/cart/');
                 if (!response.ok) throw new Error('Sepet alınamadı');
                 const cartData = await response.json();
-                
-                // DÜZELTME: updateCartUI'a 'total_item_count_all_lists' yerine
-                // 'varsayılan sepetin' sayısını (item_count) gönder.
-                updateCartUI(cartData.items, cartData.item_count); 
-
-                defaultCartListId = cartData.list_id; 
-
-                if (currentUserType === null && cartData && cartData.item_count > 0) {
-                    guestCartHasItems = true;
-                } else {
-                    guestCartHasItems = false;
-                }
-                
+                updateCartUI(cartData);
             } catch (error) {
                 console.error("Sepet yüklenirken hata:", error);
-                updateCartUI([], 0); // Hata durumunda sepeti sıfırla
+                updateCartUI(null); // Hata durumunda sepeti sıfırla (sayaçları gizle)
             }
         }
         
-        // *** GÜNCELLENDİ (ADIM 6): Sepete Ekleme Mantığı ***
+        // YENİ: Sepet Listelerini Çeken Fonksiyon (cart.html'den)
+        async function fetchCartLists() {
+            if (currentUserType === 'guest' || !currentUserType) {
+                cartListManager.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch('/api/cart/lists');
+                if (!response.ok) throw new Error('Sepet listeleri alınamadı');
+                const data = await response.json();
+                
+                cartListSelect.innerHTML = '';
+                data.lists.forEach(list => {
+                    const option = new Option(`${list.name} (${list.item_count} ürün)`, list.name);
+                    if (list.name === data.active_list_name) {
+                        option.selected = true;
+                    }
+                    cartListSelect.add(option);
+                });
+                cartListManager.style.display = 'block'; // 'flex' yerine 'block'
+                
+            } catch (error) {
+                console.error("Sepet listeleri yüklenirken hata:", error);
+                cartListManager.style.display = 'none';
+            }
+        }
+        
+        /**
+        * "Sepete Ekle" butonuna tıklandığında çalışır.
+        * @param {Event} event - Tıklama olayı (veya { currentTarget: button } objesi)
+        */
         async function handleAddToCart(event) {
-            const button = event.currentTarget;
+            const button = event.currentTarget; // Event delegation'dan gelen butonu al
             const partId = button.dataset.partId;
             const partName = button.dataset.partName || 'Parça';
             if (!partId) return;
-
-            if (currentUserType === null) {
-                // --- MİSAFİR KULLANICI (Giriş Yapmamış) ---
-                button.disabled = true;
-                button.innerHTML = '<i class="fas fa-spinner animate-spin"></i>';
-                try {
-                    const response = await fetch('/api/cart/add', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ product_id: partId, quantity: 1 }) // list_id YOK
-                    });
-                    const cartData = await response.json();
-                    if (!response.ok) throw new Error(cartData.error || 'Sepete eklenemedi.');
-                    
-                    // DÜZELTME: Yeni UI fonksiyonunu çağır
-                    updateCartUI(cartData.items, cartData.item_count); 
-                    guestCartHasItems = true;
-                    showToast(`"${partName}" sepete eklendi!`, 'success');
-                } catch (error) {
-                    console.error("Sepete ekleme hatası (Misafir):", error);
-                    showToast(error.message, 'error');
-                } finally {
-                    button.disabled = false;
-                    button.innerHTML = '<i class="fas fa-cart-plus mr-1"></i> Ekle';
-                }
-            } else {
-                // --- GİRİŞ YAPMIŞ KULLANICI ---
-                // Yeni "Listeye Ekle" modalını aç
-                openAddToListModal(partId, partName);
-            }
-        }
-
-        // *** YENİ (ADIM 6): "Listeye Ekle" modalını açar ve listeleri doldurur ***
-        async function openAddToListModal(partId, partName) {
-            currentPartToAdd.id = partId;
-            currentPartToAdd.name = partName;
-
-            addToListPartName.textContent = partName;
-            addToListModal.classList.remove('hidden');
-            addToListLoading.classList.remove('hidden');
-            addToListContainer.classList.add('hidden');
-            addToListSubmitBtn.disabled = true;
-            addToListMessageContainer.classList.add('hidden');
-            addToListNewName.value = '';
-            cartListSelect.disabled = false;
-            addToListNewName.disabled = false;
-
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner animate-spin"></i>';
             try {
-                const response = await fetch('/api/cart/lists');
-                if (!response.ok) throw new Error('Listeleriniz yüklenemedi.');
-                const lists = await response.json();
-
-                cartListSelect.innerHTML = '';
-                if (lists.length > 0) {
-                    lists.forEach(list => {
-                        const option = new Option(
-                            `${list.list_name} (${list.item_count} parça)`, 
-                            list.id
-                        );
-                        if (list.list_name === "Varsayılan Sepetim") {
-                            option.selected = true;
-                        }
-                        cartListSelect.add(option);
-                    });
-                } else {
-                    cartListSelect.add(new Option('Henüz bir listeniz yok.', ''));
-                    cartListSelect.disabled = true;
-                }
-
-                addToListLoading.classList.add('hidden');
-                addToListContainer.classList.remove('hidden');
-                addToListSubmitBtn.disabled = false;
-
-            } catch (error) {
-                displayAuthMessage('add-to-list-message-container', error.message, 'error');
-                addToListLoading.classList.add('hidden');
-            }
-        }
-
-        // *** YENİ (ADIM 6): Parçayı seçilen/yeni listeye ekler ***
-        async function addItemToList() {
-            const partId = currentPartToAdd.id;
-            const partName = currentPartToAdd.name;
-            const newListName = addToListNewName.value.trim();
-            const selectedListId = cartListSelect.value;
-            
-            addToListSubmitBtn.disabled = true;
-            addToListSubmitBtn.textContent = 'Ekleniyor...';
-            displayAuthMessage('add-to-list-message-container', '', 'success'); // Mesajı temizle
-
-            try {
-                let targetListId = selectedListId;
-                let targetListName = cartListSelect.options[cartListSelect.selectedIndex]?.text.split(' (')[0] || 'Listeniz';
-
-                // 1. Yeni liste oluşturulması gerekiyorsa
-                if (newListName) {
-                    const createResponse = await fetch('/api/cart/lists/create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ list_name: newListName })
-                    });
-                    const newList = await createResponse.json();
-                    if (!createResponse.ok) throw new Error(newList.error || 'Yeni liste oluşturulamadı.');
-                    
-                    targetListId = newList.id;
-                    targetListName = newList.list_name;
-                    showToast(`'${newListName}' listesi oluşturuldu.`, 'success');
-                }
-
-                if (!targetListId) {
-                    throw new Error('Lütfen bir liste seçin veya yeni bir liste oluşturun.');
-                }
-
-                // 2. Parçayı hedef listeye ekle
-                const addResponse = await fetch('/api/cart/add', {
+                const response = await fetch('/api/cart/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        product_id: partId,
-                        quantity: 1,
-                        list_id: targetListId 
-                    })
+                    body: JSON.stringify({ product_id: partId, quantity: 1 })
                 });
-                const cartData = await addResponse.json();
-                if (!addResponse.ok) throw new Error(cartData.error || 'Parça listeye eklenemedi.');
-
-                // 3. Başarılı
-                showToast(`"${partName}", "${targetListName}" listesine eklendi!`, 'success');
-                addToListModal.classList.add('hidden');
                 
-                // *** DÜZELTME: Header'ı ve mini sepeti güncelle ***
-                // Ekleme "Varsayılan Sepetim"e yapıldıysa (veya ilk defa varsayılan sepet yüklendiyse)
-                // mini sepeti (header) güncelle
-                if (String(cartData.list_id) === String(defaultCartListId)) {
-                     updateCartUI(cartData.items, cartData.item_count);
+                const cartData = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(cartData.error || 'Sepete eklenemedi.');
                 }
-
+                
+                updateCartUI(cartData); // GÜNCELLENDİ: Bu fonksiyon artık mini sepeti de dolduruyor
+                await fetchCartLists(); // YENİ: Dropdown'daki (X ürün) sayısını güncelle
+                showToast(`"${partName}" sepete eklendi!`, 'success');
             } catch (error) {
-                console.error("Listeye ekleme hatası:", error);
-                displayAuthMessage('add-to-list-message-container', error.message, 'error');
+                console.error("Sepete ekleme hatası:", error);
+                showToast(error.message, 'error');
             } finally {
-                addToListSubmitBtn.disabled = false;
-                addToListSubmitBtn.textContent = 'Ekle';
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-cart-plus mr-1"></i> Ekle';
             }
-        }
-
-
-        // *** YENİ (ADIM 3): Misafir sepetini DB'ye birleştirme fonksiyonu ***
-        async function mergeGuestCart() {
-            if (guestCartHasItems && currentUserType !== null) {
-                try {
-                    const response = await fetch('/api/cart/merge', { method: 'POST' });
-                    const cartData = await response.json();
-                    if (!response.ok) throw new Error(cartData.error || "Misafir sepeti birleştirilemedi.");
-                    guestCartHasItems = false;
-                    return cartData; 
-                } catch (error) {
-                    console.error("Misafir sepeti birleştirme hatası:", error);
-                    showToast(error.message, 'error');
-                }
-            }
-            return null;
         }
         
         // --- Kategorizasyon, Filtreleme ve Render Fonksiyonları ---
         function categorizeParts(parts) { const categories = { 'Filtreler': [], 'Fren Sistemi': [], 'Ateşleme': [], 'Motor Yağları': [], 'Kayışlar': [], 'Silecekler': [], 'Aydınlatma': [], 'Diğer': [] }; const categoryKeywords = { 'Filtreler': ['filtre', 'filter'], 'Fren Sistemi': ['balata', 'disk', 'fren', 'brake'], 'Ateşleme': ['buji', 'kızdırma', 'ignition', 'spark'], 'Motor Yağları': ['yağ', 'oil'], 'Kayışlar': ['kayış', 'belt', 'v-kayışı'], 'Silecekler': ['silecek', 'wiper'], 'Aydınlatma': ['ampul', 'far', 'lamba', 'bulb', 'light'] }; parts.forEach(part => { let assignedCategory = 'Diğer'; const partNameLower = part.name ? part.name.toLowerCase() : ''; for (const category in categoryKeywords) { if (categoryKeywords[category].some(keyword => partNameLower.includes(keyword))) { assignedCategory = category; break; } } if (!categories[assignedCategory]) categories[assignedCategory] = []; categories[assignedCategory].push(part); }); const filledCategories = {}; for(const cat in categories) { if(categories[cat].length > 0) { filledCategories[cat] = categories[cat]; } } return filledCategories; }
         
+        // GÜNCELLENDİ: Filtrelemeyi ekle
         function renderCurrentPageParts() {
+            // 1. Kategoriye göre filtrele
             let partsToFilter = (currentCategory === 'Tümü') ? allPartsData : (categorizedParts[currentCategory] || []);
+            // 2. Arama terimine göre ek filtreleme yap
             const searchTerm = currentSearchTerm.toLowerCase().trim();
             if (searchTerm) {
                 partsToFilter = partsToFilter.filter(part =>
@@ -862,30 +760,43 @@
                     (part.stock_code && part.stock_code.toLowerCase().includes(searchTerm))
                 );
             }
-            filteredPartsData = partsToFilter;
+            filteredPartsData = partsToFilter; // Filtrelenmiş listeyi sakla
+            // 3. Sayfalamayı uygula
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
             const partsForCurrentPage = filteredPartsData.slice(startIndex, endIndex);
+            // 4. Göster
             renderParts(partsForCurrentPage);
-            renderPaginationControls(filteredPartsData.length);
+            renderPaginationControls(filteredPartsData.length); // Toplam filtrelenmiş sayıya göre sayfalama
+            // 5. Sonuç yok mesajını ayarla (hem kategori hem arama filtresi sonrası)
             const showNoResultMessage = filteredPartsData.length === 0;
             noResultsMessage.classList.toggle('hidden', !showNoResultMessage);
             partsGrid.classList.toggle('hidden', showNoResultMessage);
         }
         
-        // GÜNCELLENDİ: renderParts (Butonlar artık her zaman aktif)
+        // *** GÜNCELLENDİ: renderParts fonksiyonu artık SADECE KULLANICI TİPİNİ kontrol ediyor ***
         function renderParts(partsToDisplay) { 
             if (!partsGrid) return; 
             partsGrid.innerHTML = ''; 
             partsToDisplay.forEach(part => { 
                 let priceFormatted = 'Fiyat Yok'; 
+                // 1. Fiyat kontrolü (Sadece GÖRSEL amaçlı kaldı, butonu kilitlemiyor)
                 let hasPrice = (part.price !== null && typeof part.price === 'number');
                 if (hasPrice) { 
                     priceFormatted = part.price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }); 
                 } 
                 
-                let isButtonDisabled = false; // Her zaman aktif
-                let buttonTitle = 'Listeye Ekle'; // YENİ: Başlık değişti
+                // 2. Kullanıcı tipi kontrolü
+                let isOwner = (currentUserType === 'owner');
+                
+                // 3. Butonun devre dışı kalma mantığı (GÜNCELLENDİ: !hasPrice kontrolü kaldırıldı)
+                let isButtonDisabled = !isOwner;
+                
+                // 4. Duruma göre ipucu (title) belirleme (GÜNCELLENDİ: hasPrice kontrolü kaldırıldı)
+                let buttonTitle = 'Sepete Ekle'; // Varsayılan
+                if (!isOwner) {
+                    buttonTitle = 'Sadece araç sahipleri parça ekleyebilir.';
+                }
 
                 const safeUrl = (part.url && (part.url.startsWith('http://') || part.url.startsWith('https://'))) ? part.url : '#'; 
                 const safeImageUrl = (part.image_url && (part.image_url.startsWith('http://') || part.image_url.startsWith('https://'))) ? part.image_url : '/logolar/placeholder.png'; 
@@ -905,9 +816,10 @@
                             <p class="text-base font-bold text-blue-600">${priceFormatted}</p> 
                             <div class="flex items-center space-x-2">
                                 <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="bg-gray-800 text-white text-xs font-bold py-1 px-3 rounded hover:bg-black transition-colors ${safeUrl === '#' ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}"> Detay <i class="fas fa-external-link-alt ml-1 text-xs"></i> </a> 
+                                <!-- YENİ: Sepete Ekle Butonu (Güncellenmiş mantık) -->
                                 <button data-part-id="${part.id}" data-part-name="${part.name || 'Parça'}" 
-                                    class="add-to-cart-btn bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded hover:bg-blue-700 transition-colors" 
-                                    title="${buttonTitle}">
+                                    class="add-to-cart-btn bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded hover:bg-blue-700 transition-colors ${isButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''}" 
+                                    ${isButtonDisabled ? 'disabled' : ''} title="${buttonTitle}">
                                     <i class="fas fa-cart-plus mr-1"></i> Ekle
                                 </button>
                             </div>
@@ -920,34 +832,39 @@
         }
 
         function renderPaginationControls(totalItems) { if (!paginationControlsEl) return; paginationControlsEl.innerHTML = ''; const totalPages = Math.ceil(totalItems / itemsPerPage); if (totalPages <= 1) return; const paginationWrapper = document.createElement('div'); paginationWrapper.className = 'flex justify-center items-center space-x-2 mt-8'; const prevButton = document.createElement('button'); prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>'; prevButton.className = 'px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed'; prevButton.disabled = currentPage === 1; prevButton.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderCurrentPageParts(); } }); paginationWrapper.appendChild(prevButton); const pageInfo = document.createElement('span'); pageInfo.className = 'text-sm text-gray-600 font-medium'; pageInfo.textContent = `Sayfa ${currentPage} / ${totalPages}`; paginationWrapper.appendChild(pageInfo); const nextButton = document.createElement('button'); nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>'; nextButton.className = 'px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed'; nextButton.disabled = currentPage === totalPages; nextButton.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderCurrentPageParts(); } }); paginationWrapper.appendChild(nextButton); paginationControlsEl.appendChild(paginationWrapper); }
-        function renderCategories() { if (!categoryListEl) return; categoryListEl.innerHTML = ''; const allCategoryButton = createCategoryButton('Tümü', allPartsData.length); categoryListEl.appendChild(allCategoryButton); Object.keys(categorizedParts).sort().forEach(categoryName => { if (categorizedParts[categoryName].length > 0) { const button = createCategoryButton(categoryName, categorizedParts[categoryName].length); categoryListEl.appendChild(button); } }); setActiveCategoryButton(currentCategory); }
+        function renderCategories() { if (!categoryListEl) return; categoryListEl.innerHTML = ''; const allCategoryButton = createCategoryButton('Tümü', allPartsData.length); categoryListEl.appendChild(allCategoryButton); Object.keys(categorizedParts).sort().forEach(categoryName => { if (categorizedParts[categoryName].length > 0) { const button = createCategoryButton(categoryName, categorizedParts[categoryName].length); categoryListEl.appendChild(button); } }); setActiveCategoryButton(currentCategory); } // currentCategory'ye göre aktif yap
         function createCategoryButton(categoryName, count) { const button = document.createElement('button'); button.className = 'w-full text-left px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 category-button'; button.dataset.category = categoryName; button.innerHTML = `${categoryName} <span class="text-xs text-gray-500 ml-1">(${count})</span>`; button.addEventListener('click', handleCategoryClick); return button; }
 
+
+        // GÜNCELLENDİ: Kategori değişince aramayı temizle
         function handleCategoryClick(event) {
             const selectedCategory = event.currentTarget.dataset.category;
             if (selectedCategory === currentCategory) return;
+
             currentCategory = selectedCategory;
             currentPage = 1;
-            clearSearch();
+            clearSearch(); // Kategori değişince arama kutusunu ve terimini temizle
             setActiveCategoryButton(currentCategory);
             renderCurrentPageParts();
         }
 
         function setActiveCategoryButton(categoryName) { document.querySelectorAll('.category-button').forEach(btn => { const isActive = btn.dataset.category === categoryName; btn.classList.toggle('active', isActive); }); }
 
+
+        // --- YENİ: Arama Fonksiyonları ---
         function handleSearchInput() {
             currentSearchTerm = partSearchInput.value;
-            clearSearchBtn.classList.toggle('hidden', !currentSearchTerm);
-            currentPage = 1;
-            renderCurrentPageParts();
+            clearSearchBtn.classList.toggle('hidden', !currentSearchTerm); // Temizle butonunu göster/gizle
+            currentPage = 1; // Arama yapıldığında ilk sayfaya dön
+            renderCurrentPageParts(); // Filtrelenmiş sonuçları göster
         }
 
         function clearSearch() {
             partSearchInput.value = '';
             currentSearchTerm = '';
             clearSearchBtn.classList.add('hidden');
-            currentPage = 1;
-            renderCurrentPageParts();
+            currentPage = 1; // Aramayı temizleyince ilk sayfaya dön
+            renderCurrentPageParts(); // Filtresiz (sadece kategorili) sonuçları göster
         }
 
         // --- Header Authentication Logic ---
@@ -956,11 +873,22 @@
                 const response = await fetch('/api/auth/status'); 
                 const data = await response.json(); 
                 updateLoginStateHeader(data.loggedIn ? data : null); 
-                currentUserType = data.loggedIn ? data.userType : null;
+                
+                // *** YENİ: Global kullanıcı tipini ayarla ***
+                currentUserType = data.loggedIn ? data.userType : 'guest';
+                
+                // YENİ: Eğer kullanıcı giriş yaptıysa sepet listelerini çek
+                if (data.loggedIn) {
+                    await fetchCartLists();
+                } else {
+                    cartListManager.style.display = 'none'; // Giriş yapılmamışsa gizle
+                }
+                
             } catch (error) { 
                 console.error("Oturum durumu kontrol edilemedi:", error); 
                 updateLoginStateHeader(null); 
-                currentUserType = null;
+                currentUserType = 'guest'; // Hata durumunda guest yap
+                cartListManager.style.display = 'none'; // Hata durumunda gizle
             } 
         }
         function updateLoginStateHeader(userData) { const isLoggedIn = !!userData; authContainerHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageHeader) welcomeMessageHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageHeader) userTypeMessageHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } authContainerMobileHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageMobileHeader) welcomeMessageMobileHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageMobileHeader) userTypeMessageMobileHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } }
@@ -968,9 +896,10 @@
             try { 
                 await fetch('/api/auth/logout', { method: 'POST' }); 
                 updateLoginStateHeader(null); 
-                await fetchCart(); 
+                currentUserType = 'guest'; // YENİ
+                await fetchCart(); // GÜNCELLENDİ: Çıkış yapınca sepeti de güncelle 
+                if(cartListManager) cartListManager.style.display = 'none'; // YENİ: Çıkış yapınca listeyi gizle
                 showToast('Başarıyla çıkış yapıldı.'); 
-                renderCurrentPageParts();
             } catch (error) { 
                 showToast("Çıkış yapılırken bir hata oluştu.", "error"); 
             } 
@@ -986,9 +915,10 @@
                 if (result.status === 'login_success') { 
                     authModal.classList.add('hidden'); 
                     await checkAuthStatusHeader(); 
-                    await mergeGuestCart();
-                    await fetchCart();
+                    await fetchCart(); // GÜNCELLENDİ: Giriş yapınca sepeti çek 
+                    await fetchCartLists(); // YENİ: Giriş yapınca listeleri çek
                     showToast(`Hoşgeldin, ${result.userName}!`); 
+                    // *** YENİ: Giriş yapınca parçaları yeniden render et (buton durumu için) ***
                     renderCurrentPageParts(); 
                 } else if (result.status === 'complete_profile') { 
                     googleUserDataModal = { name: result.name, email: result.email, google_id: result.google_id }; 
@@ -1040,6 +970,7 @@
             const yil = urlParams.get('yil'); const yakit = urlParams.get('yakit');
             const model = urlParams.get('model');
 
+            // Aracı Değiştir bölümünü doldur (URL'deki bilgilerle)
             if (marka) await populateSelect(changeBrandSelect, '/api/brands', 'Marka Seçin', marka, false);
             if (marka && seri) await populateSelect(changeSeriesSelect, `/api/series?brand=${encodeURIComponent(marka)}`, 'Seri Seçin', seri);
             if (marka && seri && yil) await populateSelect(changeYearSelect, `/api/years?brand=${encodeURIComponent(marka)}&series=${encodeURIComponent(seri)}`, 'Yıl Seçin', yil);
@@ -1047,19 +978,21 @@
             if (marka && seri && yil && yakit && model) await populateSelect(changeModelSelect, `/api/models?brand=${encodeURIComponent(marka)}&series=${encodeURIComponent(seri)}&year=${encodeURIComponent(yil)}&fuel=${encodeURIComponent(yakit)}`, 'Model Seçin', model);
             checkChangeVehicleFormCompletion();
 
+            // Arayüzü sıfırla ve yükleniyor göster
             loadingIndicator.classList.remove('hidden'); errorMessageEl.classList.add('hidden');
             partsGrid.classList.add('hidden'); noResultsMessage.classList.add('hidden');
             categoryListEl.innerHTML = '<div class="p-4 text-center text-sm text-gray-500">Kategoriler yükleniyor...</div>';
             paginationControlsEl.innerHTML = '';
-            clearSearch(); 
+            clearSearch(); // Yeni araç için arama kutusunu temizle
 
             if (!marka || !seri || !yil || !yakit || !model) {
                 showError("Arama yapmak için geçerli araç bilgileri URL'de bulunamadı. Lütfen ana sayfaya dönüp tekrar deneyin veya yukarıdan araç seçin.");
                 loadingIndicator.classList.add('hidden'); selectedVehicleInfoEl.textContent = 'Araç bilgileri eksik veya geçersiz.';
-                allPartsData = []; categorizedParts = {}; renderCategories(); 
+                allPartsData = []; categorizedParts = {}; renderCategories(); // Kategori listesini boş göster
                 return;
             } else { selectedVehicleInfoEl.textContent = `Seçilen Araç: ${marka} ${seri} (${yil}) - ${yakit} - ${model}`; }
 
+            // API isteği
             try {
                 const apiUrl = `/api/parca/bul?marka=${encodeURIComponent(marka)}&seri=${encodeURIComponent(seri)}&yil=${encodeURIComponent(yil)}&yakit=${encodeURIComponent(yakit)}&model=${encodeURIComponent(model)}`;
                 const response = await fetch(apiUrl);
@@ -1070,12 +1003,13 @@
                 if (data.parcalar && data.parcalar.length > 0) {
                     allPartsData = data.parcalar; categorizedParts = categorizeParts(allPartsData);
                     renderCategories(); currentCategory = 'Tümü'; currentPage = 1; 
+                    // *** YENİ: renderCurrentPageParts() artık kullanıcı tipini bildiği için doğru çalışacak ***
                     renderCurrentPageParts(); 
-                } else {
+                } else { // Hiç parça bulunamadıysa
                     allPartsData = []; categorizedParts = {};
-                    renderCategories(); 
-                    noResultsMessage.classList.remove('hidden');
-                    partsGrid.classList.add('hidden');
+                    renderCategories(); // Boş kategori listesini göster
+                    noResultsMessage.classList.remove('hidden'); // Sonuç yok mesajını göster
+                    partsGrid.classList.add('hidden'); // Grid'i gizle
                 }
             } catch (error) { 
                 console.error("Parça arama hatası:", error); 
@@ -1083,7 +1017,7 @@
                 loadingIndicator.classList.add('hidden'); 
                 allPartsData = []; 
                 categorizedParts = {}; 
-                renderCategories(); 
+                renderCategories(); // Hata durumunda da boş kategori listesi
             }
         }
         function showError(message) { if(errorTextEl) errorTextEl.textContent = message; if(errorMessageEl) errorMessageEl.classList.remove('hidden'); }
@@ -1124,16 +1058,50 @@
 
 
         // === Event Listener'lar ===
+        // Aracı Değiştir Bölümü Aç/Kapa
         toggleVehicleChangeBtn.addEventListener('click', () => { vehicleChangeContainer.classList.toggle('open'); const isOpen = vehicleChangeContainer.classList.contains('open'); toggleVehicleChangeBtn.innerHTML = isOpen ? '<i class="fas fa-times mr-1"></i> Vazgeç' : '<i class="fas fa-edit mr-1"></i> Aracı Değiştir'; if(isOpen) { if(changeBrandSelect.options.length <= 1) { populateSelect(changeBrandSelect, '/api/brands', 'Marka Seçin', null, false); } } });
 
+
+        // Yeni Parçaları Bul Butonu
         findNewPartsBtn.addEventListener('click', () => { const marka = changeBrandSelect.value; const seri = changeSeriesSelect.value; const yil = changeYearSelect.value; const yakit = changeFuelSelect.value; const model = changeModelSelect.value; if (!marka || !seri || !yil || !yakit || !model) { showToast("Lütfen yeni araç için tüm bilgileri seçin.", "error"); return; } const params = new URLSearchParams({ marka, seri, yil, yakit, model }); const newUrl = `${window.location.pathname}?${params.toString()}`; history.pushState({ path: newUrl }, '', newUrl); loadParts(); vehicleChangeContainer.classList.remove('open'); toggleVehicleChangeBtn.innerHTML = '<i class="fas fa-edit mr-1"></i> Aracı Değiştir'; });
 
+        // YENİ: Aktif Liste Değiştirme
+        cartListSelect.addEventListener('change', async (e) => {
+            const listName = e.target.value;
+            if (!listName) return;
+            
+            try {
+                const response = await fetch('/api/cart/set-active', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ list_name: listName })
+                });
+                
+                const result = await response.json(); // API'den gelen {new_active_list_name, cart_details} objesi
+                if (!response.ok) throw new Error(result.error || 'Liste değiştirilemedi');
+
+                const cartData = result.cart_details;
+                const newListName = result.new_active_list_name; // Yanıttan gelen ismi kullan
+                
+                showToast(`'${newListName}' listesine geçildi`, 'success');
+                updateCartUI(cartData); // Header'ı güncelle
+                // Sayfayı yeniden render etmeye gerek yok, sadece header güncellenmeli
+                
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        });
+
+
+        // --- YENİ: Arama Input ve Temizle Butonu Listener'ları ---
         partSearchInput.addEventListener('input', handleSearchInput);
         clearSearchBtn.addEventListener('click', clearSearch);
         
+        // YENİ: Sepete Ekle Butonları için Event Delegation
         partsGrid.addEventListener('click', (event) => {
             const button = event.target.closest('.add-to-cart-btn');
             if (button) {
+                // `event.currentTarget` yerine `button`'ı `handleAddToCart`'a geçirmek daha doğru
                 handleAddToCart({ currentTarget: button });
             }
         });
@@ -1170,9 +1138,10 @@
                 if (!res.ok) throw new Error(result.description || 'Giriş başarısız.'); 
                 authModal.classList.add('hidden'); 
                 await checkAuthStatusHeader(); 
-                await mergeGuestCart();
-                await fetchCart(); 
+                await fetchCart(); // GÜNCELLENDİ: Giriş yapınca sepeti çek 
+                await fetchCartLists(); // YENİ
                 showToast('Giriş başarılı!'); 
+                // *** YENİ: Giriş yapınca parçaları yeniden render et (buton durumu için) ***
                 renderCurrentPageParts();
             } catch (error) { 
                 displayAuthMessage(loginViewModal, error.message, 'error'); 
@@ -1201,9 +1170,10 @@
                 if (!res.ok) throw new Error(result.description || 'Kayıt başarısız.'); 
                 authModal.classList.add('hidden'); 
                 await checkAuthStatusHeader(); 
-                await mergeGuestCart();
-                await fetchCart(); 
+                await fetchCart(); // GÜNCELLENDİ: Kayıt olunca sepeti çek 
+                await fetchCartLists(); // YENİ
                 showToast('Kayıt başarılı! Giriş yapıldı.'); 
+                // *** YENİ: Kayıt olunca parçaları yeniden render et (buton durumu için) ***
                 renderCurrentPageParts();
             } catch (error) { 
                 displayAuthMessage(registerViewModal, error.message, 'error'); 
@@ -1277,12 +1247,11 @@
                 const result = await res.json(); 
                 if (!res.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.'); 
                 authModal.classList.add('hidden'); 
-                
                 await checkAuthStatusHeader(); 
-                await mergeGuestCart(); 
-                await fetchCart(); 
-                
+                await fetchCart(); // GÜNCELLENDİ: Kayıt tamamlanınca sepeti çek 
+                await fetchCartLists(); // YENİ
                 showToast('Kaydınız başarıyla tamamlandı!'); 
+                // *** YENİ: Kayıt olunca parçaları yeniden render et (buton durumu için) ***
                 renderCurrentPageParts();
             } catch (error) { 
                 displayAuthMessage(googleCompleteProfileFormModal, error.message, 'error'); 
@@ -1292,27 +1261,12 @@
             } 
         });
 
-        // *** YENİ (ADIM 6): "Listeye Ekle" Modal Listener'ları ***
-        closeAddToListModalBtn?.addEventListener('click', () => addToListModal.classList.add('hidden'));
-        addToListSubmitBtn?.addEventListener('click', addItemToList);
-
-        // Input'a yazarken select'i devre dışı bırak
-        addToListNewName?.addEventListener('input', () => {
-            cartListSelect.disabled = !!addToListNewName.value;
-            cartListSelect.classList.toggle('opacity-50', !!addToListNewName.value);
-        });
-        // Select'i değiştirirken input'u devre dışı bırak
-        cartListSelect?.addEventListener('change', () => {
-             addToListNewName.disabled = !!cartListSelect.value;
-             addToListNewName.classList.toggle('opacity-50', !!cartListSelect.value);
-        });
-        // *** LİSTENER SONU ***
-
 
         // === İlk Yükleme İşlemleri ===
+        // *** GÜNCELLENDİ: checkAuthStatusHeader() loadParts()'dan ÖNCE çağrılmalı ***
         await checkAuthStatusHeader(); // Önce kullanıcı tipini öğren
         await fetchAndSetConfig();
-        await fetchCart(); // YENİ: Sayfa yüklenirken sepeti çek (ve misafir sepetini kontrol et)
+        await fetchCart(); // YENİ: Sayfa yüklenirken sepeti çek
         await loadParts(); // Sonra parçaları yükle (artık kullanıcı tipini biliyoruz)
 
     });
