@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pazar Yeri - Herkese Açık Talepler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/logolar/favicon.ico" type="image/x-icon">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); }
+        .modal { width: 90%; max-width: 420px; }
+        /* Auth Container Stillendirmesi */
+        #auth-container #user-menu-desktop { display: none; }
+        #auth-container.logged-in #user-menu-desktop { display: flex; }
+        #auth-container.logged-in #guest-menu { display: none; }
+        /* Mobil Auth Container Stillendirmesi */
+        #auth-container-mobile #user-menu-mobile { display: none; }
+        #auth-container-mobile.logged-in #guest-menu-mobile { display: none !important; }
+        #auth-container-mobile.logged-in #user-menu-mobile { display: flex !important; }
+        #auth-container-mobile.logged-in #welcomeContainerMobileWrapperHeader { display: block; }
+
+        .message-box { padding: 12px; margin-bottom: 16px; border-radius: 8px; font-weight: 500; }
+        .message-success { background-color: #d1fae5; color: #065f46; }
+        .message-error { background-color: #fee2e2; color: #991b1b; }
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; padding: 1rem 1.5rem;
+            border-radius: 0.5rem; color: white; font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transform: translateY(100px);
+            opacity: 0; transition: transform 0.5s ease, opacity 0.5s ease; z-index: 1000;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast-success { background-color: #28a745; }
+        .toast-error { background-color: #dc3545; }
+        .cart-item-count {
+            background-color: #2563eb; /* blue-600 */
+            color: white;
+            font-size: 0.75rem; /* 12px */
+            font-weight: 700;
+            margin-left: 0.25rem; /* 4px */
+            padding: 0.125rem 0.5rem; /* 2px 8px */
+            border-radius: 9999px; /* full */
+        }
+        .cart-popover {
+            width: 320px; /* Sabit genişlik */
+            max-height: 400px; /* Maksimum yükseklik */
+            overflow-y: auto; /* Gerektiğinde kaydırma */
+            z-index: 50; /* Header üzerinde */
+        }
+        /* Yükleniyor animasyonu */
+        .loader { border-top-color: #3498db; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        
+        /* Pazar Yeri'ne özel stiller */
+        .request-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .request-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Teklif ver modalı */
+        #teklifVerModal .modal, #talepDetayModal .modal {
+            max-width: 500px; /* Auth modal'dan daha geniş */
+        }
+        #parcaListesiDetay {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+
+    <!-- Header (cart.html'den alındı ve Pazar Yeri linki eklendi) -->
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <!-- MASAÜSTÜ NAV BAR -->
+        <nav class="container mx-auto px-4 sm:px-6 py-3 hidden sm:flex justify-between items-center">
+            <a href="/">
+                <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
+            </a>
+            <div id="auth-container" class="flex items-center space-x-4">
+                <div id="guest-menu" class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="relative group">
+                        <a id="cartBtnHeaderGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 block">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span id="cartItemCountHeaderGuest" class="cart-item-count absolute -top-2 -right-2 hidden">0</span>
+                        </a>
+                        <div id="cart-popover-desktop-guest" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
+                            <ul id="cart-popover-list-desktop-guest" class="divide-y divide-gray-100">
+                                <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
+                            </ul>
+                            <div id="cart-popover-footer-desktop-guest" class="p-2 border-t border-gray-100 hidden">
+                                <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="loginBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Giriş Yap</button>
+                    <button id="signupBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Kayıt Ol</button>
+                </div>
+                <div id="user-menu-desktop" class="hidden items-center space-x-2 sm:space-x-4">
+                    <div class="text-right">
+                        <span id="welcomeMessageHeader" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
+                        <span id="userTypeMessageHeader" class="text-xs text-gray-500 block capitalize"></span>
+                    </div>
+                    <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <!-- YENİ LİNK -->
+                    <a href="/marketplace.html" class="bg-blue-600 text-white font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-blue-700">Pazar Yeri</a>
+                    <div class="relative group">
+                        <a id="cartBtnHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 flex items-center">
+                            <i class="fas fa-shopping-cart mr-1 sm:mr-2"></i>
+                            <span>Sepetim</span>
+                            <span id="cartItemCountHeader" class="cart-item-count hidden">0</span>
+                        </a>
+                        <div id="cart-popover-desktop" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
+                            <ul id="cart-popover-list-desktop" class="divide-y divide-gray-100">
+                                <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
+                            </ul>
+                            <div id="cart-popover-footer-desktop" class="p-2 border-t border-gray-100 hidden">
+                                <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="logoutBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+        </nav>
+        <!-- MOBİL NAV BAR -->
+        <div id="auth-container-mobile" class="container mx-auto px-4 sm:hidden">
+            <div class="py-3 flex justify-center items-center">
+                <a href="/">
+                    <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 w-auto">
+                </a>
+            </div>
+            <div class="py-2 border-t border-gray-200 flex justify-center items-center space-x-2">
+                <div id="guest-menu-mobile" class="flex items-center space-x-2">
+                    <div class="relative group">
+                        <a id="cartBtnMobileGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 block">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span id="cartItemCountMobileGuest" class="cart-item-count absolute -top-2 -right-2 hidden">0</span>
+                        </a>
+                        <div id="cart-popover-mobile-guest" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
+                            <ul id="cart-popover-list-mobile-guest" class="divide-y divide-gray-100">
+                                <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
+                            </ul>
+                            <div id="cart-popover-footer-mobile-guest" class="p-2 border-t border-gray-100 hidden">
+                                <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="loginBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Giriş Yap</button>
+                    <button id="signupBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Kayıt Ol</button>
+                </div>
+                <div id="user-menu-mobile" class="hidden items-center space-x-2">
+                    <a href="/" class="bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg hover:bg-blue-700">Anasayfa</a>
+                    <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Hesabım</a>
+                    <!-- YENİ LİNK -->
+                    <a href="/marketplace.html" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Pazar Yeri</a>
+                    <div class="relative group">
+                        <a id="cartBtnMobileHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 flex items-center">
+                            <span>Sepetim</span>
+                            <span id="cartItemCountMobile" class="cart-item-count hidden">0</span>
+                        </a>
+                        <div id="cart-popover-mobile" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
+                            <ul id="cart-popover-list-mobile" class="divide-y divide-gray-100">
+                                <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
+                            </ul>
+                            <div id="cart-popover-footer-mobile" class="p-2 border-t border-gray-100 hidden">
+                                <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="logoutBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Çıkış Yap</button>
+                </div>
+            </div>
+            <div id="welcomeContainerMobileWrapperHeader" class="pb-3 hidden">
+                <div class="text-center pt-2 border-t border-gray-200">
+                    <span id="welcomeMessageMobileHeader" class="font-semibold block text-gray-800 text-sm"></span>
+                    <span id="userTypeMessageMobileHeader" class="text-xs text-gray-500 block capitalize"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 md:p-8 flex-grow">
+        <div class="w-full max-w-6xl mx-auto mt-4 sm:mt-8">
+            <h1 class="text-2xl sm:text-3xl font-bold mb-6">Pazar Yeri - Herkese Açık Talepler</h1>
+
+            <!-- Yükleniyor Göstergesi -->
+            <div id="loading-indicator" class="text-center py-10">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto animate-spin"></div>
+                <p class="text-gray-600">Herkese açık talepler yükleniyor...</p>
+            </div>
+
+            <!-- Boş Pazar Yeri Mesajı -->
+            <div id="empty-marketplace-message" class="hidden text-center py-10 px-4 bg-gray-50 text-gray-700 rounded-lg border border-gray-200">
+                <i class="fas fa-store-slash fa-3x mb-4 text-gray-400"></i>
+                <p class="font-semibold text-xl mb-2">Pazar Yeri şu anda boş.</p>
+                <p class="text-gray-600">Şu anda teklif bekleyen herkese açık bir talep bulunmuyor.</p>
+            </div>
+
+            <!-- Talepler Grid -->
+            <div id="requests-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Talep kartları JS ile buraya eklenecek -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-8 mt-auto">
+        <p class="text-xs text-gray-500">®vovDigital, bu sayfa bilgilendirme amaçlıdır.</p>
+        <p class="text-xs text-gray-500 mt-1">Sorularınız için info.aracabak@gmail.com adresine mail atabilirsiniz</p>
+    </footer>
+
+    <!-- Auth Modal (cart.html'den olduğu gibi alındı) -->
+    <div id="authModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+            <button id="closeModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
+
+            <!-- Google Kayıt Tamamlama Formu -->
+            <div id="googleCompleteProfileFormModal" class="hidden">
+                <h2 class="text-xl font-bold mb-2 text-center">Kaydı Tamamla</h2>
+                <p id="googleWelcomeModal" class="text-center text-gray-600 mb-6"></p>
+                <div class="mb-4">
+                    <label for="google_phone_number_modal" class="block text-sm font-medium text-gray-700 mb-2">Telefon Numarası</label>
+                    <input type="tel" id="google_phone_number_modal" class="w-full p-3 border rounded-lg" placeholder="0xxxxxxxxxx" required maxlength="11">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Hesap türünüzü seçin:</label>
+                    <div class="flex items-center justify-around bg-gray-200 rounded-lg p-1">
+                        <label class="w-1/2 text-center cursor-pointer"><input type="radio" name="google_user_type_modal" value="owner" class="sr-only peer" checked><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Araç Sahibiyim</span></label>
+                        <label class="w-1/2 text-center cursor-pointer"><input type="radio" name="google_user_type_modal" value="business" class="sr-only peer"><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">İşletmeyim</span></label>
+                    </div>
+                </div>
+                <div id="googleShopTypeSelectionModal" class="mb-6 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türünüz</label>
+                    <div class="flex items-center justify-around bg-gray-200 rounded-lg p-1">
+                        <label class="w-1/2 text-center cursor-pointer"><input type="radio" name="google_shop_type_modal" value="service" class="sr-only peer" checked><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Servis</span></label>
+                        <label class="w-1/2 text-center cursor-pointer"><input type="radio" name="google_shop_type_modal" value="parts_provider" class="sr-only peer"><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Parça Sağlayıcı</span></label>
+                    </div>
+                </div>
+                <div id="googleCompleteMessageContainerModal" class="message-box hidden"></div>
+                <button id="completeGoogleRegistrationBtnModal" class="w-full bg-gray-900 text-white py-3 rounded-lg font-bold mt-2 hover:bg-gray-700">Kaydı Tamamla</button>
+            </div>
+
+            <!-- Standart Giriş/Kayıt Formları -->
+            <div id="standardAuthFormsModal">
+                <!-- Login Form -->
+                <div id="loginViewModal">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Giriş Yap</h2>
+                    <form id="loginFormModal">
+                        <div class="mb-4">
+                            <label for="loginEmailModal" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label>
+                            <input type="email" id="loginEmailModal" name="email" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="loginPasswordModal" class="block text-sm font-medium text-gray-700 mb-2">Şifre</label>
+                            <input type="password" id="loginPasswordModal" name="password" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <p class="text-right text-sm mb-4"><a href="#" id="showForgotPasswordModal" class="text-blue-500 hover:underline">Şifremi unuttum</a></p>
+                        <div class="message-box hidden"></div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Giriş Yap</button>
+                    </form>
+                    <div class="my-4 text-center text-gray-500">veya</div>
+                    <div id="googleSignInButtonLoginModal" class="flex justify-center"></div>
+                    <p class="mt-6 text-center text-sm">Hesabın yok mu? <a href="#" id="showRegisterModal" class="text-blue-500 hover:underline">Kayıt Ol</a></p>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerViewModal" class="hidden">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Hesap Oluştur</h2>
+                    <form id="registerFormModal">
+                        <div class="mb-4"><label for="registerNameModal" class="block text-sm font-medium text-gray-700 mb-2">Ad Soyad</label><input type="text" id="registerNameModal" name="name" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required></div>
+                        <div class="mb-4"><label for="registerPhoneModal" class="block text-sm font-medium text-gray-700 mb-2">Telefon</label><input type="tel" id="registerPhoneModal" name="phone_number" placeholder="0XXXXXXXXXX" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required pattern="0[0-9]{10}"></div>
+                        <div class="mb-4"><label for="registerEmailModal" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label><input type="email" id="registerEmailModal" name="email" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required></div>
+                        <div class="mb-4"><label for="registerPasswordModal" class="block text-sm font-medium text-gray-700 mb-2">Şifre</label><input type="password" id="registerPasswordModal" name="password" minlength="6" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2" required></div>
+                        <div class="mb-4"><span class="block text-sm font-medium text-gray-700 mb-2">Hesap Tipi</span><div class="flex items-center justify-around bg-gray-200 rounded-lg p-1"><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="userTypeModal" value="owner" class="sr-only peer" checked><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Araç Sahibiyim</span></label><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="userTypeModal" value="business" class="sr-only peer"><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">İşletmeyim</span></label></div></div>
+                        <div id="shopTypeSelectionModal" class="mb-4 hidden"><label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türü</label><div class="flex items-center justify-around bg-gray-200 rounded-lg p-1"><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="shopTypeModal" value="service" class="sr-only peer" checked><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Servis</span></label><label class="w-1/2 text-center cursor-pointer"><input type="radio" name="shopTypeModal" value="parts_provider" class="sr-only peer"><span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white">Parça Sağlayıcı</span></label></div></div>
+                        <div class="message-box hidden"></div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Kayıt Ol</button>
+                    </form>
+                    <div class="my-4 text-center text-gray-500">veya</div>
+                    <div id="googleSignInButtonRegisterModal" class="flex justify-center"></div>
+                    <p class="mt-6 text-center text-sm">Zaten hesabın var mı? <a href="#" id="showLoginModal" class="text-blue-500 hover:underline">Giriş Yap</a></p>
+                </div>
+            </div>
+
+            <!-- Şifre Yenileme Formları -->
+            <div id="forgotPasswordFlowModal" class="hidden">
+                <div id="forgotPasswordViewModal">
+                    <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Şifreni Sıfırla</h2>
+                    <p class="text-center text-gray-600 mb-6">Hesabınıza ait e-posta adresini girin.</p>
+                    <form id="forgotPasswordFormModal">
+                        <div class="mb-4"><label for="forgotEmailModal" class="block text-sm font-medium text-gray-700 mb-2">E-posta</label><input type="email" id="forgotEmailModal" name="email" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required></div>
+                        <div class="message-box hidden"></div>
+                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Sıfırlama Kodu Gönder</button>
+                    </form>
+                    <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromForgotModal" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
+                </div>
+                <div id="resetPasswordViewModal" class="hidden">
+                    <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Yeni Şifre Belirle</h2>
+                    <p class="text-center text-gray-600 mb-6">E-postanıza gelen kodu ve yeni şifrenizi girin.</p>
+                    <form id="resetPasswordFormModal">
+                        <div class="mb-4"><label for="resetCodeModal" class="block text-sm font-medium text-gray-700 mb-2">Sıfırlama Kodu</label><input type="text" id="resetCodeModal" name="code" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required maxlength="6"></div>
+                        <div class="mb-6"><label for="newPasswordModal" class="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre</label><input type="password" id="newPasswordModal" name="new_password" class="w-full bg-gray-100 border rounded-lg px-3 py-2" required minlength="6"></div>
+                        <div class="message-box hidden"></div>
+                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Şifreyi Yenile</button>
+                    </form>
+                    <p class="mt-6 text-center text-sm"><a href="#" id="backToLoginFromResetModal" class="text-blue-500 hover:underline">Giriş Yap'a geri dön</a></p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <!-- YENİ: Talep Detay Modalı -->
+    <div id="talepDetayModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+            <button id="closeDetayModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
+            <h2 class="text-xl sm:text-2xl font-bold mb-6 text-center">Talep Detayları</h2>
+            
+            <div id="detayModalIcerik" class="space-y-4">
+                <!-- İçerik JS ile dolacak -->
+            </div>
+            
+            <button id="detayModalTeklifVerBtn" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors mt-6">
+                <i class="fas fa-gavel mr-2"></i> Bu Talebe Teklif Ver
+            </button>
+        </div>
+    </div>
+    
+    <!-- YENİ: Teklif Ver Modalı -->
+    <div id="teklifVerModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+            <button id="closeTeklifModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
+            <h2 class="text-xl sm:text-2xl font-bold mb-4 text-center">Teklif Oluştur</h2>
+            <p id="teklifModalTalepDetay" class="text-center text-gray-600 text-sm mb-6"></p>
+            
+            <form id="teklifForm">
+                <input type="hidden" id="teklif_request_id">
+                <div class="mb-4">
+                    <label for="teklif_fiyat" class="block text-sm font-medium text-gray-700 mb-2">Teklif Fiyatınız (TL)</label>
+                    <input type="number" id="teklif_fiyat" placeholder="Örn: 1250.50" step="0.01" class="w-full p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="teklif_not" class="block text-sm font-medium text-gray-700 mb-2">Notunuz (İsteğe Bağlı)</label>
+                    <textarea id="teklif_not" rows="3" placeholder="Talep sahibine iletmek istediğiniz notlar..." class="w-full p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                
+                <div id="teklifMessageContainer" class="message-box hidden"></div>
+                
+                <button type="submit" id="gonderTeklifBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                    Teklifi Gönder
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        // === Element Referansları ===
+        const authContainerHeader = document.getElementById('auth-container');
+        const guestMenuHeader = document.getElementById('guest-menu');
+        const userMenuDesktopHeader = document.getElementById('user-menu-desktop');
+        const welcomeMessageHeader = document.getElementById('welcomeMessageHeader');
+        const userTypeMessageHeader = document.getElementById('userTypeMessageHeader');
+        const loginBtnHeader = document.getElementById('loginBtnHeader');
+        const signupBtnHeader = document.getElementById('signupBtnHeader');
+        const logoutBtnHeader = document.getElementById('logoutBtnHeader');
+        const authContainerMobileHeader = document.getElementById('auth-container-mobile');
+        const guestMenuMobileHeader = document.getElementById('guest-menu-mobile');
+        const userMenuMobileHeader = document.getElementById('user-menu-mobile');
+        const welcomeContainerMobileWrapperHeader = document.getElementById('welcomeContainerMobileWrapperHeader');
+        const welcomeMessageMobileHeader = document.getElementById('welcomeMessageMobileHeader');
+        const userTypeMessageMobileHeader = document.getElementById('userTypeMessageMobileHeader');
+        const loginBtnMobileHeader = document.getElementById('loginBtnMobileHeader');
+        const signupBtnMobileHeader = document.getElementById('signupBtnMobileHeader');
+        const logoutBtnMobileHeader = document.getElementById('logoutBtnMobileHeader');
+        
+        // Sepet Element Referansları
+        const cartItemCountHeader = document.getElementById('cartItemCountHeader');
+        const cartItemCountMobile = document.getElementById('cartItemCountMobile');
+        const cartItemCountHeaderGuest = document.getElementById('cartItemCountHeaderGuest');
+        const cartItemCountMobileGuest = document.getElementById('cartItemCountMobileGuest');
+        const cartPopoverListDesktopGuest = document.getElementById('cart-popover-list-desktop-guest');
+        const cartPopoverFooterDesktopGuest = document.getElementById('cart-popover-footer-desktop-guest');
+        const cartPopoverListDesktop = document.getElementById('cart-popover-list-desktop');
+        const cartPopoverFooterDesktop = document.getElementById('cart-popover-footer-desktop');
+        const cartPopoverListMobileGuest = document.getElementById('cart-popover-list-mobile-guest');
+        const cartPopoverFooterMobileGuest = document.getElementById('cart-popover-footer-mobile-guest');
+        const cartPopoverListMobile = document.getElementById('cart-popover-list-mobile');
+        const cartPopoverFooterMobile = document.getElementById('cart-popover-footer-mobile');
+
+        // Modal Elementleri
+        const authModal = document.getElementById('authModal');
+        const closeModal = authModal.querySelector('#closeModal');
+        const standardAuthFormsModal = authModal.querySelector('#standardAuthFormsModal');
+        const googleCompleteProfileFormModal = authModal.querySelector('#googleCompleteProfileFormModal');
+        const loginViewModal = authModal.querySelector('#loginViewModal');
+        const registerViewModal = authModal.querySelector('#registerViewModal');
+        const loginFormModal = authModal.querySelector('#loginFormModal');
+        const registerFormModal = authModal.querySelector('#registerFormModal');
+        const showRegisterModal = authModal.querySelector('#showRegisterModal');
+        const showLoginModal = authModal.querySelector('#showLoginModal');
+        const shopTypeSelectionModal = authModal.querySelector('#shopTypeSelectionModal');
+        const forgotPasswordFlowModal = authModal.querySelector('#forgotPasswordFlowModal');
+        const forgotPasswordViewModal = authModal.querySelector('#forgotPasswordViewModal');
+        const resetPasswordViewModal = authModal.querySelector('#resetPasswordViewModal');
+        const forgotPasswordFormModal = authModal.querySelector('#forgotPasswordFormModal');
+        const resetPasswordFormModal = authModal.querySelector('#resetPasswordFormModal');
+        const showForgotPasswordModal = authModal.querySelector('#showForgotPasswordModal');
+        const backToLoginFromForgotModal = authModal.querySelector('#backToLoginFromForgotModal');
+        const backToLoginFromResetModal = authModal.querySelector('#backToLoginFromResetModal');
+        const googlePhoneNumberInputModal = authModal.querySelector('#google_phone_number_modal');
+        const googleShopTypeSelectionModal = authModal.querySelector('#googleShopTypeSelectionModal');
+        const completeGoogleRegBtnModal = authModal.querySelector('#completeGoogleRegistrationBtnModal');
+        
+        // Marketplace Sayfa Elementleri
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const emptyMarketplaceMessage = document.getElementById('empty-marketplace-message');
+        const requestsGrid = document.getElementById('requests-grid');
+        
+        // Marketplace Modal Elementleri
+        const talepDetayModal = document.getElementById('talepDetayModal');
+        const closeDetayModalBtn = document.getElementById('closeDetayModal');
+        const detayModalIcerik = document.getElementById('detayModalIcerik');
+        const detayModalTeklifVerBtn = document.getElementById('detayModalTeklifVerBtn');
+        
+        const teklifVerModal = document.getElementById('teklifVerModal');
+        const closeTeklifModalBtn = document.getElementById('closeTeklifModal');
+        const teklifModalTalepDetay = document.getElementById('teklifModalTalepDetay');
+        const teklifForm = document.getElementById('teklifForm');
+        const teklifRequestIdInput = document.getElementById('teklif_request_id');
+        const teklifFiyatInput = document.getElementById('teklif_fiyat');
+        const teklifNotInput = document.getElementById('teklif_not');
+        const gonderTeklifBtn = document.getElementById('gonderTeklifBtn');
+
+
+        let googleClientId = null;
+        let googleUserDataModal = null;
+        let currentUserType = null;
+        let currentUser = null;
+        let allRequestsData = []; // API'den gelen tüm talepleri sakla
+
+        // === Helper Fonksiyonlar ===
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(() => { toast.classList.add('show'); });
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => { if (container.contains(toast)) { container.removeChild(toast); } }, { once: true });
+            }, 3000);
+        }
+
+        function displayMessage(container, message, type) {
+            if (!container) return;
+            const messageBox = container.querySelector('.message-box');
+            if (!messageBox) { console.warn("Mesaj kutusu bulunamadı.", container); return; }
+            messageBox.textContent = message;
+            messageBox.className = `message-box message-${type}`;
+            messageBox.classList.remove('hidden');
+        }
+
+        function clearAuthMessages() { authModal.querySelectorAll('.message-box').forEach(box => { box.textContent = ''; box.classList.add('hidden'); }); }
+        
+        function showModalMessage(modalEl, message, type) {
+             const container = modalEl.querySelector('.message-box');
+             if(container) {
+                container.textContent = message;
+                container.className = `message-box message-${type}`;
+                container.classList.remove('hidden');
+             }
+        }
+        
+        function clearModalMessage(modalEl) {
+            const container = modalEl.querySelector('.message-box');
+            if(container) {
+                container.textContent = '';
+                container.classList.add('hidden');
+            }
+        }
+
+        // --- Modal Görünüm Fonksiyonları ---
+        function showLoginViewModal() { clearAuthMessages(); if (googleCompleteProfileFormModal) googleCompleteProfileFormModal.classList.add('hidden'); if (forgotPasswordFlowModal) forgotPasswordFlowModal.classList.add('hidden'); if (standardAuthFormsModal) standardAuthFormsModal.classList.remove('hidden'); if (registerViewModal) registerViewModal.classList.add('hidden'); if (loginViewModal) loginViewModal.classList.remove('hidden'); }
+        function showRegisterViewModal() { clearAuthMessages(); if (googleCompleteProfileFormModal) googleCompleteProfileFormModal.classList.add('hidden'); if (forgotPasswordFlowModal) forgotPasswordFlowModal.classList.add('hidden'); if (standardAuthFormsModal) standardAuthFormsModal.classList.remove('hidden'); if (loginViewModal) loginViewModal.classList.add('hidden'); if (registerViewModal) registerViewModal.classList.remove('hidden'); }
+        function showForgotPasswordViewModal() { clearAuthMessages(); if (standardAuthFormsModal) standardAuthFormsModal.classList.add('hidden'); if (googleCompleteProfileFormModal) googleCompleteProfileFormModal.classList.add('hidden'); if (forgotPasswordFlowModal) forgotPasswordFlowModal.classList.remove('hidden'); if (resetPasswordViewModal) resetPasswordViewModal.classList.add('hidden'); if (forgotPasswordViewModal) forgotPasswordViewModal.classList.remove('hidden'); }
+        function showResetPasswordViewModal() { if (forgotPasswordViewModal) forgotPasswordViewModal.classList.add('hidden'); if (resetPasswordViewModal) resetPasswordViewModal.classList.remove('hidden'); }
+        function showGoogleCompleteProfileViewModal() { clearAuthMessages(); if (standardAuthFormsModal) standardAuthFormsModal.classList.add('hidden'); if (forgotPasswordFlowModal) forgotPasswordFlowModal.classList.add('hidden'); if (googleCompleteProfileFormModal) googleCompleteProfileFormModal.classList.remove('hidden'); }
+        
+        // --- Sepet Fonksiyonları (Header için) ---
+        function populatePopoverList(listElement, footerElement, items) {
+            if (!listElement) return;
+            listElement.innerHTML = ''; 
+
+            if (items && items.length > 0) {
+                let subtotal = 0;
+                items.forEach(item => {
+                    const itemTotalPrice = (item.price || 0) * item.quantity;
+                    subtotal += itemTotalPrice;
+                    const price = itemTotalPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                    const unitPrice = (item.price || 0).toLocaleString('tr-TR');
+
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center text-sm py-2 px-4 border-b border-gray-100';
+                    li.innerHTML = `
+                        <div class="flex-grow pr-2">
+                            <span class="font-semibold block truncate" title="${item.name}">${item.name}</span>
+                            <span class="text-xs text-gray-500">${item.quantity} x ${unitPrice} TL</span>
+                        </div>
+                        <span class="font-medium text-gray-800 whitespace-nowrap">${price}</span>
+                    `;
+                    listElement.appendChild(li);
+                });
+                
+                const totalLi = document.createElement('li');
+                totalLi.className = 'flex justify-between items-center text-sm py-2 px-4 font-bold bg-gray-50';
+                totalLi.innerHTML = `
+                    <span>Toplam Tutar:</span>
+                    <span>${subtotal.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</span>
+                `;
+                listElement.appendChild(totalLi);
+                
+                if (footerElement) footerElement.classList.remove('hidden');
+            } else {
+                listElement.innerHTML = '<li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>';
+                if (footerElement) footerElement.classList.add('hidden');
+            }
+        }
+    
+        function updateCartUI(cartData) {
+            const itemCount = cartData ? (cartData.item_count || 0) : 0;
+            const items = cartData ? (cartData.items || []) : [];
+            const itemText = itemCount.toString();
+            const show = itemCount > 0;
+            
+            if (cartItemCountHeader) {
+                cartItemCountHeader.textContent = itemText;
+                cartItemCountHeader.classList.toggle('hidden', !show);
+            }
+            if (cartItemCountMobile) {
+                cartItemCountMobile.textContent = itemText;
+                cartItemCountMobile.classList.toggle('hidden', !show);
+            }
+            if (cartItemCountHeaderGuest) {
+                cartItemCountHeaderGuest.textContent = itemText;
+                cartItemCountHeaderGuest.classList.toggle('hidden', !show);
+            }
+            if (cartItemCountMobileGuest) {
+                cartItemCountMobileGuest.textContent = itemText;
+                cartItemCountMobileGuest.classList.toggle('hidden', !show);
+            }
+
+            populatePopoverList(cartPopoverListDesktopGuest, cartPopoverFooterDesktopGuest, items);
+            populatePopoverList(cartPopoverListDesktop, cartPopoverFooterDesktop, items);
+            populatePopoverList(cartPopoverListMobileGuest, cartPopoverFooterMobileGuest, items);
+            populatePopoverList(cartPopoverListMobile, cartPopoverFooterMobile, items);
+        }
+
+        async function fetchCart() {
+            try {
+                const response = await fetch('/api/cart/');
+                if (!response.ok) throw new Error('Sepet alınamadı');
+                const cartData = await response.json();
+                updateCartUI(cartData);
+            } catch (error) {
+                console.error("Sepet yüklenirken hata:", error);
+                updateCartUI(null);
+            }
+        }
+
+        // --- Auth Fonksiyonları (Header için) ---
+        async function checkAuthStatusHeader() { 
+            try { 
+                const response = await fetch('/api/auth/status'); 
+                const data = await response.json(); 
+                updateLoginStateHeader(data.loggedIn ? data : null); 
+                currentUserType = data.loggedIn ? data.userType : 'guest';
+                currentUser = data.loggedIn ? data : null;
+            } catch (error) { 
+                console.error("Oturum durumu kontrol edilemedi:", error); 
+                updateLoginStateHeader(null); 
+                currentUserType = 'guest';
+                currentUser = null;
+            } 
+        }
+        function updateLoginStateHeader(userData) { const isLoggedIn = !!userData; authContainerHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageHeader) welcomeMessageHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageHeader) userTypeMessageHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } authContainerMobileHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageMobileHeader) welcomeMessageMobileHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageMobileHeader) userTypeMessageMobileHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } }
+        async function handleLogoutHeader() { 
+            try { 
+                await fetch('/api/auth/logout', { method: 'POST' }); 
+                updateLoginStateHeader(null); 
+                currentUserType = 'guest';
+                currentUser = null;
+                await fetchCart(); 
+                showToast('Başarıyla çıkış yapıldı.'); 
+                // Pazar yeri sayfası, çıkış yapınca yenilenmeli ki butonlar kaybolsun
+                window.location.reload();
+            } catch (error) { 
+                showToast("Çıkış yapılırken bir hata oluştu.", "error"); 
+            } 
+        }
+
+        // --- Google Sign-In Functions ---
+        window.handleGoogleCredentialResponseModal = async function(response) { 
+            try { 
+                const res = await fetch('/api/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: response.credential }) }); 
+                const result = await res.json(); 
+                if (!res.ok) throw new Error(result.description || "Google ile giriş başarısız."); 
+                if (result.status === 'login_success') { 
+                    authModal.classList.add('hidden'); 
+                    await checkAuthStatusHeader(); 
+                    await fetchCart();
+                    showToast(`Hoşgeldin, ${result.userName}!`); 
+                    window.location.reload(); // Sayfayı yenile ki butonlar güncellensin
+                } else if (result.status === 'complete_profile') { 
+                    googleUserDataModal = { name: result.name, email: result.email, google_id: result.google_id }; 
+                    document.getElementById('googleWelcomeModal').textContent = `Hoşgeldin, ${result.name}! Kaydı tamamlamak için son adım.`; 
+                    showGoogleCompleteProfileViewModal(); 
+                } 
+            } catch (error) { 
+                displayMessage(loginViewModal, error.message || "Google ile giriş hatası.", 'error'); 
+            } 
+        }
+        function initializeGoogleSignIn(clientId) { 
+            if (!clientId || typeof google === 'undefined' || !google.accounts) { 
+                console.error("Google Identity Services yüklenemedi veya Client ID eksik."); 
+                document.getElementById("googleSignInButtonLoginModal").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile giriş yapılamıyor.</p>`; 
+                document.getElementById("googleSignInButtonRegisterModal").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile kayıt yapılamıyor.</p>`; 
+                return; 
+            } 
+            try { 
+                google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredentialResponseModal, ux_mode: 'popup' }); 
+                google.accounts.id.renderButton( document.getElementById("googleSignInButtonLoginModal"), { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: "300" } ); 
+                google.accounts.id.renderButton( document.getElementById("googleSignInButtonRegisterModal"), { theme: "outline", size: "large", text: "signup_with", shape: "rectangular", width: "300" } ); 
+            } catch (error) { 
+                console.error("Google SSO başlatma hatası:", error); 
+                document.getElementById("googleSignInButtonLoginModal").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile giriş hatası.</p>`; 
+                document.getElementById("googleSignInButtonRegisterModal").innerHTML = `<p class="text-red-500 text-center text-sm">Google ile kayıt hatası.</p>`; 
+            } 
+        }
+
+        // --- Config Yükleme ---
+        async function fetchAndSetConfig() { 
+            try { 
+                const response = await fetch('/api/config'); 
+                if (!response.ok) throw new Error('Yapılandırma alınamadı.'); 
+                const config = await response.json(); 
+                googleClientId = config.googleClientId; 
+                initializeGoogleSignIn(googleClientId); 
+            } catch(error) { 
+                console.error("Config yüklenirken hata:", error); 
+                document.getElementById("googleSignInButtonLoginModal").innerHTML = `<p class="text-red-500 text-center text-sm">Giriş yapılandırması yüklenemedi.</p>`; 
+                document.getElementById("googleSignInButtonRegisterModal").innerHTML = `<p class="text-red-500 text-center text-sm">Kayıt yapılandırması yüklenemedi.</p>`; 
+            } 
+        }
+        
+        // --- Pazar Yeri Fonksiyonları ---
+        
+        /**
+         * API'den herkese açık talepleri çeker ve listeler
+         */
+        async function loadPublicRequests() {
+            loadingIndicator.classList.remove('hidden');
+            emptyMarketplaceMessage.classList.add('hidden');
+            requestsGrid.classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/marketplace/requests');
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || "Talepler yüklenemedi.");
+                }
+                const requests = await response.json();
+                allRequestsData = requests; // Gelen veriyi globalde sakla
+                renderRequestsGrid(requests);
+                
+            } catch (error) {
+                loadingIndicator.classList.add('hidden');
+                requestsGrid.innerHTML = `<p class="text-red-500 text-center col-span-full">${error.message}</p>`;
+            }
+        }
+        
+        /**
+         * Gelen talepleri grid'e render eder
+         */
+        function renderRequestsGrid(requests) {
+            loadingIndicator.classList.add('hidden');
+            requestsGrid.innerHTML = '';
+            
+            if (requests.length === 0) {
+                emptyMarketplaceMessage.classList.remove('hidden');
+                requestsGrid.classList.add('hidden');
+            } else {
+                emptyMarketplaceMessage.classList.add('hidden');
+                requestsGrid.classList.remove('hidden');
+                requests.forEach(request => {
+                    requestsGrid.innerHTML += createRequestCard(request);
+                });
+            }
+        }
+        
+        /**
+         * Tek bir talep kartı için HTML oluşturur
+         */
+        function createRequestCard(request) {
+            const vehicleName = `${request.vehicle_brand} ${request.vehicle_model} (${request.vehicle_year})`;
+            const km = request.vehicle_km ? `${request.vehicle_km.toLocaleString('tr-TR')} KM` : 'KM belirtilmedi';
+            const requestDate = new Date(request.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+            
+            // Kullanıcı giriş yapmış mı ve bu talep ona mı ait?
+            const isLoggedIn = (currentUserType !== 'guest');
+            const isOwner = (isLoggedIn && currentUser.userId === request.user_id);
+            
+            let buttonHtml = '';
+            if (!isLoggedIn) {
+                buttonHtml = `
+                    <button class="w-full bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled title="Teklif vermek için giriş yapmalısınız.">
+                        <i class="fas fa-lock mr-2"></i> Giriş Yap
+                    </button>`;
+            } else if (isOwner) {
+                buttonHtml = `
+                    <button class="w-full bg-gray-400 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled title="Kendi talebinize teklif veremezsiniz.">
+                        Sizin Talebiniz
+                    </button>`;
+            } else {
+                buttonHtml = `
+                    <button class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 open-bid-modal-btn" data-request-id="${request.id}">
+                        <i class="fas fa-gavel mr-2"></i> Teklif Ver
+                    </button>`;
+            }
+            
+            return `
+                <div class="request-card bg-white p-5 rounded-lg shadow border border-gray-200 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs font-semibold px-3 py-1 bg-blue-100 text-blue-800 rounded-full">${request.bid_count} Teklif</span>
+                            <span class="text-xs text-gray-500">${requestDate}</span>
+                        </div>
+                        <h3 class="font-bold text-lg text-gray-900">${vehicleName}</h3>
+                        <p class="text-sm text-gray-600 mb-4">${km}</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-2">
+                        <button class="w-full sm:w-1/2 bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 text-sm open-detail-modal-btn" data-request-id="${request.id}">
+                            <i class="fas fa-list-ul mr-1"></i> Detaylar
+                        </button>
+                        <div class="w-full sm:w-1/2">
+                            ${buttonHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        /**
+         * Talep Detay modalını açar
+         */
+        function openDetailModal(requestId) {
+            const request = allRequestsData.find(r => r.id == requestId);
+            if (!request) return;
+            
+            let partsHtml = '';
+            if (request.selected_parts && Object.keys(request.selected_parts).length > 0) {
+                for (const part in request.selected_parts) {
+                    const brand = request.selected_parts[part];
+                    if (brand === 'Özel') {
+                        partsHtml += `<li class="py-1"><strong>${part}</strong></li>`;
+                    } else {
+                        partsHtml += `<li class="py-1"><strong>${part}:</strong> ${brand || 'Marka Seçilmedi'}</li>`;
+                    }
+                }
+            } else {
+                partsHtml = '<li>Parça detayı bulunmuyor.</li>';
+            }
+            
+            detayModalIcerik.innerHTML = `
+                <div class="mb-4">
+                    <h4 class="font-semibold text-lg">Araç Bilgileri</h4>
+                    <p class="text-gray-700">${request.vehicle_brand} ${request.vehicle_model} (${request.vehicle_year})</p>
+                    <p class="text-gray-700">${request.vehicle_km ? request.vehicle_km.toLocaleString('tr-TR') : 'N/A'} KM</p>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-lg">İstenen Parçalar</h4>
+                    <ul id="parcaListesiDetay" class="list-disc list-inside bg-gray-50 p-3 rounded-md border text-sm">
+                        ${partsHtml}
+                    </ul>
+                </div>
+            `;
+            
+            // "Teklif Ver" butonunu da bu modalın request'i ile ilişkilendir
+            detayModalTeklifVerBtn.dataset.requestId = requestId;
+            
+            // Butonu sadece giriş yapmış ve kendi talebi olmayanlar için göster/etkinleştir
+            const isLoggedIn = (currentUserType !== 'guest');
+            const isOwner = (isLoggedIn && currentUser.userId === request.user_id);
+            
+            if (!isLoggedIn) {
+                detayModalTeklifVerBtn.classList.add('hidden');
+            } else if (isOwner) {
+                detayModalTeklifVerBtn.classList.add('hidden');
+            } else {
+                detayModalTeklifVerBtn.classList.remove('hidden');
+            }
+
+            talepDetayModal.classList.remove('hidden');
+        }
+        
+        /**
+         * Teklif Ver modalını açar
+         */
+        function openBidModal(requestId) {
+            const request = allRequestsData.find(r => r.id == requestId);
+            if (!request) return;
+            
+            // Kullanıcı giriş yapmamışsa veya kendi talebiyse bu fonksiyon hiç çağrılmamalı,
+            // ama yine de bir güvenlik kontrolü yapalım.
+            if (currentUserType === 'guest' || (currentUser && currentUser.userId === request.user_id)) {
+                showToast("Bu talebe teklif veremezsiniz.", "error");
+                return;
+            }
+
+            teklifModalTalepDetay.textContent = `Talep: ${request.vehicle_brand} ${request.vehicle_model} (${request.vehicle_km} KM)`;
+            teklifRequestIdInput.value = requestId;
+            teklifFiyatInput.value = '';
+            teklifNotInput.value = '';
+            clearModalMessage(teklifVerModal);
+            
+            teklifVerModal.classList.remove('hidden');
+            teklifFiyatInput.focus();
+        }
+        
+        /**
+         * Teklif Ver formunu gönderir
+         */
+        async function handleSendBid(event) {
+            event.preventDefault();
+            clearModalMessage(teklifVerModal);
+            
+            const requestId = teklifRequestIdInput.value;
+            const price = parseFloat(teklifFiyatInput.value);
+            const notes = teklifNotInput.value.trim();
+            
+            if (isNaN(price) || price <= 0) {
+                showModalMessage(teklifVerModal, "Lütfen geçerli bir fiyat girin.", "error");
+                return;
+            }
+            
+            gonderTeklifBtn.disabled = true;
+            gonderTeklifBtn.textContent = 'Gönderiliyor...';
+            
+            try {
+                const response = await fetch('/api/marketplace/bids', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        request_id: parseInt(requestId),
+                        price: price,
+                        notes: notes
+                    })
+                });
+                
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+                
+                showToast("Teklifiniz başarıyla gönderildi!", "success");
+                teklifVerModal.classList.add('hidden');
+                
+                // Pazar yerini yenile (teklif sayısını güncellemek için)
+                await loadPublicRequests();
+                
+            } catch (error) {
+                showModalMessage(teklifVerModal, error.message, "error");
+            } finally {
+                gonderTeklifBtn.disabled = false;
+                gonderTeklifBtn.textContent = 'Teklifi Gönder';
+            }
+        }
+
+        // === Event Listener'lar ===
+        
+        // --- Auth Event Listener'ları ---
+        loginBtnHeader?.addEventListener('click', () => { showLoginViewModal(); authModal.classList.remove('hidden'); });
+        signupBtnHeader?.addEventListener('click', () => { showRegisterViewModal(); authModal.classList.remove('hidden'); });
+        loginBtnMobileHeader?.addEventListener('click', () => { showLoginViewModal(); authModal.classList.remove('hidden'); });
+        signupBtnMobileHeader?.addEventListener('click', () => { showRegisterViewModal(); authModal.classList.remove('hidden'); });
+        logoutBtnHeader?.addEventListener('click', handleLogoutHeader);
+        logoutBtnMobileHeader?.addEventListener('click', handleLogoutHeader);
+        closeModal?.addEventListener('click', () => authModal.classList.add('hidden'));
+        authModal?.addEventListener('click', (e) => { if (e.target === authModal) { authModal.classList.add('hidden'); } });
+        showRegisterModal?.addEventListener('click', (e) => { e.preventDefault(); showRegisterViewModal(); });
+        showLoginModal?.addEventListener('click', (e) => { e.preventDefault(); showLoginViewModal(); });
+        showForgotPasswordModal?.addEventListener('click', (e) => { e.preventDefault(); showForgotPasswordViewModal(); });
+        backToLoginFromForgotModal?.addEventListener('click', (e) => { e.preventDefault(); showLoginViewModal(); });
+        backToLoginFromResetModal?.addEventListener('click', (e) => { e.preventDefault(); showLoginViewModal(); });
+        authModal.querySelectorAll('input[name="userTypeModal"]').forEach(radio => { radio.addEventListener('change', (e) => { if (shopTypeSelectionModal) { shopTypeSelectionModal.classList.toggle('hidden', e.target.value !== 'business'); } }); });
+        authModal.querySelectorAll('input[name="google_user_type_modal"]').forEach(radio => { radio.addEventListener('change', (e) => { if (googleShopTypeSelectionModal) { googleShopTypeSelectionModal.classList.toggle('hidden', e.target.value !== 'business'); } }); });
+        googlePhoneNumberInputModal?.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11); });
+        
+        // (Modal form submit listener'ları)
+        loginFormModal?.addEventListener('submit', async (e) => { 
+            e.preventDefault(); 
+            const btn = e.target.querySelector('button[type="submit"]'); 
+            btn.disabled = true; btn.textContent = 'Giriş Yapılıyor...'; 
+            clearAuthMessages(); 
+            const data = Object.fromEntries(new FormData(e.target).entries()); 
+            try { 
+                const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); 
+                const result = await res.json(); 
+                if (!res.ok) throw new Error(result.description || 'Giriş başarısız.'); 
+                authModal.classList.add('hidden'); 
+                await checkAuthStatusHeader(); 
+                await fetchCart();
+                showToast('Giriş başarılı!'); 
+                window.location.reload();
+            } catch (error) { 
+                displayMessage(loginViewModal, error.message, 'error'); 
+            } finally { 
+                btn.disabled = false; btn.textContent = 'Giriş Yap'; 
+            } 
+        });
+        registerFormModal?.addEventListener('submit', async (e) => { 
+            e.preventDefault(); 
+            const btn = e.target.querySelector('button[type="submit"]'); 
+            btn.disabled = true; btn.textContent = 'Kaydediliyor...'; 
+            clearAuthMessages(); 
+            const formData = new FormData(e.target); 
+            const data = Object.fromEntries(formData.entries()); 
+            data.user_type = data.userTypeModal; 
+            if (data.user_type === 'business') { data.shop_type = data.shopTypeModal; } 
+            delete data.userTypeModal; delete data.shopTypeModal; 
+            try { 
+                const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); 
+                const result = await res.json(); 
+                if (!res.ok) throw new Error(result.description || 'Kayıt başarısız.'); 
+                authModal.classList.add('hidden'); 
+                await checkAuthStatusHeader(); 
+                await fetchCart();
+                showToast('Kayıt başarılı! Giriş yapıldı.'); 
+                window.location.reload();
+            } catch (error) { 
+                displayMessage(registerViewModal, error.message, 'error'); 
+            } finally { 
+                btn.disabled = false; btn.textContent = 'Kayıt Ol'; 
+            } 
+        });
+        forgotPasswordFormModal?.addEventListener('submit', async (e) => { 
+            e.preventDefault(); 
+            const btn = e.target.querySelector('button[type="submit"]'); 
+            btn.disabled = true; btn.textContent = 'Gönderiliyor...'; 
+            clearAuthMessages(); 
+            const email = e.target.querySelector('input[name="email"]').value; 
+            try { 
+                const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email }) }); 
+                const result = await res.json(); 
+                if (!res.ok) throw new Error(result.description || 'İstek başarısız.'); 
+                displayAuthMessage(forgotPasswordViewModal, result.description, 'success'); 
+                setTimeout(showResetPasswordViewModal, 2000); 
+            } catch (error) { 
+                displayAuthMessage(forgotPasswordViewModal, error.message, 'error'); 
+            } finally { 
+                btn.disabled = false; btn.textContent = 'Sıfırlama Kodu Gönder'; 
+            } 
+        });
+        resetPasswordFormModal?.addEventListener('submit', async (e) => { 
+            e.preventDefault(); 
+            const btn = e.target.querySelector('button[type="submit"]'); 
+            btn.disabled = true; btn.textContent = 'Yenileniyor...'; 
+            clearAuthMessages(); 
+            const email = forgotPasswordFormModal.querySelector('input[name="email"]').value; 
+            const code = e.target.querySelector('input[name="code"]').value; 
+            const new_password = e.target.querySelector('input[name="new_password"]').value; 
+            try { 
+                const res = await fetch('/api/auth/reset-password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, code, new_password }) }); 
+                const result = await res.json(); 
+                if (!res.ok) throw new Error(result.description || 'İstek başarısız.'); 
+                displayAuthMessage(resetPasswordViewModal, result.description, 'success'); 
+                setTimeout(showLoginViewModal, 2000); 
+            } catch (error) { 
+                displayMessage(resetPasswordViewModal, error.message, 'error'); 
+            } finally { 
+                btn.disabled = false; btn.textContent = 'Şifreyi Yenile'; 
+            } 
+        });
+        completeGoogleRegBtnModal?.addEventListener('click', async () => { 
+            if (!googleUserDataModal) return; 
+            const btn = completeGoogleRegBtnModal; 
+            btn.disabled = true; btn.textContent = 'Tamamlanıyor...'; 
+            clearAuthMessages(); 
+            const userType = authModal.querySelector('input[name="google_user_type_modal"]:checked').value; 
+            const phoneNumber = googlePhoneNumberInputModal.value; 
+            if (!phoneNumber || !phoneNumber.startsWith('0') || phoneNumber.length !== 11) { 
+                displayAuthMessage(googleCompleteProfileFormModal, 'Telefon 0 ile başlamalı ve 11 haneli olmalıdır.', 'error'); 
+                btn.disabled = false; btn.textContent = 'Kaydı Tamamla'; 
+                return; 
+            } 
+            const payload = { ...googleUserDataModal, user_type: userType, phone_number: phoneNumber }; 
+            if (userType === 'business') { 
+                payload.shop_type = authModal.querySelector('input[name="google_shop_type_modal"]:checked').value; 
+            } 
+            try { 
+                const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+                const result = await res.json(); 
+                if (!res.ok) throw new Error(result.description || 'Kayıt tamamlanamadı.'); 
+                authModal.classList.add('hidden'); 
+                await checkAuthStatusHeader(); 
+                await fetchCart();
+                showToast('Kaydınız başarıyla tamamlandı!'); 
+                window.location.reload();
+            } catch (error) { 
+                displayAuthMessage(googleCompleteProfileFormModal, error.message, 'error'); 
+            } finally { 
+                btn.disabled = false; btn.textContent = 'Kaydı Tamamla'; 
+            } 
+        });
+        
+        // --- Marketplace Event Listener'ları ---
+        
+        // Talep kartlarındaki butonlar için event delegation
+        requestsGrid.addEventListener('click', (e) => {
+            const detailBtn = e.target.closest('.open-detail-modal-btn');
+            const bidBtn = e.target.closest('.open-bid-modal-btn');
+            
+            if (detailBtn) {
+                const requestId = detailBtn.dataset.requestId;
+                openDetailModal(requestId);
+            }
+            
+            if (bidBtn) {
+                const requestId = bidBtn.dataset.requestId;
+                openBidModal(requestId);
+            }
+        });
+        
+        // Detay modalı kapatma
+        closeDetayModalBtn.addEventListener('click', () => {
+            talepDetayModal.classList.add('hidden');
+        });
+        
+        // Detay modalı içindeki "Teklif Ver" butonu
+        detayModalTeklifVerBtn.addEventListener('click', (e) => {
+            const requestId = e.currentTarget.dataset.requestId;
+            talepDetayModal.classList.add('hidden'); // Önce detay modalını kapat
+            openBidModal(requestId); // Sonra teklif modalını aç
+        });
+        
+        // Teklif modalı kapatma
+        closeTeklifModalBtn.addEventListener('click', () => {
+            teklifVerModal.classList.add('hidden');
+        });
+        
+        // Teklif formunu gönderme
+        teklifForm.addEventListener('submit', handleSendBid);
+
+
+        // === İlk Yükleme İşlemleri ===
+        await checkAuthStatusHeader();
+        await fetchAndSetConfig();
+        await fetchCart(); 
+        await loadPublicRequests(); // Pazar yeri taleplerini yükle
+
+    });
+</script>
+
+</body>
+</html>
