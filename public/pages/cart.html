@@ -11,7 +11,7 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .modal-overlay { background-color: rgba(0, 0, 0, 0.7); }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); }
         .modal { width: 90%; max-width: 420px; }
         /* Auth Container Stillendirmesi */
         #auth-container #user-menu-desktop { display: none; }
@@ -30,7 +30,7 @@
             position: fixed; bottom: 20px; right: 20px; padding: 1rem 1.5rem;
             border-radius: 0.5rem; color: white; font-weight: 600;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); transform: translateY(100px);
-            opacity: 0; transition: transform 0.5s ease, opacity 0.5s ease; z-index: 100;
+            opacity: 0; transition: transform 0.5s ease, opacity 0.5s ease; z-index: 1000;
         }
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast-success { background-color: #28a745; }
@@ -48,6 +48,7 @@
             width: 320px; /* Sabit genişlik */
             max-height: 400px; /* Maksimum yükseklik */
             overflow-y: auto; /* Gerektiğinde kaydırma */
+            z-index: 50; /* Header üzerinde */
         }
         /* Yükleniyor animasyonu */
         .loader { border-top-color: #3498db; }
@@ -63,7 +64,7 @@
             -moz-appearance: textfield;
         }
         
-        /* YENİ: Liste Yönetimi Stilleri */
+        /* Liste Yönetimi Stilleri */
         #cart-list-manager {
             display: none; /* JS ile 'flex' yapılacak */
         }
@@ -77,7 +78,7 @@
             background-size: 1.25em 1.25em;
             padding-right: 2.5rem;
         }
-        /* YENİ: Liste Eylem Butonları Stili */
+        /* Liste Eylem Butonları Stili */
         .list-action-btn {
             @apply px-3 py-3 bg-gray-200 text-gray-600 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500;
         }
@@ -87,12 +88,21 @@
         .list-action-btn:last-of-type {
             @apply rounded-r-lg;
         }
-        /* YENİ: Özel Parça Ekleme Formu Stilleri */
+        /* Özel Parça Ekleme Formu Stilleri */
         #custom-item-inputs input {
              @apply w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
         }
         #add-custom-item-btn {
             @apply w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700;
+        }
+
+        /* YENİ: Sağlayıcı Modalı Stilleri */
+        #providerRequestModal .modal {
+            max-width: 640px; /* 420px'den daha geniş */
+        }
+        #provider-list-container {
+            max-height: 300px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -215,7 +225,7 @@
                     </button>
                 </div>
 
-                <!-- YENİ: Liste Yönetim Bölümü -->
+                <!-- Liste Yönetim Bölümü -->
                 <div id="cart-list-manager" class="hidden flex-col sm:flex-row gap-4 mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
                     <!-- Liste Seçim Dropdown ve Eylemler -->
                     <div class="flex-grow">
@@ -224,7 +234,6 @@
                             <select id="cart-list-select" class="w-full p-3 border border-gray-300 rounded-l-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <!-- Listeler JS ile dolacak -->
                             </select>
-                            <!-- YENİ EYLEM BUTONLARI -->
                             <button id="rename-list-btn" title="Listeyi Yeniden Adlandır" class="list-action-btn border-l border-t border-b border-gray-300">
                                 <i class="fas fa-pencil-alt"></i>
                             </button>
@@ -272,7 +281,7 @@
                             <!-- Sepet öğeleri JS ile buraya eklenecek -->
                         </div>
 
-                        <!-- YENİ: Özel Parça Ekleme Formu -->
+                        <!-- Özel Parça Ekleme Formu -->
                         <div id="custom-item-form-container" class="p-4 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
                             <h3 class="font-semibold mb-3 text-gray-800">Özel Parça Ekle</h3>
                             <div id="custom-item-inputs" class="grid grid-cols-1 sm:grid-cols-6 gap-3 items-center">
@@ -419,6 +428,49 @@
 
         </div>
     </div>
+    
+    <!-- YENİ: Parça Sağlayıcı Seçim Modalı -->
+    <div id="providerRequestModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
+            <button id="closeProviderModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
+            <h2 class="text-xl sm:text-2xl font-bold mb-6 text-center">Parça Sağlayıcılardan Teklif Al</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="provider-modal-vehicle-select" class="block text-sm font-medium text-gray-700 mb-1">Bu parçalar hangi aracınız için?</label>
+                    <select id="provider-modal-vehicle-select" class="w-full p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Lütfen bir araç seçin...</option>
+                        <!-- JS ile dolacak -->
+                    </select>
+                </div>
+                <div>
+                    <label for="provider-modal-km-input" class="block text-sm font-medium text-gray-700 mb-1">Aracın Güncel Kilometresi</label>
+                    <input type="number" id="provider-modal-km-input" placeholder="Örn: 90000" class="w-full p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="provider-modal-city-select" class="block text-sm font-medium text-gray-700 mb-1">Hangi şehirdeki tedarikçileri arıyorsunuz?</label>
+                    <select id="provider-modal-city-select" class="w-full p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Lütfen bir şehir seçin...</option>
+                        <!-- JS ile dolacak -->
+                    </select>
+                </div>
+                <button id="find-providers-btn" class="w-full bg-gray-800 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-search mr-2"></i> Sağlayıcıları Bul
+                </button>
+            </div>
+            
+            <div id="provider-list-container" class="mt-6 border-t pt-4 hidden">
+                <div id="provider-list-loader" class="text-center py-4 hidden">
+                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mb-2 mx-auto animate-spin"></div>
+                    <p class="text-sm text-gray-500">Sağlayıcılar aranıyor...</p>
+                </div>
+                <div id="provider-list" class="space-y-4">
+                    <!-- Sağlayıcı kartları buraya dolacak -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal Sonu -->
 
     <div id="toast-container"></div>
 
@@ -498,24 +550,36 @@
         const clearCartBtn = document.getElementById('clear-cart-btn');
         const requestQuoteBtn = document.getElementById('request-quote-btn');
         
-        // YENİ: Liste Yönetim Elementleri
+        // Liste Yönetim Elementleri
         const cartListManager = document.getElementById('cart-list-manager');
         const cartListSelect = document.getElementById('cart-list-select');
         const newListNameInput = document.getElementById('new-list-name');
         const createListBtn = document.getElementById('create-list-btn');
-        const renameListBtn = document.getElementById('rename-list-btn'); // YENİ
-        const deleteListBtn = document.getElementById('delete-list-btn'); // YENİ
+        const renameListBtn = document.getElementById('rename-list-btn'); 
+        const deleteListBtn = document.getElementById('delete-list-btn'); 
         
-        // YENİ: Özel Parça Ekleme Elementleri
+        // Özel Parça Ekleme Elementleri
         const addCustomItemBtn = document.getElementById('add-custom-item-btn');
         const customItemNameInput = document.getElementById('custom-item-name');
         const customItemPriceInput = document.getElementById('custom-item-price');
         const customItemQuantityInput = document.getElementById('custom-item-quantity');
 
+        // YENİ: Sağlayıcı Modalı Elementleri
+        const providerRequestModal = document.getElementById('providerRequestModal');
+        const closeProviderModalBtn = document.getElementById('closeProviderModal');
+        const providerVehicleSelect = document.getElementById('provider-modal-vehicle-select');
+        const providerKmInput = document.getElementById('provider-modal-km-input');
+        const providerCitySelect = document.getElementById('provider-modal-city-select');
+        const findProvidersBtn = document.getElementById('find-providers-btn');
+        const providerListContainer = document.getElementById('provider-list-container');
+        const providerListLoader = document.getElementById('provider-list-loader');
+        const providerList = document.getElementById('provider-list');
+
 
         let googleClientId = null;
         let googleUserDataModal = null;
         let currentUserType = null;
+        let currentUser = null; // YENİ: Kullanıcı verisini (araçlar dahil) saklamak için
         let debounceTimer; // Miktar güncelleme için debounce sayacı
 
         // === Helper Fonksiyonlar ===
@@ -543,6 +607,19 @@
         }
 
         function clearAuthMessages() { authModal.querySelectorAll('.message-box').forEach(box => { box.textContent = ''; box.classList.add('hidden'); }); }
+        
+        async function populateSelect(selectElement, url, placeholder) {
+            selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`API Hatası`);
+                const data = await response.json();
+                data.forEach(item => {
+                    const option = new Option(item, item);
+                    selectElement.add(option);
+                });
+            } catch (error) { console.error(`'${placeholder}' yüklenirken hata:`, error); }
+        }
 
         // --- Modal Görünüm Fonksiyonları ---
         function showLoginViewModal() { clearAuthMessages(); if (googleCompleteProfileFormModal) googleCompleteProfileFormModal.classList.add('hidden'); if (forgotPasswordFlowModal) forgotPasswordFlowModal.classList.add('hidden'); if (standardAuthFormsModal) standardAuthFormsModal.classList.remove('hidden'); if (registerViewModal) registerViewModal.classList.add('hidden'); if (loginViewModal) loginViewModal.classList.remove('hidden'); }
@@ -812,10 +889,12 @@
                 const data = await response.json(); 
                 updateLoginStateHeader(data.loggedIn ? data : null); 
                 currentUserType = data.loggedIn ? data.userType : 'guest';
+                currentUser = data.loggedIn ? data : null; // YENİ: Tam kullanıcı verisini sakla
             } catch (error) { 
                 console.error("Oturum durumu kontrol edilemedi:", error); 
                 updateLoginStateHeader(null); 
                 currentUserType = 'guest';
+                currentUser = null;
             } 
         }
         function updateLoginStateHeader(userData) { const isLoggedIn = !!userData; authContainerHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageHeader) welcomeMessageHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageHeader) userTypeMessageHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } authContainerMobileHeader?.classList.toggle('logged-in', isLoggedIn); if (isLoggedIn) { if(welcomeMessageMobileHeader) welcomeMessageMobileHeader.textContent = `Hoşgeldin, ${userData.userName}!`; if(userTypeMessageMobileHeader) userTypeMessageMobileHeader.textContent = userData.userType === 'business' ? 'İşletme Hesabı' : 'Araç Sahibi'; } }
@@ -824,6 +903,7 @@
                 await fetch('/api/auth/logout', { method: 'POST' }); 
                 updateLoginStateHeader(null); 
                 currentUserType = 'guest';
+                currentUser = null;
                 await fetchCart(); 
                 await fetchCartLists();
                 showToast('Başarıyla çıkış yapıldı.'); 
@@ -885,6 +965,206 @@
                 document.getElementById("googleSignInButtonRegisterModal").innerHTML = `<p class="text-red-500 text-center text-sm">Kayıt yapılandırması yüklenemedi.</p>`; 
             } 
         }
+        
+        // --- YENİ: SAĞLAYICI MODALI FONKSİYONLARI ---
+        
+        /**
+         * Parça sağlayıcı seçme modalını açar ve doldurur
+         */
+        async function showProviderModal() {
+            // Araçlar dropdown'ını doldur
+            providerVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin...</option>';
+            if (currentUser && currentUser.vehicles && currentUser.vehicles.length > 0) {
+                currentUser.vehicles.forEach(v => {
+                    const vehicleDataStr = JSON.stringify(v); // Tüm araç verisini string olarak sakla
+                    const optionText = `${v.plate_number} - ${v.brand} ${v.model}`;
+                    const option = new Option(optionText, vehicleDataStr);
+                    providerVehicleSelect.add(option);
+                });
+            } else {
+                providerVehicleSelect.innerHTML = '<option value="">Lütfen önce Hesap sayfasından araç ekleyin.</option>';
+            }
+            
+            // Şehir dropdown'ını doldur
+            await populateSelect(providerCitySelect, '/api/cities', 'Lütfen bir şehir seçin...');
+            
+            // KM input'unu ve sağlayıcı listesini temizle
+            providerKmInput.value = '';
+            providerListContainer.classList.add('hidden');
+            providerList.innerHTML = '';
+            
+            // Modalı aç
+            providerRequestModal.classList.remove('hidden');
+        }
+
+        /**
+         * Sağlayıcıları bul butonuna tıklandığında çalışır
+         */
+        async function handleFindProviders() {
+            const selectedVehicleOption = providerVehicleSelect.options[providerVehicleSelect.selectedIndex];
+            const city = providerCitySelect.value;
+            
+            if (!selectedVehicleOption.value || !city) {
+                showToast("Lütfen bir araç ve şehir seçin.", "error");
+                return;
+            }
+            
+            const vehicle = JSON.parse(selectedVehicleOption.value);
+            const brand = vehicle.brand;
+            
+            providerListContainer.classList.remove('hidden');
+            providerList.innerHTML = ''; // Eski sonuçları temizle
+            providerListLoader.classList.remove('hidden'); // Yükleniyor'u göster
+            
+            try {
+                const response = await fetch(`/api/find_shops?shop_type=parts_provider&brand=${encodeURIComponent(brand)}&city=${encodeURIComponent(city)}`);
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.description || "Sağlayıcılar bulunamadı.");
+                }
+                const shops = await response.json();
+                
+                providerListLoader.classList.add('hidden'); // Yükleniyor'u gizle
+                
+                if (shops.length === 0) {
+                    providerList.innerHTML = '<p class="text-center text-gray-500">Bu kritere uygun parça sağlayıcı bulunamadı.</p>';
+                    return;
+                }
+                
+                shops.forEach(shop => {
+                    providerList.innerHTML += createProviderCard(shop);
+                });
+                
+            } catch (error) {
+                providerListLoader.classList.add('hidden');
+                providerList.innerHTML = `<p class="text-center text-red-500">Hata: ${error.message}</p>`;
+            }
+        }
+        
+        /**
+         * Sağlayıcı listesi için bir kart HTML'i oluşturur
+         */
+        function createProviderCard(shop) {
+            const ratingHtml = shop.rating ? 
+                `<div class="flex items-center gap-1 text-sm">
+                    <i class="fas fa-star text-yellow-400"></i>
+                    <span class="font-bold text-gray-700">${shop.rating.toFixed(1)}</span>
+                    <span class="text-xs text-gray-500">(${shop.user_ratings_total || 0})</span>
+                 </div>` : 
+                '<p class="text-xs text-gray-500">Henüz puanlanmamış</p>';
+            
+            // TODO: Bu sağlayıcıya daha önce bu sepet için talep gönderilip gönderilmediğini kontrol et
+            // Şimdilik basit tutuyoruz.
+            const isRequestActive = false; 
+            
+            let requestButtonHtml = '';
+            if (isRequestActive) {
+                requestButtonHtml = `<button class="bg-gray-400 text-white font-bold py-2 px-3 rounded-lg cursor-not-allowed text-sm" disabled>Talep Mevcut</button>`;
+            } else {
+                requestButtonHtml = `<button class="send-cart-request-btn bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-3 rounded-lg text-sm" 
+                                        data-shop-id="${shop.shop_user_id}" 
+                                        data-shop-place-id="${shop.google_place_id || ''}"
+                                        data-shop-name="${shop.name}">
+                                        Teklif İste
+                                     </button>`;
+            }
+            
+            return `
+                <div class="bg-white p-4 rounded-lg shadow border border-gray-200 flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-base">${shop.name}</h4>
+                        ${ratingHtml}
+                    </div>
+                    <div class="flex-shrink-0 ml-4">
+                        ${requestButtonHtml}
+                    </div>
+                </div>`;
+        }
+        
+        /**
+         * Sepeti, parça sağlayıcıya teklif olarak gönderir
+         */
+        async function handleSendCartRequest(button) {
+            const selectedVehicleOption = providerVehicleSelect.options[providerVehicleSelect.selectedIndex];
+            const km = providerKmInput.value;
+            const city = providerCitySelect.value;
+            
+            // Doğrulama
+            if (!selectedVehicleOption.value) {
+                showToast("Lütfen bir araç seçin.", "error");
+                providerVehicleSelect.focus();
+                return;
+            }
+             if (!km || parseInt(km) <= 0) {
+                showToast("Lütfen geçerli bir kilometre girin.", "error");
+                providerKmInput.focus();
+                return;
+            }
+            
+            button.disabled = true;
+            button.textContent = 'Gönderiliyor...';
+            
+            try {
+                // 1. Güncel Sepet Verisini Al
+                const cartResponse = await fetch('/api/cart/');
+                if (!cartResponse.ok) throw new Error("Sepet verisi alınamadı.");
+                const cartData = await cartResponse.json();
+                
+                if (!cartData.items || cartData.items.length === 0) {
+                    throw new Error("Sepetiniz boş.");
+                }
+                
+                // 2. Parçaları 'selected_parts' formatına çevir
+                const selectedParts = {};
+                cartData.items.forEach(item => {
+                    // Anahtar: Parça Adı, Değer: Marka (veya "Özel")
+                    selectedParts[item.name] = item.brand || 'Özel';
+                });
+                
+                // 3. Araç verisini al
+                const vehicle = JSON.parse(selectedVehicleOption.value);
+                
+                // 4. Payload'u oluştur
+                const payload = {
+                    shop_user_id: button.dataset.shopId,
+                    shop_google_place_id: button.dataset.shopPlaceId,
+                    vehicle: {
+                        brand: vehicle.brand,
+                        series: vehicle.series,
+                        year: vehicle.year,
+                        fuel: vehicle.fuel,
+                        model: vehicle.model,
+                        km: parseInt(km) // Yeni KM bilgisini ekle
+                    },
+                    city: city,
+                    maintenance_km: 0, // 0 veya null, "Parça Talebi" olduğunu belirtir
+                    selected_parts: selectedParts
+                };
+                
+                // 5. Talebi Gönder
+                const requestResponse = await fetch('/api/requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await requestResponse.json();
+                if (!requestResponse.ok) throw new Error(result.description);
+                
+                // Başarılı
+                showToast(`'${button.dataset.shopName}' adlı sağlayıcıya teklif talebi gönderildi!`, 'success');
+                button.textContent = 'Talep Gönderildi';
+                button.classList.replace('bg-orange-500', 'bg-gray-400');
+                button.classList.replace('hover:bg-orange-600', 'cursor-not-allowed');
+                // providerRequestModal.classList.add('hidden'); // Modalı kapat
+
+            } catch (error) {
+                showToast(`Hata: ${error.message}`, 'error');
+                button.disabled = false;
+                button.textContent = 'Teklif İste';
+            }
+        }
+
 
         // === Event Listener'lar ===
         
@@ -920,10 +1200,10 @@
             }
         });
 
-        // Teklif İste Butonu
+        // --- GÜNCELLENDİ: "Teklif İste" Butonu ---
         requestQuoteBtn.addEventListener('click', async () => {
             requestQuoteBtn.disabled = true;
-            requestQuoteBtn.innerHTML = '<i class="fas fa-spinner animate-spin mr-2"></i> Kontrol ediliyor...';
+            requestQuoteBtn.innerHTML = '<i class="fas fa-spinner animate-spin mr-2"></i>';
 
             try {
                 const response = await fetch('/api/cart/request-quote', { method: 'POST' });
@@ -938,12 +1218,8 @@
                     // Başka bir hata (örn: sepet boş)
                     throw new Error(data.message || 'Bir hata oluştu.');
                 } else {
-                    // Başarılı (status 200)
-                    showToast(data.message, 'success');
-                    // Kullanıcıyı parça sağlayıcı bulabileceği ana sayfaya yönlendir
-                    setTimeout(() => {
-                        window.location.href = '/'; 
-                    }, 2000);
+                    // Başarılı (status 200) -> Artık modalı açıyoruz
+                    await showProviderModal();
                 }
             } catch (error) {
                 showToast(error.message, 'error');
@@ -953,9 +1229,9 @@
             }
         });
         
-        // --- YENİ: Liste Yönetim Event Listener'ları ---
         
-        // Liste Değiştirme (DÜZELTİLDİ: 'undefined' hatası çözümü)
+        // --- Liste Yönetim Event Listener'ları ---
+        
         cartListSelect.addEventListener('change', async (e) => {
             const listName = e.target.value;
             if (!listName) return;
@@ -967,11 +1243,11 @@
                     body: JSON.stringify({ list_name: listName })
                 });
                 
-                const result = await response.json(); // API'den gelen {new_active_list_name, cart_details} objesi
+                const result = await response.json(); 
                 if (!response.ok) throw new Error(result.error || 'Liste değiştirilemedi');
 
                 const cartData = result.cart_details;
-                const newListName = result.new_active_list_name; // Yanıttan gelen ismi kullan
+                const newListName = result.new_active_list_name; 
                 
                 showToast(`'${newListName}' listesine geçildi`, 'success');
                 updateCartUI(cartData); // Header'ı güncelle
@@ -983,7 +1259,6 @@
             }
         });
 
-        // Yeni Liste Oluşturma (DÜZELTİLDİ: 'undefined' hatası çözümü)
         createListBtn.addEventListener('click', async () => {
             const listName = newListNameInput.value.trim();
             if (!listName) {
@@ -1000,7 +1275,7 @@
                     body: JSON.stringify({ list_name: listName })
                 });
                 
-                const result = await response.json(); // API'den gelen {new_active_list_name, cart_details} objesi
+                const result = await response.json(); 
                 if (!response.ok) throw new Error(result.error || 'Liste oluşturulamadı');
 
                 const newListName = result.new_active_list_name;
@@ -1020,7 +1295,6 @@
             }
         });
         
-        // YENİ: Liste Yeniden Adlandırma
         renameListBtn.addEventListener('click', async () => {
             const oldName = cartListSelect.value;
             if (oldName === 'default') {
@@ -1044,13 +1318,11 @@
                 
                 showToast(`'${oldName}' listesi '${newName.trim()}' olarak değiştirildi.`, 'success');
                 await fetchCartLists(); // Listeyi yenile (yeni ismi ve seçili olanı göstermek için)
-                // Aktif sepet değişmediği için fetchCart() çağırmaya gerek yok
             } catch (error) {
                 showToast(`Hata: ${error.message}`, 'error');
             }
         });
         
-        // YENİ: Liste Silme
         deleteListBtn.addEventListener('click', async () => {
             const listName = cartListSelect.value;
             if (listName === 'default') {
@@ -1078,7 +1350,7 @@
             }
         });
         
-        // YENİ: Özel Parça Ekleme
+        // Özel Parça Ekleme
         addCustomItemBtn.addEventListener('click', async () => {
             const name = customItemNameInput.value.trim();
             const price = parseFloat(customItemPriceInput.value);
@@ -1109,6 +1381,22 @@
                 await fetchCartLists(); // Liste özetini güncelle
             } catch (error) {
                 showToast(`Hata: ${error.message}`, 'error');
+            }
+        });
+
+        
+        // --- YENİ: Sağlayıcı Modalı Listener'ları ---
+        closeProviderModalBtn?.addEventListener('click', () => {
+            providerRequestModal.classList.add('hidden');
+        });
+        
+        findProvidersBtn?.addEventListener('click', handleFindProviders);
+        
+        // Sağlayıcı listesi için delege edilmiş event listener
+        providerList?.addEventListener('click', (e) => {
+            const button = e.target.closest('.send-cart-request-btn');
+            if (button) {
+                handleSendCartRequest(button);
             }
         });
 
@@ -1255,7 +1543,7 @@
         await fetchCartLists(); // YENİ: Sayfa yüklendiğinde sepet listelerini çek
 
     });
-    </script>
+</script>
 
 </body>
 </html>
