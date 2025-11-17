@@ -77,7 +77,6 @@ app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_REDIS"] = redis.from_url("redis://127.0.0.1:6379")
 Session(app)
 
-# *** GÜNCELLEME (ADIM 1): Import sırası düzeltildi ***
 # Blueprint'ler, app ve Session(app) yapılandırıldıktan SONRA import edilmelidir.
 from admin_api import admin_bp
 from parca_api import parca_bp
@@ -100,7 +99,7 @@ try:
 except (redis.exceptions.ConnectionError, Exception) as e:
     logging.warning(f"Redis'e bağlanılamadı, rate limiter bellek üzerinde çalışacak: {e}")
 
-# YENİ EKLENDİ: Admin API Blueprint'ini uygulamaya kaydet
+# Admin API Blueprint'ini uygulamaya kaydet
 app.register_blueprint(admin_bp)
 app.register_blueprint(parca_bp)
 app.register_blueprint(yapayusta_bp)
@@ -302,6 +301,7 @@ def init_db():
         ''')
         
         # *** GÜNCELLEME (ADIM 1): Yeni Sepet Tabloları ***
+        # (Bu tablolar, gelecekteki veritabanı tabanlı sepet sistemi içindir)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS CartLists (
                 id SERIAL PRIMARY KEY,
@@ -1045,6 +1045,7 @@ def get_requests():
         logging.error(f"Talep listeleme hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
 
+# --- BURASI GÜNCELLENDİ ---
 @app.route('/api/requests', methods=['POST'])
 @limiter.limit("30 per minute")
 def create_request():
@@ -1055,23 +1056,44 @@ def create_request():
         cursor = conn.cursor()
         user_id = session['user_id']
         data = request.get_json()
-        if not all(field in data for field in ['shop_user_id', 'shop_google_place_id', 'vehicle', 'maintenance_km', 'selected_parts', 'city']):
-            return jsonify({"description": "Eksik bilgi."}), 400
+        
+        # --- GÜNCELLEME BAŞLANGICI ---
+        # 1. Zorunlu alanları 'maintenance_km' OLMADAN kontrol et
+        required_fields = ['shop_user_id', 'shop_google_place_id', 'vehicle', 'selected_parts', 'city']
+        if not all(field in data for field in required_fields):
+            return jsonify({"description": "Eksik bilgi (shop_id, vehicle, parts, city required)."}), 400
 
         vehicle = data['vehicle']
+        
+        # 2. 'maintenance_km'yi al. Eğer yoksa (veya 0'sa), bu bir "Parça Talebi"dir.
+        # 'vehicle_km' de 'vehicle' objesinden alınmalı.
+        maintenance_km_raw = data.get('maintenance_km')
+        vehicle_km = vehicle.get('km') # Bu, 'Parça Talebi' için de 'vehicle' objesinden gelmeli
+
+        # 3. 'maintenance_km' 0, None, veya '0' ise, DB'ye None (NULL) olarak kaydet.
+        db_maintenance_km = None
+        if maintenance_km_raw:
+            try:
+                if int(maintenance_km_raw) > 0:
+                    db_maintenance_km = int(maintenance_km_raw)
+            except (ValueError, TypeError):
+                pass # Geçersizse None olarak kalır
+        # --- GÜNCELLEME SONU ---
 
         cursor.execute(
             """
             SELECT id FROM Requests
             WHERE user_id = %s AND shop_user_id = %s
-            AND vehicle_brand = %s AND vehicle_model = %s AND maintenance_km = %s
+            AND vehicle_brand = %s AND vehicle_model = %s
+            AND (maintenance_km = %s OR (maintenance_km IS NULL AND %s IS NULL))
             AND status IN ('pending', 'quoted', 'negotiating', 'accepted')
             """,
-            (user_id, data['shop_user_id'], vehicle['brand'], vehicle['model'], data['maintenance_km'])
+            (user_id, data['shop_user_id'], vehicle['brand'], vehicle['model'], db_maintenance_km, db_maintenance_km) # GÜNCELLENDİ
         )
         existing_request = cursor.fetchone()
         if existing_request:
-            return jsonify({"description": "Bu araç ve servis için zaten aktif bir talebiniz bulunmaktadır."}), 409
+            # GÜNCELLENDİ: Mesaj
+            return jsonify({"description": "Bu servis/sağlayıcı için zaten benzer bir aktif talebiniz bulunmaktadır."}), 409
 
         selected_parts_json = json.dumps(data['selected_parts'])
         cursor.execute(
@@ -1081,9 +1103,10 @@ def create_request():
                                   maintenance_km, selected_parts)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
+            # GÜNCELLENDİ: 'vehicle_km' ve 'db_maintenance_km' kullan
             (user_id, data['shop_user_id'], data['shop_google_place_id'], vehicle['brand'], vehicle['series'],
-             vehicle['year'], vehicle['fuel'], vehicle['model'], vehicle['km'], data['city'],
-             data['maintenance_km'], selected_parts_json)
+             vehicle['year'], vehicle['fuel'], vehicle['model'], vehicle_km, data['city'],
+             db_maintenance_km, selected_parts_json)
         )
         conn.commit()
         return jsonify({"status": "success", "description": "Talep iletildi."}), 201
@@ -1091,6 +1114,7 @@ def create_request():
         get_db_connection().rollback()
         logging.error(f"Talep oluşturma hatası: {e}\n{traceback.format_exc()}")
         return jsonify({"description": "Sunucu hatası."}), 500
+# --- GÜNCELLEME BİTTİ ---
 
 @app.route('/api/requests/<int:request_id>', methods=['DELETE'])
 @limiter.limit("30 per minute")
@@ -1413,7 +1437,7 @@ def manage_appointment(appointment_id):
         is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
 
         if not (is_owner or is_business):
-                                return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
+                          return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
 
         if request.method == 'PUT':
             if not is_business:
@@ -2011,6 +2035,16 @@ def account_page():
 @app.route('/admin.html')
 def admin_page():
     return render_template('admin.html')
+
+# YENİ: cart.html için route
+@app.route('/cart.html')
+def cart_page():
+    return render_template('cart.html')
+
+# YENİ: parca.html için route
+@app.route('/parca.html')
+def parca_page():
+    return render_template('parca.html')
 
 @app.route('/gizlilik.html')
 def privacy_page():
