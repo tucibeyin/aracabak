@@ -77,7 +77,8 @@ app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_REDIS"] = redis.from_url("redis://127.0.0.1:6379")
 Session(app)
 
-# YENİ EKLENDİ: Admin API Blueprint'ini import et
+# *** GÜNCELLEME (ADIM 1): Import sırası düzeltildi ***
+# Blueprint'ler, app ve Session(app) yapılandırıldıktan SONRA import edilmelidir.
 from admin_api import admin_bp
 from parca_api import parca_bp
 from yapayusta_api import yapayusta_bp
@@ -299,11 +300,37 @@ def init_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        
+        # *** GÜNCELLEME (ADIM 1): Yeni Sepet Tabloları ***
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS CartLists (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+                list_name TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS CartListItems (
+                id SERIAL PRIMARY KEY,
+                cart_list_id INTEGER NOT NULL REFERENCES CartLists(id) ON DELETE CASCADE,
+                product_id INTEGER NOT NULL REFERENCES Products(id) ON DELETE CASCADE,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(cart_list_id, product_id)
+            )
+        ''')
+        # *** GÜNCELLEME SONU ***
 
         conn.commit()
         logging.info("Veritabanı başarıyla kontrol edildi.")
+    except psycopg2.Error as db_err:
+        logging.error(f"Veritabanı başlatma hatası: {db_err}")
+        if conn:
+            conn.rollback()
     except Exception as e:
-        logging.error(f"Veritabanı başlatma hatası: {e}")
+        logging.error(f"Veritabanı başlatma hatası (Genel): {e}")
         if conn:
             conn.rollback()
     finally:
@@ -715,6 +742,20 @@ def register():
             cursor.execute('INSERT INTO Shops (user_id, phone, shop_type) VALUES (%s, %s, %s)', (user_id, phone_number, shop_type))
             
         conn.commit()
+
+        # *** GÜNCELLEME (ADIM 1): Varsayılan Sepet Listesi Oluştur ***
+        try:
+            cursor.execute(
+                'INSERT INTO CartLists (user_id, list_name) VALUES (%s, %s)',
+                (user_id, 'Varsayılan Sepetim')
+            )
+            conn.commit() # Bu işlemi ayrıca commit et
+            logging.info(f"Kullanıcı {user_id} için varsayılan sepet listesi oluşturuldu.")
+        except Exception as list_error:
+            # Hata olursa rollback yap, ancak ana kayıt işlemi başarılı olduğu için devam et
+            get_db_connection().rollback()
+            logging.error(f"Kullanıcı {user_id} için varsayılan sepet oluşturulamadı: {list_error}")
+        # *** GÜNCELLEME SONU ***
 
         cursor.execute('SELECT * FROM Users WHERE id = %s', (user_id,))
         new_user = cursor.fetchone()
@@ -1372,7 +1413,7 @@ def manage_appointment(appointment_id):
         is_business = user_type == 'business' and appointment['shop_user_id'] == user_id
 
         if not (is_owner or is_business):
-                          return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
+                                return jsonify({"description": "Bu işlem için yetkiniz yok."}), 403
 
         if request.method == 'PUT':
             if not is_business:
