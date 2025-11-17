@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" href="/logolar/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="/logolar/favicon.ico" type="image/x-icon">
-    <!-- YENİ: Google GSI Script (Giriş/Kayıt için) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -40,6 +39,8 @@
         }
         .toast-success { background-color: #28a745; }
         .toast-error { background-color: #dc3545; }
+        
+        /* GÜNCELLENDİ: Akordeon stilleri */
         .details-content {
             max-height: 0;
             overflow: hidden;
@@ -48,9 +49,9 @@
             padding-bottom: 0;
         }
         .details-content.show {
-            max-height: 1000px; /* Adjust if content is taller */
-            padding-top: 1rem;
-            padding-bottom: 1rem;
+            /* max-height: 1000px; JS artık yüksekliği dinamik olarak ayarlayacak */
+            /* padding-top: 1rem; */ /* JS'ye taşındı */
+            /* padding-bottom: 1rem; */ /* JS'ye taşındı */
         }
         .selected-row {
             background-color: #eef2ff; /* indigo-50 */
@@ -126,9 +127,7 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <!-- YENİ: Header (cart.html'den alındı) -->
     <header class="bg-white shadow-md sticky top-0 z-40">
-        <!-- MASAÜSTÜ NAV BAR -->
         <nav class="container mx-auto px-4 sm:px-6 py-3 hidden sm:flex justify-between items-center">
             <a href="/">
                 <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
@@ -157,6 +156,7 @@
                         <span id="welcomeMessageHeader" class="font-semibold block text-gray-800 text-sm sm:text-base"></span>
                         <span id="userTypeMessageHeader" class="text-xs text-gray-500 block capitalize"></span>
                     </div>
+                    <a href="https://aracabak.com/" class="bg-blue-600 text-white font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-blue-700">Anasayfa</a>
                     <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
                     <div class="relative group">
                         <a id="cartBtnHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 flex items-center">
@@ -177,7 +177,6 @@
                 </div>
             </div>
         </nav>
-        <!-- MOBİL NAV BAR -->
         <div id="auth-container-mobile" class="container mx-auto px-4 sm:hidden">
             <div class="py-3 flex justify-center items-center">
                 <a href="/">
@@ -204,7 +203,7 @@
                     <button id="signupBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Kayıt Ol</button>
                 </div>
                 <div id="user-menu-mobile" class="hidden items-center space-x-2">
-                    <a href="/" class="bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg hover:bg-blue-700">Anasayfa</a>
+                    <a href="https://aracabak.com/" class="bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg hover:bg-blue-700">Anasayfa</a>
                     <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Hesabım</a>
                     <div class="relative group">
                         <a id="cartBtnMobileHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 flex items-center">
@@ -223,9 +222,6 @@
                     <button id="logoutBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
-            <!-- Not: account.html'deki 'welcomeContainerMobileWrapper' id'si, 
-                 cart.html'de 'welcomeContainerMobileWrapperHeader' olarak adlandırılmış. 
-                 Yeni header'a uyması için ID'yi güncelliyoruz. -->
             <div id="welcomeContainerMobileWrapperHeader" class="pb-3 hidden">
                 <div class="text-center pt-2 border-t border-gray-200">
                     <span id="welcomeMessageMobileHeader" class="font-semibold block text-gray-800 text-sm"></span>
@@ -235,45 +231,60 @@
         </div>
     </header>
 
-    <!-- Main Content (account.html'den olduğu gibi alındı) -->
     <main id="mainContent" class="container mx-auto p-4 md:p-8 flex flex-col items-center gap-12">
         
-        <!-- Randevularım Section (En Üstte) -->
-        <div id="appointmentsSection" class="w-full max-w-4xl hidden">
-             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Randevularım</h2>
-                <div id="appointmentList"></div>
+        <div id="appointmentsSection" class="w-full max-w-4xl hidden bg-white rounded-2xl shadow-lg">
+             <button id="appointmentsToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
+                <h2 class="text-2xl sm:text-3xl font-bold">Randevularım</h2>
+                <i id="appointmentsIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
+            </button>
+             <div id="appointmentsContent" class="details-content">
+                <div class="px-6 sm:px-8 pb-8 border-t border-gray-200">
+                    <div id="appointmentList" class="pt-6"></div>
+                    <div id="appointmentDetail" class="hidden mt-6 bg-gray-50 p-6 rounded-lg fade-in"></div>
+                </div>
              </div>
-             <div id="appointmentDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
         </div>
         
-        <!-- Talep Yönetimi Sections (Owner/Business) (Üstte) -->
-        <div id="businessRequestsSection" class="w-full max-w-4xl hidden">
-             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <h2 id="businessRequestsTitle" class="text-2xl sm:text-3xl font-bold mb-6">Gelen Talepler</h2>
-                <div id="requestList"></div>
+        <div id="businessRequestsSection" class="w-full max-w-4xl hidden bg-white rounded-2xl shadow-lg">
+             <button id="businessRequestsToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
+                <h2 id="businessRequestsTitle" class="text-2xl sm:text-3xl font-bold">Gelen Talepler</h2>
+                <i id="businessRequestsIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
+            </button>
+             <div id="businessRequestsContent" class="details-content">
+                <div class="px-6 sm:px-8 pb-8 border-t border-gray-200">
+                    <div id="requestList" class="pt-6"></div>
+                    <div id="requestDetail" class="hidden mt-6 bg-gray-50 p-6 rounded-lg fade-in"></div>
+                </div>
              </div>
-             <div id="requestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
         </div>
         
-        <div id="ownerSentRequestsSection" class="w-full max-w-4xl hidden">
-             <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Gönderdiğim Bakım Talepleri</h2>
-                <div id="sentRequestList"></div>
+        <div id="ownerSentRequestsSection" class="w-full max-w-4xl hidden bg-white rounded-2xl shadow-lg">
+             <button id="ownerSentRequestsToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
+                <h2 class="text-2xl sm:text-3xl font-bold">Gönderdiğim Bakım Talepleri</h2>
+                <i id="ownerSentRequestsIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
+            </button>
+             <div id="ownerSentRequestsContent" class="details-content">
+                <div class="px-6 sm:px-8 pb-8 border-t border-gray-200">
+                    <div id="sentRequestList" class="pt-6"></div>
+                    <div id="sentRequestDetail" class="hidden mt-6 bg-gray-50 p-6 rounded-lg fade-in"></div>
+                </div>
              </div>
-             <div id="sentRequestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
         </div>
 
-        <!-- Gönderdiğim Parça Talepleri Section -->
-        <div id="ownerSentPartsRequestsSection" class="w-full max-w-4xl hidden">
-            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Parça Taleplerim</h2>
-                <div id="sentPartsRequestList"></div>
+        <div id="ownerSentPartsRequestsSection" class="w-full max-w-4xl hidden bg-white rounded-2xl shadow-lg">
+            <button id="ownerSentPartsRequestsToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
+                <h2 class="text-2xl sm:text-3xl font-bold">Parça Taleplerim</h2>
+                <i id="ownerSentPartsRequestsIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
+            </button>
+            <div id="ownerSentPartsRequestsContent" class="details-content">
+                <div class="px-6 sm:px-8 pb-8 border-t border-gray-200">
+                    <div id="sentPartsRequestList" class="pt-6"></div>
+                    <div id="sentPartsRequestDetail" class="hidden mt-6 bg-gray-50 p-6 rounded-lg fade-in"></div>
+                </div>
             </div>
-            <div id="sentPartsRequestDetail" class="hidden mt-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg fade-in"></div>
         </div>
         
-        <!-- Kişisel Bilgiler Section -->
         <div class="w-full max-w-lg">
              <div class="bg-white rounded-2xl shadow-lg">
                 <button id="personalInfoToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
@@ -307,89 +318,100 @@
              </div>
         </div>
 
-        <!-- İşletme Profili Section -->
-        <div id="businessSection" class="w-full max-w-4xl hidden">
-            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <div id="shopInfoDisplay" class="hidden">
-                    <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
-                        <h2 class="text-2xl sm:text-3xl font-bold">İşletme Profilim</h2>
-                        <div class="flex gap-2 self-end sm:self-center">
-                            <button id="editShopBtn" class="bg-yellow-400 text-yellow-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-500 flex items-center">Düzenle</button>
-                            <button id="deleteShopBtn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 flex items-center">Profili Sil</button>
-                        </div>
-                    </div>
-                    <div id="shopDetails" class="space-y-2"></div>
-                </div>
-                <div id="shopInfoForm" class="hidden">
-                    <h2 id="shopFormTitle" class="text-2xl sm:text-3xl font-bold mb-6"></h2>
-                    <form id="businessProfileForm" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türü</label>
-                            <div id="shopTypeEditor" class="flex items-center justify-around bg-gray-100 rounded-lg p-1">
-                                <label class="w-1/2 text-center cursor-pointer">
-                                    <input type="radio" name="shop_type_edit" value="service" class="sr-only peer">
-                                    <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Servis</span>
-                                </label>
-                                <label class="w-1/2 text-center cursor-pointer">
-                                    <input type="radio" name="shop_type_edit" value="parts_provider" class="sr-only peer">
-                                    <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Parça Sağlayıcı</span>
-                                </label>
+        <div id="businessSection" class="w-full max-w-4xl hidden bg-white rounded-2xl shadow-lg">
+            <button id="businessToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
+                <h2 class="text-2xl sm:text-3xl font-bold">İşletme Profilim</h2>
+                <i id="businessIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
+            </button>
+            <div id="businessContent" class="details-content">
+                <div class="px-6 sm:px-8 pb-8 border-t border-gray-200 pt-8">
+                    <div id="shopInfoDisplay" class="hidden">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+                            <div class="flex gap-2 self-end sm:self-center">
+                                <button id="editShopBtn" class="bg-yellow-400 text-yellow-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-500 flex items-center">Düzenle</button>
+                                <button id="deleteShopBtn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 flex items-center">Profili Sil</button>
                             </div>
                         </div>
-                        <div>
-                            <label for="account_city" class="block text-sm font-medium text-gray-700">Hizmet Verilen Şehirler</label>
-                            <select id="account_city" multiple class="w-full mt-1 p-3 border rounded-lg bg-white h-48"></select>
-                            <p class="text-xs text-gray-500 mt-1">Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
-                        </div>
-                        <div>
-                            <label for="account_serviced_brands" class="block text-sm font-medium text-gray-700">Hizmet Verilen Markalar</label>
-                            <select id="account_serviced_brands" multiple class="w-full mt-1 p-3 border rounded-lg bg-white h-48"></select>
-                            <p class="text-xs text-gray-500 mt-1">Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
-                        </div>
-                        <div>
-                            <label for="account_shop_phone" class="block text-sm font-medium text-gray-700">İşletme Telefonu</label>
-                            <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
-                        </div>
-                        <div>
-                            <label for="account_website" class="block text-sm font-medium text-gray-700">Web Sitesi (İsteğe Bağlı)</label>
-                            <input type="url" id="account_website" class="w-full mt-1 p-3 border rounded-lg" placeholder="https://www.isletmem.com">
-                        </div>
-                        <div>
-                            <label for="account_id" class="block text-sm font-medium text-gray-700">Google Haritalar İşletme Kimliği (Place ID)</label>
-                            <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Lisans kodunuz (örn: ChIJ...)" maxlength="100">
-                            <p class="text-xs text-gray-600 mt-1">İşletmenizin Google Haritalar'daki adresini bulup, <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" class="text-blue-500 hover:underline">bu araçtan</a> "Place ID"nizi kopyalayıp buraya yapıştırın. Bu, müşterilerin sizi haritada bulmasını sağlar.</p>
-                        </div>
-                    </form>
-                    <div id="shopMessageContainer"></div>
-                    <div class="flex justify-end gap-4 mt-6">
-                        <button type="button" id="cancelShopEditBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
-                        <button type="button" id="saveShopBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700">Kaydet</button>
+                        <div id="shopDetails" class="space-y-2"></div>
                     </div>
-                </div>
-                <div id="addShopContainer" class="text-center hidden">
-                   <h2 class="text-2xl sm:text-3xl font-bold mb-4">İşletme Profiliniz Yok</h2>
-                   <p class="text-gray-600 mb-6">İşletme bilgilerinizi ekleyerek müşterilerin sizi bulmasını sağlayın.</p>
-                   <button id="addShopBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700">İşletme Profili Oluştur</button>
+                    <div id="shopInfoForm" class="hidden">
+                        <h2 id="shopFormTitle" class="text-2xl sm:text-3xl font-bold mb-6"></h2>
+                        <form id="businessProfileForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">İşletme Türü</label>
+                                <div id="shopTypeEditor" class="flex items-center justify-around bg-gray-100 rounded-lg p-1">
+                                    <label class="w-1/2 text-center cursor-pointer">
+                                        <input type="radio" name="shop_type_edit" value="service" class="sr-only peer">
+                                        <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Servis</span>
+                                    </label>
+                                    <label class="w-1/2 text-center cursor-pointer">
+                                        <input type="radio" name="shop_type_edit" value="parts_provider" class="sr-only peer">
+                                        <span class="block px-4 py-2 rounded-md peer-checked:bg-blue-600 peer-checked:text-white transition-colors">Parça Sağlayıcı</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="account_city" class="block text-sm font-medium text-gray-700">Hizmet Verilen Şehirler</label>
+                                <select id="account_city" multiple class="w-full mt-1 p-3 border rounded-lg bg-white h-48"></select>
+                                <p class="text-xs text-gray-500 mt-1">Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
+                            </div>
+                            <div>
+                                <label for="account_serviced_brands" class="block text-sm font-medium text-gray-700">Hizmet Verilen Markalar</label>
+                                <select id="account_serviced_brands" multiple class="w-full mt-1 p-3 border rounded-lg bg-white h-48"></select>
+                                <p class="text-xs text-gray-500 mt-1">Birden fazla seçmek için CTRL (Windows) veya Command (Mac) tuşunu basılı tutun.</p>
+                            </div>
+                            <div>
+                                <label for="account_shop_phone" class="block text-sm font-medium text-gray-700">İşletme Telefonu</label>
+                                <input type="tel" id="account_shop_phone" class="w-full mt-1 p-3 border rounded-lg" placeholder="0xxxxxxxxxx" maxlength="11">
+                            </div>
+                            <div>
+                                <label for="account_website" class="block text-sm font-medium text-gray-700">Web Sitesi (İsteğe Bağlı)</label>
+                                <input type="url" id="account_website" class="w-full mt-1 p-3 border rounded-lg" placeholder="https://www.isletmem.com">
+                            </div>
+                            <div>
+                                <label for="account_id" class="block text-sm font-medium text-gray-700">Google Haritalar İşletme Kimliği (Place ID)</label>
+                                <input type="text" id="account_id" class="w-full mt-1 p-3 border rounded-lg" placeholder="Lisans kodunuz (örn: ChIJ...)" maxlength="100">
+                                <p class="text-xs text-gray-600 mt-1">İşletmenizin Google Haritalar'daki adresini bulup, <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" class="text-blue-500 hover:underline">bu araçtan</a> "Place ID"nizi kopyalayıp buraya yapıştırın. Bu, müşterilerin sizi haritada bulmasını sağlar.</p>
+                            </div>
+                        </form>
+                        <div id="shopMessageContainer"></div>
+                        <div class="flex justify-end gap-4 mt-6">
+                            <button type="button" id="cancelShopEditBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
+                            <button type="button" id="saveShopBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700">Kaydet</button>
+                        </div>
+                    </div>
+                    <div id="addShopContainer" class="text-center">
+                       <h2 class="text-2xl sm:text-3xl font-bold mb-4">İşletme Profiliniz Yok</h2>
+                       <p class="text-gray-600 mb-6">İşletme bilgilerinizi ekleyerek müşterilerin sizi bulmasını sağlayın.</p>
+                       <button id="addShopBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700">İşletme Profili Oluştur</button>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- Araç Sahibi İçerik Bölümü -->
-        <div id="ownerVehicleSection" class="w-full max-w-4xl hidden">
-            <!-- MTV / Muayene Takip Kartları -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                    <h2 class="text-2xl sm:text-3xl font-bold mb-6">MTV Ödeme Takibi</h2>
-                    <div id="taxReminderList" class="space-y-4"></div>
-                </div>
-                 <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                    <h2 class="text-2xl sm:text-3xl font-bold mb-6">Muayene Takibi</h2>
-                    <div id="inspectionReminderList" class="space-y-4"></div>
+        <div id="ownerVehicleSection" class="w-full max-w-4xl hidden space-y-12">
+            <div class="bg-white rounded-2xl shadow-lg">
+                <button id="remindersToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
+                    <h2 class="text-2xl sm:text-3xl font-bold">Araç Takibi (MTV & Muayene)</h2>
+                    <i id="remindersIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
+                </button>
+                <div id="remindersContent" class="details-content">
+                    <div class="px-6 sm:px-8 pb-8 border-t border-gray-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6">
+                            <div>
+                                <h3 class="text-xl font-bold mb-6">MTV Ödeme Takibi</h3>
+                                <div id="taxReminderList" class="space-y-4"></div>
+                            </div>
+                             <div>
+                                <h3 class="text-xl font-bold mb-6">Muayene Takibi</h3>
+                                <div id="inspectionReminderList" class="space-y-4"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <!-- Yakıt Girişi ve Raporlama (Accordion) -->
-            <div id="fuelTrackerSection" class="bg-white rounded-2xl shadow-lg mb-12 hidden">
+            <div id="fuelTrackerSection" class="bg-white rounded-2xl shadow-lg">
                 <button id="fuelTrackerToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
                     <h2 class="text-2xl sm:text-3xl font-bold">Yakıt Girişi ve Raporlama</h2>
                     <i id="fuelTrackerIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
@@ -453,32 +475,37 @@
                 </div>
             </div>
 
-            <!-- Araç Listesi -->
-            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+            <div class="bg-white rounded-2xl shadow-lg">
+                <button id="vehiclesToggle" class="w-full p-6 sm:p-8 flex justify-between items-center text-left">
                     <h2 class="text-2xl sm:text-3xl font-bold">Araçlarım</h2>
-                    <button id="showAddVehicleFormBtn" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center justify-center">
-                        <i class="fas fa-plus mr-2"></i> Yeni Araç Ekle
-                    </button>
-                </div>
-                <div id="vehicleList" class="space-y-4"></div>
-                
-                <!-- Yeni Araç Ekleme Formu -->
-                <div id="addVehicleFormContainer" class="hidden mt-8 pt-6 border-t">
-                    <h3 class="text-xl font-bold mb-4">Yeni Araç Bilgileri</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                        <div class="flex flex-col"><label for="brand" class="mb-1 font-semibold text-sm">Marka</label><select id="brand" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
-                        <div class="flex flex-col"><label for="series" class="mb-1 font-semibold text-sm">Seri</label><select id="series" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
-                        <div class="flex flex-col"><label for="year" class="mb-1 font-semibold text-sm">Yıl</label><select id="year" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
-                        <div class="flex flex-col"><label for="fuel" class="mb-1 font-semibold text-sm">Yakıt</label><select id="fuel" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
-                        <div class="flex flex-col"><label for="model" class="mb-1 font-semibold text-sm">Model</label><select id="model" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
-                        <div class="flex flex-col"><label for="new_plate_number" class="mb-1 font-semibold text-sm">Plaka</label><input type="text" id="new_plate_number" placeholder="34ABC1234" class="p-3 border rounded-lg bg-white shadow-sm w-full uppercase" required></div>
-                        <div class="flex flex-col col-span-1 sm:col-span-2 lg:col-span-1"><label for="new_last_inspection_date" class="mb-1 font-semibold text-sm">Son Muayene Tarihi</label><input type="date" id="new_last_inspection_date" class="p-3 border rounded-lg bg-white shadow-sm w-full" required></div>
-                    </div>
-                    <div id="addVehicleMessageContainer" class="mt-4"></div>
-                    <div class="flex justify-end gap-4 mt-6">
-                         <button type="button" id="cancelAddVehicleBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
-                         <button type="button" id="addVehicleBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700 disabled:bg-gray-400" disabled>Ekle</button>
+                    <i id="vehiclesIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
+                </button>
+                <div id="vehiclesContent" class="details-content">
+                    <div class="px-6 sm:px-8 pb-8 border-t border-gray-200 pt-6">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+                            <button id="showAddVehicleFormBtn" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center justify-center ml-auto">
+                                <i class="fas fa-plus mr-2"></i> Yeni Araç Ekle
+                            </button>
+                        </div>
+                        <div id="vehicleList" class="space-y-4"></div>
+                        
+                        <div id="addVehicleFormContainer" class="hidden mt-8 pt-6 border-t">
+                            <h3 class="text-xl font-bold mb-4">Yeni Araç Bilgileri</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                                <div class="flex flex-col"><label for="brand" class="mb-1 font-semibold text-sm">Marka</label><select id="brand" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
+                                <div class="flex flex-col"><label for="series" class="mb-1 font-semibold text-sm">Seri</label><select id="series" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                                <div class="flex flex-col"><label for="year" class="mb-1 font-semibold text-sm">Yıl</label><select id="year" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                                <div class="flex flex-col"><label for="fuel" class="mb-1 font-semibold text-sm">Yakıt</label><select id="fuel" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                                <div class="flex flex-col"><label for="model" class="mb-1 font-semibold text-sm">Model</label><select id="model" class="p-3 border rounded-lg bg-white shadow-sm w-full" disabled></select></div>
+                                <div class="flex flex-col"><label for="new_plate_number" class="mb-1 font-semibold text-sm">Plaka</label><input type="text" id="new_plate_number" placeholder="34ABC1234" class="p-3 border rounded-lg bg-white shadow-sm w-full uppercase" required></div>
+                                <div class="flex flex-col col-span-1 sm:col-span-2 lg:col-span-1"><label for="new_last_inspection_date" class="mb-1 font-semibold text-sm">Son Muayene Tarihi</label><input type="date" id="new_last_inspection_date" class="p-3 border rounded-lg bg-white shadow-sm w-full" required></div>
+                            </div>
+                            <div id="addVehicleMessageContainer" class="mt-4"></div>
+                            <div class="flex justify-end gap-4 mt-6">
+                                 <button type="button" id="cancelAddVehicleBtn" class="bg-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">İptal</button>
+                                 <button type="button" id="addVehicleBtn" class="bg-gray-900 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-700 disabled:bg-gray-400" disabled>Ekle</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -486,7 +513,6 @@
         
     </main>
 
-    <!-- Telefon Numarası Giriş Modalı (İlk Girişte Zorunlu) -->
     <div id="phoneEntryOverlay" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
             <h2 class="text-2xl font-bold mb-4">Hoş Geldiniz!</h2>
@@ -500,10 +526,9 @@
         </div>
     </div>
 
-    <!-- Araç Düzenleme Modalı -->
     <div id="editVehicleModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-8 relative">
-            <button id="closeEditModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <button id="closeEditModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
             <h3 class="text-xl font-bold mb-4">Araç Bilgilerini Düzenle</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                 <div class="flex flex-col"><label for="edit_brand" class="mb-1 font-semibold text-sm">Marka</label><select id="edit_brand" class="p-3 border rounded-lg bg-white shadow-sm w-full"></select></div>
@@ -522,10 +547,9 @@
         </div>
     </div>
 
-    <!-- Talep Düzenleme Modalı -->
     <div id="editRequestModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative">
-            <button id="closeRequestModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <button id="closeRequestModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
             <h3 class="text-xl font-bold mb-4">Bakım Talebini Düzenle</h3>
             <div class="space-y-4">
                 <div>
@@ -545,12 +569,10 @@
         </div>
     </div>
     
-    <!-- YENİ: Auth Modal (cart.html'den alındı) -->
     <div id="authModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
             <button id="closeModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
 
-            <!-- Google Kayıt Tamamlama Formu -->
             <div id="googleCompleteProfileFormModal" class="hidden">
                 <h2 class="text-xl font-bold mb-2 text-center">Kaydı Tamamla</h2>
                 <p id="googleWelcomeModal" class="text-center text-gray-600 mb-6"></p>
@@ -576,9 +598,7 @@
                 <button id="completeGoogleRegistrationBtnModal" class="w-full bg-gray-900 text-white py-3 rounded-lg font-bold mt-2 hover:bg-gray-700">Kaydı Tamamla</button>
             </div>
 
-            <!-- Standart Giriş/Kayıt Formları -->
             <div id="standardAuthFormsModal">
-                <!-- Login Form -->
                 <div id="loginViewModal">
                     <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Giriş Yap</h2>
                     <form id="loginFormModal">
@@ -599,7 +619,6 @@
                     <p class="mt-6 text-center text-sm">Hesabın yok mu? <a href="#" id="showRegisterModal" class="text-blue-500 hover:underline">Kayıt Ol</a></p>
                 </div>
 
-                <!-- Register Form -->
                 <div id="registerViewModal" class="hidden">
                     <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Hesap Oluştur</h2>
                     <form id="registerFormModal">
@@ -618,7 +637,6 @@
                 </div>
             </div>
 
-            <!-- Şifre Yenileme Formları -->
             <div id="forgotPasswordFlowModal" class="hidden">
                 <div id="forgotPasswordViewModal">
                     <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Şifreni Sıfırla</h2>
@@ -742,12 +760,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     const saveFuelEntryBtn = document.getElementById('saveFuelEntryBtn');
     const getReportBtn = document.getElementById('getReportBtn');
     const appointmentsSection = document.getElementById('appointmentsSection');
-    const fuelTrackerToggle = document.getElementById('fuelTrackerToggle');
-    const fuelTrackerContent = document.getElementById('fuelTrackerContent');
-    const fuelTrackerIcon = document.getElementById('fuelTrackerIcon');
+    
+    // ★★★ DEĞİŞİKLİK 3: YENİ AKORDEON ELEMENTLERİ ★★★
     const personalInfoToggle = document.getElementById('personalInfoToggle');
     const personalInfoContent = document.getElementById('personalInfoContent');
     const personalInfoIcon = document.getElementById('personalInfoIcon');
+    
+    const appointmentsToggle = document.getElementById('appointmentsToggle');
+    const appointmentsContent = document.getElementById('appointmentsContent');
+    const appointmentsIcon = document.getElementById('appointmentsIcon');
+
+    const businessRequestsToggle = document.getElementById('businessRequestsToggle');
+    const businessRequestsContent = document.getElementById('businessRequestsContent');
+    const businessRequestsIcon = document.getElementById('businessRequestsIcon');
+
+    const ownerSentRequestsToggle = document.getElementById('ownerSentRequestsToggle');
+    const ownerSentRequestsContent = document.getElementById('ownerSentRequestsContent');
+    const ownerSentRequestsIcon = document.getElementById('ownerSentRequestsIcon');
+
+    const ownerSentPartsRequestsToggle = document.getElementById('ownerSentPartsRequestsToggle');
+    const ownerSentPartsRequestsContent = document.getElementById('ownerSentPartsRequestsContent');
+    const ownerSentPartsRequestsIcon = document.getElementById('ownerSentPartsRequestsIcon');
+
+    const businessToggle = document.getElementById('businessToggle');
+    const businessContent = document.getElementById('businessContent');
+    const businessIcon = document.getElementById('businessIcon');
+
+    const remindersToggle = document.getElementById('remindersToggle');
+    const remindersContent = document.getElementById('remindersContent');
+    const remindersIcon = document.getElementById('remindersIcon');
+
+    const fuelTrackerToggle = document.getElementById('fuelTrackerToggle');
+    const fuelTrackerContent = document.getElementById('fuelTrackerContent');
+    const fuelTrackerIcon = document.getElementById('fuelTrackerIcon');
+
+    const vehiclesToggle = document.getElementById('vehiclesToggle');
+    const vehiclesContent = document.getElementById('vehiclesContent');
+    const vehiclesIcon = document.getElementById('vehiclesIcon');
+    
     let currentEditingVehicleId = null;
     let currentEditingRequestId = null;
 
@@ -1030,11 +1080,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         listElement.innerHTML = '';
         if (!vehicles || vehicles.length === 0) {
             listElement.innerHTML = '<p class="text-center text-gray-500">Henüz kayıtlı bir aracınız bulunmuyor.</p>';
-            document.getElementById('fuelTrackerSection').classList.add('hidden');
+            // ★★★ DEĞİŞİKLİK 2: Yakıt takibi artık `ownerVehicleSection` içinde değil ★★★
+            // document.getElementById('fuelTrackerSection').classList.add('hidden');
             return;
         }
         
-        document.getElementById('fuelTrackerSection').classList.remove('hidden');
+        // ★★★ DEĞİŞİKLİK 2: Yakıt takibi artık `ownerVehicleSection` içinde değil ★★★
+        // document.getElementById('fuelTrackerSection').classList.remove('hidden');
         fuelVehicleSelect.innerHTML = '<option value="">Lütfen bir araç seçin</option>';
         vehicles.forEach(vehicle => {
             fuelVehicleSelect.add(new Option(`${vehicle.plate_number} - ${vehicle.brand} ${vehicle.model}`, vehicle.id));
@@ -1756,6 +1808,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     appointmentsSection.classList.remove('hidden');
                     businessSection.classList.add('hidden');
                     businessRequestsSection.classList.add('hidden');
+                    // ★★★ DEĞİŞİKLİK 2: fuelTrackerSection gizlendi (ownerVehicleSection'dan taşındığı varsayılarak) ★★★
+                    // Ancak HTML'de hala ownerVehicleSection içinde görünüyor. Kullanıcı bunu da ayrı bir akordeon istedi.
+                    // Bu fonksiyonu olduğu gibi bırakmak ve sadece HTML'i değiştirmek en doğrusu.
+                    // fuelTrackerSection zaten gizli (hidden) başlıyor, populateVehicleList onu görünür yapıyor.
+                    // Bu mantığı koruyalım.
+                    if (!data.vehicles || data.vehicles.length === 0) {
+                        document.getElementById('fuelTrackerSection').classList.add('hidden');
+                    } else {
+                        document.getElementById('fuelTrackerSection').classList.remove('hidden');
+                    }
                     populateVehicleList(data.vehicles);
                     populateTaxReminders(data.vehicles);
                     populateInspectionReminders(data.vehicles);
@@ -2222,18 +2284,83 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    if (fuelTrackerToggle) {
-        fuelTrackerToggle.addEventListener('click', () => {
-            fuelTrackerContent.classList.toggle('show');
-            fuelTrackerIcon.classList.toggle('rotate-180');
-        });
+    // ★★★ DEĞİŞİKLİK 3: YENİ AKORDEON FONKSİYONU ★★★
+    // Bu fonksiyon, tüm akordeonlar için animasyonu yönetir
+    function toggleAccordion(contentEl, iconEl) {
+        if (!contentEl) return;
+        
+        const isCurrentlyShown = contentEl.classList.contains('show');
+        
+        if (isCurrentlyShown) {
+            // Kapat
+            contentEl.style.maxHeight = '0';
+            contentEl.style.paddingTop = '0';
+            contentEl.style.paddingBottom = '0';
+            contentEl.classList.remove('show');
+            if (iconEl) iconEl.classList.remove('rotate-180');
+        } else {
+            // Aç
+            // Önce 'auto' yüksekliğe ayarla, sonra gerçek yüksekliği al
+            contentEl.style.transition = 'none'; // Geçişi geçici olarak kaldır
+            contentEl.style.maxHeight = 'none';
+            const scrollHeight = contentEl.scrollHeight;
+            contentEl.style.maxHeight = '0'; // Geri 0'a ayarla
+            contentEl.style.transition = ''; // Geçişi geri ekle
+            
+            // Yüksekliği tetikle (flush layout)
+            contentEl.offsetHeight; 
+            
+            contentEl.style.maxHeight = `${scrollHeight}px`;
+            // İçeriğin tipine göre dolgu (padding) ekle
+            // Kişisel bilgiler ve İşletme Profili zaten pt-8 kullanıyor
+            if (contentEl.id === 'personalInfoContent' || contentEl.id === 'businessContent' || contentEl.id === 'fuelTrackerContent' || contentEl.id ==='vehiclesContent' || contentEl.id === 'remindersContent') {
+                 contentEl.style.paddingTop = '0'; // Zaten 'pt-8' veya 'pt-6' var
+                 contentEl.style.paddingBottom = '0'; // Zaten 'pb-8' var
+            } else {
+                // Randevular ve Talepler için
+                 contentEl.style.paddingTop = '1rem';
+                 contentEl.style.paddingBottom = '1rem';
+            }
+            
+            contentEl.classList.add('show');
+            if (iconEl) iconEl.classList.add('rotate-180');
+            
+            // Animasyon bittikten sonra max-height'i kaldır ki içerdeki dinamik içerik sığsın
+            setTimeout(() => {
+                if (contentEl.classList.contains('show')) {
+                    contentEl.style.maxHeight = 'none';
+                }
+            }, 500); // 0.5s (animasyon süresi)
+        }
     }
 
+    // ★★★ DEĞİŞİKLİK 3: TÜM AKORDEONLAR İÇİN EVENT LISTENER'LAR ★★★
     if (personalInfoToggle) {
-        personalInfoToggle.addEventListener('click', () => {
-            personalInfoContent.classList.toggle('show');
-            personalInfoIcon.classList.toggle('rotate-180');
-        });
+        personalInfoToggle.addEventListener('click', () => toggleAccordion(personalInfoContent, personalInfoIcon));
+    }
+    if (appointmentsToggle) {
+        appointmentsToggle.addEventListener('click', () => toggleAccordion(appointmentsContent, appointmentsIcon));
+    }
+    if (businessRequestsToggle) {
+        businessRequestsToggle.addEventListener('click', () => toggleAccordion(businessRequestsContent, businessRequestsIcon));
+    }
+    if (ownerSentRequestsToggle) {
+        ownerSentRequestsToggle.addEventListener('click', () => toggleAccordion(ownerSentRequestsContent, ownerSentRequestsIcon));
+    }
+    if (ownerSentPartsRequestsToggle) {
+        ownerSentPartsRequestsToggle.addEventListener('click', () => toggleAccordion(ownerSentPartsRequestsContent, ownerSentPartsRequestsIcon));
+    }
+    if (businessToggle) {
+        businessToggle.addEventListener('click', () => toggleAccordion(businessContent, businessIcon));
+    }
+    if (remindersToggle) {
+        remindersToggle.addEventListener('click', () => toggleAccordion(remindersContent, remindersIcon));
+    }
+    if (fuelTrackerToggle) {
+        fuelTrackerToggle.addEventListener('click', () => toggleAccordion(fuelTrackerContent, fuelTrackerIcon));
+    }
+    if (vehiclesToggle) {
+        vehiclesToggle.addEventListener('click', () => toggleAccordion(vehiclesContent, vehiclesIcon));
     }
 
     savePhoneNumberBtn.addEventListener('click', async () => {
