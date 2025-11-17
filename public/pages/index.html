@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <!-- Yapay Usta Chatbot Stil Başlangıcı -->
-<style>
+    <style>
     #yapayusta-chat-button {
         position: fixed;
         bottom: 20px;
@@ -141,11 +140,9 @@
         background-color: #9ca3af;
     }
 </style>
-<!-- Yapay Usta Chatbot Stil Bitişi -->
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>aracabak - Premium Bakım Servisi</title>
-    <!-- Google'ın kimlik doğrulama script'i -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -229,13 +226,18 @@
             0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
         }
+
+        /* --- YENİ EKLEDİĞİMİZ STİL --- */
+        .field-error {
+            border: 2px solid #ef4444; /* red-500 */
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+        /* --- YENİ STİL SONU --- */
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
-    <!-- Yapay Usta Chatbot Başlangıcı -->
     <div id="yapayusta-chat-button" title="Yapay Usta'ya Sor">
-        <i class="fas fa-robot"></i> <!-- FontAwesome ikon kütüphanesini kullandığınızı varsayıyorum -->
-    </div>
+        <i class="fas fa-robot"></i> </div>
     <div id="yapayusta-chat-window">
         <div class="yapayusta-header">Yapay Usta</div>
             <div class="yapayusta-messages" id="yapayusta-messages">
@@ -246,11 +248,7 @@
             <button id="yapayusta-send-btn" title="Gönder"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
-    <!-- Yapay Usta Chatbot Bitişi -->
-    
-    <!-- Header (GÜNCELLENDİ: parca.html'den alındı) -->
     <header class="bg-white shadow-md sticky top-0 z-40">
-        <!-- MASAÜSTÜ NAV BAR -->
         <nav class="container mx-auto px-4 sm:px-6 py-3 hidden sm:flex justify-between items-center">
             <a href="/">
                 <img src="/logolar/aracabak_menu_logo.png" alt="aracabak Logo" class="h-8 sm:h-10 w-auto">
@@ -258,26 +256,19 @@
             <div id="auth-container" class="flex items-center space-x-4">
                 <div id="guest-menu" class="flex items-center space-x-2 sm:space-x-4">
                     
-                    <!-- YENİ: Misafir Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
-                        <a id="cartBtnHeaderGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 block"> <!-- 'block' eklendi -->
-                            <i class="fas fa-shopping-cart"></i>
+                        <a id="cartBtnHeaderGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 block"> <i class="fas fa-shopping-cart"></i>
                             <span id="cartItemCountHeaderGuest" class="cart-item-count absolute -top-2 -right-2 hidden">0</span>
                         </a>
-                        <!-- YENİ: Misafir Mini Sepet Popover -->
                         <div id="cart-popover-desktop-guest" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-desktop-guest" class="divide-y divide-gray-100">
-                                <!-- Sepet içeriği JS ile buraya gelecek -->
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
                             </ul>
                             <div id="cart-popover-footer-desktop-guest" class="p-2 border-t border-gray-100 hidden">
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
-                        <!-- Popover sonu -->
-                    </div>
-                    <!-- Wrapper sonu -->
-
+                        </div>
                     <button id="loginBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Giriş Yap</button>
                     <button id="signupBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Kayıt Ol</button>
                 </div>
@@ -288,14 +279,12 @@
                     </div>
                     <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Hesabım</a>
                     
-                    <!-- YENİ: Kullanıcı Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
                         <a id="cartBtnHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300 flex items-center">
                             <i class="fas fa-shopping-cart mr-1 sm:mr-2"></i>
                             <span>Sepetim</span>
                             <span id="cartItemCountHeader" class="cart-item-count hidden">0</span>
                         </a>
-                        <!-- YENİ: Kullanıcı Mini Sepet Popover -->
                         <div id="cart-popover-desktop" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-desktop" class="divide-y divide-gray-100">
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
@@ -304,15 +293,11 @@
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
-                        <!-- Popover sonu -->
-                    </div>
-                    <!-- Wrapper sonu -->
-
+                        </div>
                     <button id="logoutBtnHeader" class="bg-gray-200 font-semibold py-2 px-3 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
         </nav>
-        <!-- MOBİL NAV BAR -->
         <div id="auth-container-mobile" class="container mx-auto px-4 sm:hidden">
             <div class="py-3 flex justify-center items-center">
                 <a href="/">
@@ -322,13 +307,10 @@
             <div class="py-2 border-t border-gray-200 flex justify-center items-center space-x-2">
                 <div id="guest-menu-mobile" class="flex items-center space-x-2">
                     
-                    <!-- YENİ: Misafir Mobil Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
-                        <a id="cartBtnMobileGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 block"> <!-- 'block' eklendi -->
-                            <i class="fas fa-shopping-cart"></i>
+                        <a id="cartBtnMobileGuest" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 block"> <i class="fas fa-shopping-cart"></i>
                             <span id="cartItemCountMobileGuest" class="cart-item-count absolute -top-2 -right-2 hidden">0</span>
                         </a>
-                        <!-- YENİ: Misafir Mobil Mini Sepet Popover -->
                         <div id="cart-popover-mobile-guest" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-mobile-guest" class="divide-y divide-gray-100">
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
@@ -337,23 +319,18 @@
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
-                        <!-- Popover sonu -->
-                    </div>
-                    <!-- Wrapper sonu -->
-
+                        </div>
                     <button id="loginBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Giriş Yap</button>
                     <button id="signupBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Kayıt Ol</button>
                 </div>
                 <div id="user-menu-mobile" class="hidden items-center space-x-2">
                     <a href="/account.html" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Hesabım</a>
                     
-                    <!-- YENİ: Kullanıcı Mobil Sepet Butonu (Wrapper eklendi) -->
                     <div class="relative group">
                         <a id="cartBtnMobileHeader" href="/cart.html" class="relative bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300 flex items-center">
                             <span>Sepetim</span>
                             <span id="cartItemCountMobile" class="cart-item-count hidden">0</span>
                         </a>
-                        <!-- YENİ: Kullanıcı Mobil Mini Sepet Popover -->
                         <div id="cart-popover-mobile" class="cart-popover absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block z-50">
                             <ul id="cart-popover-list-mobile" class="divide-y divide-gray-100">
                                 <li class="p-4 text-center text-sm text-gray-500">Sepetiniz boş.</li>
@@ -362,10 +339,7 @@
                                 <a href="/cart.html" class="block w-full text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm">Sepete Git</a>
                             </div>
                         </div>
-                        <!-- Popover sonu -->
-                    </div>
-                    <!-- Wrapper sonu -->
-
+                        </div>
                     <button id="logoutBtnMobileHeader" class="bg-gray-200 font-semibold py-2 px-3 text-sm rounded-lg hover:bg-gray-300">Çıkış Yap</button>
                 </div>
             </div>
@@ -379,7 +353,6 @@
     </header>
 
 
-    <!-- Main Content (Mevcut index.html içeriği korundu) -->
     <main class="container mx-auto p-4 md:p-8 flex-grow flex flex-col items-center">
         <div class="w-full max-w-6xl mt-4 sm:mt-8">
             <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
@@ -402,10 +375,10 @@
                 </div>
                 
                 <div class="text-center mt-8 flex flex-col sm:flex-row justify-center gap-4">
-                    <button id="findMaintenanceBtn" class="w-full sm:w-auto bg-gray-900 text-white font-bold py-3 px-8 text-lg rounded-lg shadow-md transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                    <button id="findMaintenanceBtn" class="w-full sm:w-auto bg-gray-900 text-white font-bold py-3 px-8 text-lg rounded-lg shadow-md transition-transform transform hover:scale-105">
                         <i class="fas fa-wrench mr-2"></i> Bakımı Bul
                     </button>
-                    <button id="findPartsBtn" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-8 text-lg rounded-lg shadow-md transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                    <button id="findPartsBtn" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-8 text-lg rounded-lg shadow-md transition-transform transform hover:scale-105">
                         <i class="fas fa-cogs mr-2"></i> Parça Bul
                     </button>
                 </div>
@@ -460,7 +433,6 @@
         </div>
     </main>
 
-    <!-- HARİTA BÖLÜMÜ (Mevcut index.html içeriği korundu) -->
     <section class="container mx-auto p-4 md:p-8">
         <div class="card-light p-6 sm:p-8 rounded-2xl shadow-lg">
             <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6">Yakındaki Servis ve Şarj İstasyonları</h2>
@@ -476,16 +448,14 @@
 
     <div id="fuel-ticker-container" class="ticker-wrap">
         <div class="ticker-move" id="fuel-ticker-content">
-            <span class="mx-4">&nbsp;</span>
+            <span class="mx-4"> </span>
         </div>
     </div>
 
-    <!-- Auth Modal (GÜNCELLENDİ: parca.html'den alındı) -->
     <div id="authModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
         <div class="modal bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative">
             <button id="closeModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl">×</button>
 
-            <!-- Google Kayıt Tamamlama Formu -->
             <div id="googleCompleteProfileFormModal" class="hidden">
                 <h2 class="text-xl font-bold mb-2 text-center">Kaydı Tamamla</h2>
                 <p id="googleWelcomeModal" class="text-center text-gray-600 mb-6"></p>
@@ -511,9 +481,7 @@
                 <button id="completeGoogleRegistrationBtnModal" class="w-full bg-gray-900 text-white py-3 rounded-lg font-bold mt-2 hover:bg-gray-700">Kaydı Tamamla</button>
             </div>
 
-            <!-- Standart Giriş/Kayıt Formları -->
             <div id="standardAuthFormsModal">
-                <!-- Login Form -->
                 <div id="loginViewModal">
                     <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Giriş Yap</h2>
                     <form id="loginFormModal">
@@ -534,7 +502,6 @@
                     <p class="mt-6 text-center text-sm">Hesabın yok mu? <a href="#" id="showRegisterModal" class="text-blue-500 hover:underline">Kayıt Ol</a></p>
                 </div>
 
-                <!-- Register Form (DÜZELTİLDİ) -->
                 <div id="registerViewModal" class="hidden">
                     <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Hesap Oluştur</h2>
                     <form id="registerFormModal">
@@ -553,7 +520,6 @@
                 </div>
             </div>
 
-            <!-- Şifre Yenileme Formları -->
             <div id="forgotPasswordFlowModal" class="hidden">
                 <div id="forgotPasswordViewModal">
                     <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Şifreni Sıfırla</h2>
@@ -1259,7 +1225,7 @@
                 citySelect.innerHTML = '<option value="" disabled selected>Seçiniz</option>';
                 kmInput.disabled = true;
                 kmInput.value = '';
-                checkFormCompletion();
+                // GÜNCELLENDİ: checkFormCompletion çağrısı kaldırıldı.
                 return;
             }
 
@@ -1276,26 +1242,21 @@
             kmInput.disabled = false;
             kmInput.value = ''; // KM'yi temizle ki kullanıcı yenisini girsin
 
-            checkFormCompletion();
+            // GÜNCELLENDİ: checkFormCompletion çağrısı kaldırıldı.
         }
 
-
-        function checkFormCompletion() {
-            // "Parça Bul" butonu için gerekli temel araç bilgilerinin seçilip seçilmediğini kontrol et
-            const isVehicleSelectedForParts = brandSelect.value && !brandSelect.disabled &&
-                                              seriesSelect.value && !seriesSelect.disabled &&
-                                              yearSelect.value && !yearSelect.disabled &&
-                                              fuelSelect.value && !fuelSelect.disabled &&
-                                              modelSelect.value && !modelSelect.disabled;
-
-            // "Bakımı Bul" butonu için ek olarak şehir ve KM'nin girilip girilmediğini kontrol et
-            const isCitySelected = citySelect.value && !citySelect.disabled;
-            const isKmEntered = kmInput.value && parseInt(kmInput.value) > 0;
-
-            // Butonların disabled durumlarını ayarla
-            findPartsBtn.disabled = !isVehicleSelectedForParts;
-            findMaintenanceBtn.disabled = !(isVehicleSelectedForParts && isCitySelected && isKmEntered);
+        // --- YENİ FONKSİYON: clearFieldErrors ---
+        // Tüm form elemanlarından hata stilini temizler
+        function clearFieldErrors() {
+            const fields = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect, citySelect, kmInput];
+            fields.forEach(el => el.classList.remove('field-error'));
         }
+
+        // --- SİLİNDİ: checkFormCompletion fonksiyonu ---
+        /* function checkFormCompletion() {
+            ... (Bu fonksiyonun tamamı silindi) ...
+        }
+        */
 
         async function findAndDisplayShops() {
             const brand = brandSelect.value;
@@ -1869,12 +1830,17 @@
         const allDropdowns = [brandSelect, seriesSelect, yearSelect, fuelSelect, modelSelect];
         allDropdowns.forEach((currentSelect, currentIndex) => {
             currentSelect.addEventListener('change', () => {
+                // GÜNCELLENDİ: Hata stilini temizle
+                currentSelect.classList.remove('field-error');
+                
                 const subsequentDropdowns = allDropdowns.slice(currentIndex + 1);
                 [...subsequentDropdowns, citySelect, kmInput].forEach(el => {
                     el.disabled = true;
                     if (el.tagName === 'SELECT') { el.innerHTML = '<option value="" disabled selected>Seçiniz</option>'; } else { el.value = ''; }
                 });
-                checkFormCompletion();
+                
+                // GÜNCELLENDİ: checkFormCompletion çağrısı kaldırıldı.
+                
                 const brand = brandSelect.value;
                 const series = seriesSelect.value;
                 const year = yearSelect.value;
@@ -1890,6 +1856,9 @@
         });
         
         modelSelect.addEventListener('change', () => {
+            // GÜNCELLENDİ: Hata stilini temizle
+            modelSelect.classList.remove('field-error');
+
             const isModelSelected = modelSelect.value && modelSelect.value !== "";
             citySelect.disabled = !isModelSelected;
             kmInput.disabled = !isModelSelected;
@@ -1899,21 +1868,57 @@
                 citySelect.innerHTML = '<option value="" disabled selected>Seçiniz</option>'; 
                 kmInput.value = '';
             }
-            checkFormCompletion();
+            // GÜNCELLENDİ: checkFormCompletion çağrısı kaldırıldı.
         });
         
-        [citySelect, kmInput].forEach(el => el.addEventListener('input', checkFormCompletion));
+        // GÜNCELLENDİ: 'input' olayına hata temizleme eklendi
+        [citySelect, kmInput].forEach(el => el.addEventListener('input', () => {
+            // GÜNCELLENDİ: Hata stilini temizle
+            el.classList.remove('field-error');
+            // GÜNCELLENDİ: checkFormCompletion çağrısı kaldırıldı.
+        }));
+        
         vehicleSelector.addEventListener('change', handleVehicleSelect);
         
+        // --- GÜNCELLENMİŞ BUTON TIKLAMA OLAYLARI ---
+
         findMaintenanceBtn.addEventListener('click', async () => {
+            clearFieldErrors(); // Önceki hataları temizle
+            
+            // --- YENİ DOĞRULAMA (VALIDATION) ADIMI ---
+            const missingFields = [];
+            const fieldsToCheck = [
+                { el: brandSelect, name: 'Marka' },
+                { el: seriesSelect, name: 'Seri' },
+                { el: yearSelect, name: 'Yıl' },
+                { el: fuelSelect, name: 'Yakıt' },
+                { el: modelSelect, name: 'Model' },
+                { el: citySelect, name: 'Şehir' },
+                { el: kmInput, name: 'Kilometre' }
+            ];
+
+            let isValid = true;
+            for (const field of fieldsToCheck) {
+                // Kilometre için ek kontrol (0'dan büyük olmalı)
+                if (!field.el.value || field.el.disabled || (field.el === kmInput && parseInt(field.el.value) <= 0)) {
+                    isValid = false;
+                    missingFields.push(field.name);
+                    field.el.classList.add('field-error');
+                }
+            }
+
+            if (!isValid) {
+                showToast(`Eksik alanlar: ${missingFields.join(', ')}`, "error");
+                return; // Eksik alan varsa fonksiyonu burada durdur
+            }
+            // --- YENİ DOĞRULAMA SONU ---
+
+            // --- Orijinal Fonksiyon Mantığı (artık güvende) ---
             const fuel = fuelSelect.value;
             const km = parseInt(kmInput.value);
             const city = citySelect.value;
-
-            if (!city) {
-                showToast("Lütfen bir şehir seçin.", "error");
-                return;
-            }
+            
+            // (Şehir kontrolü artık yukarıdaki ana doğrulamaya dahil edildi, tekrar gerek yok)
 
             maintenanceFlowContainer.classList.remove('hidden');
             maintenanceResult.classList.add('hidden');
@@ -1939,20 +1944,47 @@
             } finally {
                 findMaintenanceBtn.disabled = false;
                 findMaintenanceBtn.innerHTML = '<i class="fas fa-wrench mr-2"></i> Bakımı Bul';
-                checkFormCompletion();
+                // GÜNCELLENDİ: checkFormCompletion çağrısı kaldırıldı.
             }
         });
 
         findPartsBtn.addEventListener('click', () => {
+            clearFieldErrors(); // Önceki hataları temizle
+            
+            // --- YENİ DOĞRULAMA (VALIDATION) ADIMI ---
+            const missingFields = [];
+            const fieldsToCheck = [
+                { el: brandSelect, name: 'Marka' },
+                { el: seriesSelect, name: 'Seri' },
+                { el: yearSelect, name: 'Yıl' },
+                { el: fuelSelect, name: 'Yakıt' },
+                { el: modelSelect, name: 'Model' }
+            ];
+
+            let isValid = true;
+            for (const field of fieldsToCheck) {
+                if (!field.el.value || field.el.disabled) {
+                    isValid = false;
+                    missingFields.push(field.name);
+                    field.el.classList.add('field-error');
+                }
+            }
+
+            if (!isValid) {
+                showToast(`Eksik alanlar: ${missingFields.join(', ')}`, "error");
+                return; // Eksik alan varsa fonksiyonu burada durdur
+            }
+            // --- YENİ DOĞRULAMA SONU ---
+
+            // --- Orijinal Fonksiyon Mantığı (artık güvende) ---
             const marka = brandSelect.value;
             const seri = seriesSelect.value;
             const yil = yearSelect.value;
             const yakit = fuelSelect.value;
             const model = modelSelect.value; 
-            if (!marka || !seri || !yil || !yakit || !model) {
-                showToast("Lütfen tüm araç bilgilerini (Marka, Seri, Yıl, Yakıt, Model) seçin.", "error");
-                return;
-            }
+            
+            // (Orijinal kontrol kaldırıldı, yenisi zaten yukarıda yapıldı)
+            
             const params = new URLSearchParams({ marka, seri, yil, yakit, model });
             const targetUrl = `/parca.html?${params.toString()}`;
             window.location.href = targetUrl;
